@@ -1,0 +1,11 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+page.on('pageerror', e => console.log('[pageerror]', e.message));
+page.on('console', m => { if (m.type() === 'error') console.log('[console]', m.text().slice(0, 400)); });
+await page.goto('http://localhost:8123/web/index.html?still=1' + (process.argv[4] || ''));
+await page.waitForFunction(() => document.title === 'READY', null, { timeout: 300000 });
+const r = await page.evaluate(new Function(process.argv[2] || 'return 1'));
+console.log(JSON.stringify(r));
+await page.screenshot({ path: process.argv[3] || '/tmp/ana/dbg.png', timeout: 120000 });
+await browser.close();
