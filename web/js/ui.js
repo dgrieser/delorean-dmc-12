@@ -7,6 +7,11 @@ export function bindUI(ctx) {
   const ui = { steer: 0 };
   let keyHold = 0, kDown = false, shiftT = 0;
 
+  let noteT = 0;
+  function flashNote(msg) {
+    const n = $('#note'); if (!n) return;
+    n.textContent = msg; n.hidden = false; clearTimeout(noteT); noteT = setTimeout(() => { n.hidden = true; }, 2200);
+  }
   const press = (sel, on) => $$(sel).forEach(b => b.setAttribute('aria-pressed', on ? 'true' : 'false'));
   const group = (name, val, attr) => $$(`[data-group="${name}"] [data-${attr}]`).forEach(b => b.setAttribute('aria-pressed', String(b.dataset[attr] === String(val))));
 
@@ -21,6 +26,8 @@ export function bindUI(ctx) {
     group('cabin', lamps.state.interior, 'cabin');
     group('wipe', car.wipers.mode, 'wipe');
     for (const [k, p] of Object.entries(car.panels)) press(`[data-panel="${k}"]`, !p.latched && p.intent >= 0);
+    press('[data-toll="L"]', car.toll.L?.target > 0.5);
+    press('[data-toll="R"]', car.toll.R?.target > 0.5);
     press('#hbrake', sim.handbrake > 0.5);
     press('#drive', state.drive);
     press('#snd', state.sound);
@@ -44,6 +51,12 @@ export function bindUI(ctx) {
       // auto clutch: dip for the shift
       sim.clutch = 1; shiftT = 0.35;
       sim.gear = g; lamps.state.reverse = g === 'R'; audio.switchClick(); refresh();
+    },
+    toll: k => {
+      const t = car.toll[k]; if (!t) return;
+      car.setToll(k, t.target < 0.5);
+      if (sim.ignition < 2) flashNote('Toll windows need the ignition on');
+      audio.switchClick(); refresh();
     },
     lights: v => { lamps.state.headlights = +v; audio.switchClick(); refresh(); },
     cabin: v => { lamps.state.interior = v; audio.switchClick(); refresh(); },
@@ -77,6 +90,7 @@ export function bindUI(ctx) {
     const d = b.dataset;
     if (d.cam) A.cam(d.cam);
     else if (d.panel) A.panel(d.panel);
+    else if (d.toll) A.toll(d.toll);
     else if (d.ign !== undefined) A.ign(d.ign);
     else if (d.gear) A.gear(d.gear);
     else if (d.lights !== undefined) A.lights(d.lights);
@@ -136,6 +150,8 @@ export function bindUI(ctx) {
       case 'KeyH': A.panel('hood'); break;
       case 'KeyT': A.panel('lid'); break;
       case 'KeyY': A.panel('fuel'); break;
+      case 'BracketLeft': A.toll('L'); break;
+      case 'BracketRight': A.toll('R'); break;
       case 'KeyK':
         if (e.shiftKey) { A.ign(0); break; }
         kDown = true; keyHold = 0;
@@ -192,10 +208,12 @@ export function bindUI(ctx) {
     // auto clutch: shift dip, then launch slip control
     if (shiftT > 0) { shiftT -= dt; sim.clutch = 1; }
     else if (state.drive && sim.gear !== 'N' && sim.running) {
-      const launch = Math.abs(sim.speed) < 6;
-      const want = launch ? Math.max(0, Math.min(1, 1 - (sim.rpm - 1050) / 900)) * (sim.throttle > 0.05 ? 1 : (Math.abs(sim.speed) < 0.3 ? 1 : 0)) : 0;
-      sim.clutch += (want - sim.clutch) * Math.min(1, dt * 6);
-      if (sim.brake > 0.5 && Math.abs(sim.speed) < 0.5) sim.clutch = 1;
+      // a driver's left foot: slip the clutch to launch, disengage before the engine would stall
+      const idle = sim.idleTarget();
+      let want = 0;
+      if (sim.lockedRpm < idle * 1.05) want = sim.throttle > 0.05 ? Math.max(0, Math.min(1, 1 - (sim.rpm - 1100) / 900)) : 1;
+      if (sim.brake > 0.5 && sim.lockedRpm < idle * 1.3) want = 1;
+      sim.clutch += (want - sim.clutch) * Math.min(1, dt * (want > sim.clutch ? 14 : 6));
     } else sim.clutch += (0 - sim.clutch) * Math.min(1, dt * 6);
   };
   ui.steer = 0;

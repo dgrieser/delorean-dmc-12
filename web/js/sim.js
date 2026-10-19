@@ -7,7 +7,7 @@ const GEARS = { R: -3.1818, N: 0, 1: 3.364, 2: 2.059, 3: 1.381, 4: 1.057, 5: 0.8
 const FINAL = 3.44;
 const R_TYRE = 0.322;           // rear rolling radius (235/60 R15 loaded)
 const MASS = 1290 + 80;         // kerb + driver
-const CDA = 0.33 * 1.73;        // drag area (m^2)
+const CDA = 0.338 * 1.80;       // drag area (m^2): Cd 0.338
 const CRR = 0.013;
 const IDLE_HOT = 850, IDLE_COLD = 1150, REDLINE = 6000, LIMIT = 6400;
 
@@ -135,7 +135,7 @@ export class VehicleSim {
     const fan = this.coolant > 98 ? 1 : 0;
     const airflow = Math.abs(this.speed) * 0.08;
     const cool = (this.coolant - this.ambient) * (0.012 + thermostat * (0.10 + airflow + fan * 0.12));
-    this.coolant += (heat - cool) * dt * 0.21;
+    this.coolant += (heat - cool) * dt * 0.03;     // ~5 min to operating temperature at idle
 
     // ---------------- lubrication (relief valve ~5 bar; thinner oil when hot)
     const visc = 1.0 + Math.max(0, (70 - this.coolant) / 70) * 0.9;
@@ -154,9 +154,11 @@ export class VehicleSim {
     if (this.drive) {
       let Fx = 0;
       if (this.engine === 'running' && ratio !== 0 && this.clutch < 0.98) {
-        let T = wot(this.rpm) * this.throttle - (this.rpm / 6000) * 28 * (1 - this.throttle);   // engine braking
+        // brake torque at the flywheel: friction + pumping + accessories rise with rpm
+        const fric = 9 + this.rpm / 1000 * 3.2 + (1 - this.throttle) * this.rpm / 6000 * 22;
+        let T = wot(this.rpm) * this.throttle - fric;
         if (this.limiterCut) T = 0;
-        Fx = T * ratio * 0.9 / R_TYRE * (1 - this.clutch);
+        Fx = T * ratio * 0.86 / R_TYRE * (1 - this.clutch);
         // launch: clutch slip lets the engine hold revs; limit by rear-axle traction (62% rear, mu 0.95)
         Fx = Math.max(-0.95 * 9.81 * MASS * 0.62, Math.min(0.95 * 9.81 * MASS * 0.62, Fx));
       }
@@ -183,6 +185,9 @@ export class VehicleSim {
     this.accel += ((this.speed - prevV) / dt - this.accel) * Math.min(1, dt * 10);
     this.bulbCheck = Math.max(0, this.bulbCheck - dt);
   }
+
+  // engine speed the wheels would force through the current gear with the clutch engaged
+  get lockedRpm() { return Math.abs((this.speed / R_TYRE) * 60 / (2 * Math.PI) * GEARS[this.gear] * FINAL); }
 
   get speedMph() { return Math.abs(this.speed) * 2.23694; }
   get coolantF() { return this.coolant * 9 / 5 + 32; }

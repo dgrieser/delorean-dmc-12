@@ -6,6 +6,7 @@ Moving parts (steering wheel, pedals, shifter, handbrake) are modelled in LOCAL 
 import numpy as np
 from sdf import smin, smax, interp, poly2d
 import body as B
+import shellx as SX
 from body import _rbox2
 from details import rbox3, cap_x
 
@@ -98,22 +99,22 @@ def dashboard(X, Y, Z):
     d = smax(d, x_dash_face(Z) - X, 0.03)                       # cabin-facing face
     d = smax(d, 0.535 - Z, 0.04)                                # underside of the upper dash
     d = smax(d, yy - 0.805, 0.03)                               # end caps at the door apertures
-    d = smax(d, X - 1.05, 0.0)
+    d = smax(d, X - 0.86, 0.0)
     # lower dash on passenger side (glovebox volume / knee panel)
     lo = rbox3(X, Y, Z, (0.70, -0.42, 0.48), (0.20, 0.36, 0.08), 0.04)
     lo = smax(lo, (0.58 + (0.56 - Z) * 0.3) - X, 0.02)
     d = smin(d, lo, 0.03)
     # instrument binnacle: surround frame + hood overhang (driver)
-    fr = rbox3(X, Y, Z, (0.555, SEAT_Y, 0.765), (0.165, 0.300, 0.120), 0.045)
-    hood = rbox3(X, Y, Z, (0.480, SEAT_Y, 0.848), (0.120, 0.300, 0.040), 0.035)
-    bx = smin(fr, hood, 0.04)
-    bx = smax(bx, Z - 0.888, 0.02)
+    fr = rbox3(X, Y, Z, (0.555, SEAT_Y, 0.775), (0.165, 0.300, 0.125), 0.045)
+    hood = rbox3(X, Y, Z, (0.515, SEAT_Y, 0.872), (0.105, 0.300, 0.030), 0.028)
+    bx = smin(fr, hood, 0.03)
+    bx = smax(bx, Z - 0.905, 0.02)
     d = smin(d, bx, 0.03)
     # gauge window recess (faces the driver, tilted 14 deg)
     gu = (X - GAUGE_U0[0]) * np.cos(14 * DEG) - (Z - GAUGE_U0[1]) * np.sin(14 * DEG)
-    gw = _rbox2(Y - SEAT_Y, Z - GAUGE_U0[1], 0.268, 0.062, 0.025)
-    rec = np.maximum(gw, -gu + 0.0)
-    d = smax(d, -np.maximum(rec, gu - 0.13), 0.008)
+    gw = _rbox2(Y - SEAT_Y, Z - GAUGE_U0[1] - 0.012, 0.272, 0.080, 0.025)
+    rec = np.maximum(gw, np.maximum(-gu - 0.12, gu - 0.13))
+    d = smax(d, -rec, 0.008)
     # end vents (round eyeballs) recess
     for s in (1, -1):
         r = np.sqrt((Y - s * 0.735) ** 2 + (Z - 0.700) ** 2) - 0.040
@@ -128,7 +129,8 @@ def dashboard(X, Y, Z):
     # knee cut-out under the binnacle for the driver's legs (open under the column)
     knee = rbox3(X, Y, Z, (0.52, SEAT_Y, 0.47), (0.10, 0.24, 0.08), 0.04)
     d = smax(d, -knee, 0.03)
-    return d
+    # never outside the body shell
+    return np.maximum(d, B.shell(X, Y, Z) + 0.006)
 
 
 def center_stack(X, Y, Z):
@@ -208,7 +210,7 @@ def console_inserts(X, Y, Z):
 
 # ======================================================================================
 # Steering wheel (LOCAL frame: rim in XY plane, +Z toward the driver, +X = 12 o'clock)
-SW_CENTER = np.array([0.150, SEAT_Y, 0.655])
+SW_CENTER = np.array([0.120, SEAT_Y, 0.620])
 COL_ANG = 25 * DEG
 
 
@@ -295,7 +297,7 @@ def handbrake_local(x, y, z):
 # ======================================================================================
 # Shell-following trims
 def layer(X, Y, Z, t_out, t_in):
-    s = B.shell(X, Y, Z)
+    s = SX.shell(X, Y, Z)
     return np.maximum(s + t_out, -(s + t_in))
 
 
@@ -304,7 +306,7 @@ def door_t(Z):
 
 
 def door_trim(X, Y, Z, side=1, upper=False):
-    s = B.shell(X, Y, Z)
+    s = SX.shell(X, Y, Z)
     t = door_t(Z)
     d = np.maximum(s + 0.004, -(s + t))
     d = np.maximum(d, B.r_door(X, Y, Z, side) + 0.006)
@@ -317,7 +319,7 @@ def door_trim(X, Y, Z, side=1, upper=False):
         yy = Y * side
         inner = B.w_crease(X) - 0.085
         arm = rbox3(X, yy, Z, (-0.10, inner - 0.02, 0.625), (0.34, 0.035, 0.030), 0.025)
-        arm = np.maximum(arm, -(B.shell(X, Y, Z) + 0.03))
+        arm = np.maximum(arm, -(s + 0.03))
         d = smin(d, arm, 0.02)
         pocket = rbox3(X, yy, Z, (-0.10, inner - 0.05, 0.645), (0.10, 0.03, 0.012), 0.01)
         d = smax(d, -pocket, 0.006)
@@ -326,13 +328,13 @@ def door_trim(X, Y, Z, side=1, upper=False):
         d = smax(d, -hr, 0.005)
         # horizontal stitched seam on the card
         seam = np.abs(Z - 0.50) - 0.0025
-        d = smax(d, -np.maximum(seam, np.abs(B.shell(X, Y, Z) + t) - 0.004), 0.001)
+        d = smax(d, -np.maximum(seam, np.abs(s + t) - 0.004), 0.001)
     return d
 
 
 def door_jamb(X, Y, Z, side=1):
     """Door edge seal: black rubber band around the door's inner perimeter."""
-    s = B.shell(X, Y, Z)
+    s = SX.shell(X, Y, Z)
     r = B.r_door(X, Y, Z, side)
     d = np.maximum(np.abs(r + 0.010) - 0.008, np.maximum(s + 0.012, -(s + door_t(Z) + 0.004)))
     return np.maximum(d, 0.30 - Z)
@@ -340,7 +342,7 @@ def door_jamb(X, Y, Z, side=1):
 
 def body_trim(X, Y, Z):
     """Fixed inner trim: A-pillars, roof spine, B/C-pillar corners (headliner/vinyl)."""
-    s = B.shell(X, Y, Z)
+    s = SX.shell(X, Y, Z)
     d = np.maximum(s + 0.004, -(s + 0.028))
     d = np.maximum(d, np.maximum(CAB_X0 - X, X - 0.86))
     d = np.maximum(d, 0.62 - Z)
@@ -352,7 +354,7 @@ def body_trim(X, Y, Z):
 
 def aperture_seal(X, Y, Z, side=1):
     """Body-side door seal: black rubber band on the aperture flange."""
-    s = B.shell(X, Y, Z)
+    s = SX.shell(X, Y, Z)
     r = B.r_door(X, Y, Z, side)
     d = np.maximum(np.abs(r - 0.012) - 0.007, np.maximum(s + 0.010, -(s + 0.032)))
     return np.maximum(d, 0.29 - Z)
@@ -405,7 +407,7 @@ def rear_window(X, Y, Z):
 def bulkhead_upper(X, Y, Z):
     """Vinyl panel around the rear window (between window and shell)."""
     yy = np.abs(Y)
-    s = B.shell(X, Y, Z)
+    s = SX.shell(X, Y, Z)
     d = np.maximum(np.abs(X + 0.792) - 0.006, np.maximum(0.66 - Z, s + 0.02))
     hole = np.maximum(np.maximum(0.70 - Z, Z - 1.06), yy - (0.60 - (Z - 0.68) * 0.30))
     return smax(d, -hole, 0.01)

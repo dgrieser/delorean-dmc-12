@@ -89,12 +89,12 @@ export class Car {
     // --- hinged panels (masses and spring rates are estimates for a DMC-12)
     const X = new THREE.Vector3(1, 0, 0), Z = new THREE.Vector3(0, 0, 1);
     // gull-wing: cryogenically treated torsion bar (preloaded, falls with angle) + gas strut
-    const doorSpring = th => 118 * (1 - 0.36 * th) + 46 * smooth(0.35, 0.9, th);
-    const doorP = { max: 1.26, I: 6.5, mgr: 108, phase: 40 * DEG, spring: doorSpring, damp: 26, handTorque: 150 };
+    const doorSpring = th => 121 * (1 - 0.36 * th) + 46 * smooth(0.35, 0.9, th);
+    const doorP = { max: 1.26, I: 6.5, mgr: 108, phase: 40 * DEG, spring: doorSpring, damp: 58, handTorque: 95 };
     this.doorL = new HingedPanel(this.nodes.doorL, X, +1, doorP);
     this.doorR = new HingedPanel(this.nodes.doorR, X, -1, doorP);
     // front-hinged bonnet on gas struts
-    this.hood = new HingedPanel(this.nodes.hood, Z, -1, { max: 62 * DEG, I: 4.2, mgr: 62, phase: 4 * DEG,
+    this.hood = new HingedPanel(this.nodes.hood, Z, +1, { max: 58 * DEG, I: 4.2, mgr: 62, phase: 4 * DEG,
       spring: th => 66 * smooth(0.0, 0.25, th) + 12, damp: 18, handTorque: 120 });
     // louvred engine cover on gas struts
     this.lid = new HingedPanel(this.nodes.lid, Z, -1, { max: 52 * DEG, I: 3.6, mgr: 54, phase: 8 * DEG,
@@ -130,7 +130,19 @@ export class Car {
     this.engineShake = 0;
     this.wipers = null;
     this.windshield = manifest?.windshield;
+
+    // toll windows: small power panes in the lower door glass, sliding down along the glass plane
+    const c50 = Math.cos(50 * DEG), s50 = Math.sin(50 * DEG);
+    this.toll = {};
+    for (const [k, dir] of [['L', new THREE.Vector3(0, -c50, -s50)], ['R', new THREE.Vector3(0, -c50, s50)]]) {
+      let mesh = null;
+      root.traverse(o => { if (!mesh && o.isMesh && o.name === 'glass_toll_' + k) mesh = o; });
+      if (mesh) this.toll[k] = { mesh, base: mesh.position.clone(), dir, pos: 0, target: 0, travel: 0.085 };
+    }
   }
+
+  setToll(side, down) { const t = this.toll[side]; if (t) t.target = down ? 1 : 0; }
+  get tollMoving() { return Object.values(this.toll).some(t => Math.abs(t.target - t.pos) > 1e-3); }
 
   // three.js frame helpers: Blender (x, y, z) -> three (x, z, -y)
   static b2t(x, y, z) { return new THREE.Vector3(x, z, -y); }
@@ -147,6 +159,12 @@ export class Car {
 
   update(dt, sim) {
     for (const p of Object.values(this.panels)) p.step(dt);
+    // window motors run only with the ignition on (~2.4 s for the full travel)
+    const powered = !sim || sim.ignition >= 2;
+    for (const t of Object.values(this.toll)) {
+      if (powered) t.pos += Math.sign(t.target - t.pos) * Math.min(Math.abs(t.target - t.pos), dt / 2.4);
+      t.mesh.position.copy(t.base).addScaledVector(t.dir, t.pos * t.travel);
+    }
     // steering + wheel spin
     const [aL, aR] = this.roadWheelAngles();
     this.wheels.FL.steer.rotation.y = aL;
@@ -157,7 +175,7 @@ export class Car {
       if (w.spin) w.spin.rotation.z = w.angle;
     }
     const sw = this.nodes.wheel;
-    if (sw) sw.quaternion.copy(sw.userData.base).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), this.steerWheelAngle));
+    if (sw) sw.quaternion.copy(sw.userData.base).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.steerWheelAngle));
     // pedals (rotate about local z, pads move forward)
     const ped = (n, a) => { if (n) n.quaternion.copy(n.userData.base).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), a)); };
     ped(this.nodes.clutch, this.pedal.clutch * 0.42);
@@ -215,8 +233,8 @@ export class Wipers {
     const rubber = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.8 });
     // pivot positions in Blender coords (y left)
     this.units = [
-      { pivotY: 0.60, armL: 0.50, bladeL: 0.46, sweep: 92 * DEG, park: 2.0 * DEG },
-      { pivotY: 0.03, armL: 0.50, bladeL: 0.46, sweep: 90 * DEG, park: 1.5 * DEG },
+      { pivotY: 0.58, armL: 0.31, bladeL: 0.405, sweep: 84 * DEG, park: 2.0 * DEG },
+      { pivotY: 0.02, armL: 0.31, bladeL: 0.405, sweep: 82 * DEG, park: 1.5 * DEG },
     ].map(u => {
       const segs = 24;
       const bladeGeo = new THREE.BufferGeometry();

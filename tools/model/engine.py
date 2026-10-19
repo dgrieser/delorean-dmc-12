@@ -6,6 +6,7 @@ Blender frame: X fwd, Y left, Z up.
 import numpy as np
 from sdf import smin, smax, poly2d
 import body as B
+import shellx as SX
 from body import _rbox2
 from details import rbox3, cap_x
 
@@ -132,12 +133,14 @@ def hoses(X, Y, Z):
 
 def bay_tub(X, Y, Z):
     """Black engine-bay walls (inner layer of the shell under the cover) and floor."""
-    s = B.shell(X, Y, Z)
+    s = SX.shell(X, Y, Z)
     yy = np.abs(Y)
     wall = np.maximum(s + 0.03, -(s + 0.045))
     wall = np.maximum(wall, np.maximum(-1.96 - X, X + 0.80))
     wall = np.maximum(wall, 0.30 - Z)
     wall = np.maximum(wall, Z - 0.86)
+    # no ceiling: the louvred cover is the lid
+    wall = np.maximum(wall, -(poly2d(X, Y, B.LID_POLY) - 0.06))
     floor = rbox3(X, Y, Z, (-1.40, 0, 0.215), (0.56, 0.70, 0.01), 0.01)
     floor = smax(floor, -B.arch_cyl(X, Y, Z, 0.03), 0.01)
     # inner fender walls between the bay and the rear wheel wells
@@ -153,12 +156,13 @@ def firewall_panel(X, Y, Z):
 # ======================================================================================
 # Front luggage compartment
 def frunk_tub(X, Y, Z):
-    s = B.shell(X, Y, Z)
+    s = SX.shell(X, Y, Z)
     yy = np.abs(Y)
     wall = np.maximum(s + 0.03, -(s + 0.045))
     wall = np.maximum(wall, np.maximum(0.86 - X, X - 2.02))
     wall = np.maximum(wall, 0.40 - Z)
     wall = np.maximum(wall, Z - 0.80)
+    wall = np.maximum(wall, -(poly2d(X, Y, B.HOOD_POLY) - 0.05))
     floor = rbox3(X, Y, Z, (1.45, 0, 0.40), (0.58, 0.62, 0.012), 0.01)
     floor = smax(floor, -B.arch_cyl(X, Y, Z, 0.03), 0.01)
     rear = rbox3(X, Y, Z, (0.90, 0, 0.60), (0.012, 0.70, 0.20), 0.01)

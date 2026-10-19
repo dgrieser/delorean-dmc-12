@@ -2,21 +2,79 @@
 // contact shadows, light-receiving ground (for the car's own lamps) and a glossy studio floor.
 import * as THREE from 'three';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-import { GroundedSkybox } from 'three/addons/objects/GroundedSkybox.js';
 import { HorizontalBlurShader } from 'three/addons/shaders/HorizontalBlurShader.js';
 import { VerticalBlurShader } from 'three/addons/shaders/VerticalBlurShader.js';
 
 export const PRESETS = {
-  studio: { hdr: 'studio.hdr', exposure: 1.0, envIntensity: 1.0, sun: { dir: [0.15, 1, 0.25], color: 0xfff6ee, intensity: 1.2, radius: 6 },
-            skybox: false, floor: 'gloss', bloom: 0.18, fog: null, lampGround: 0.25 },
+  studio: { hdr: 'studio.hdr', exposure: 0.9, envIntensity: 1.0, sun: { dir: [0.15, 1, 0.25], color: 0xfff6ee, intensity: 1.2, radius: 6 },
+            ground: { kind: 'studio', color: [0.012, 0.013, 0.015], rough: 0.3, refl: 0.55, env: 0.22 }, bg: { intensity: 0.3, blur: 0.45 }, bloom: 0.18, fog: null },
   day: { hdr: 'day.hdr', exposure: 0.78, envIntensity: 1.0, sun: { dir: [0.6275, 0.5736, 0.5265], color: 0xfff0dc, intensity: 3.6, radius: 2 },
-         skybox: true, floor: 'shadow', bloom: 0.10, fog: null, lampGround: 0.25 },
+         ground: { kind: 'asphalt', color: [0.78, 0.75, 0.72], rough: 0.92, refl: 0.0, env: 0.8 }, bg: { intensity: 1, blur: 0 }, bloom: 0.10, fog: [60, 420] },
   night: { hdr: 'night.hdr', exposure: 1.05, envIntensity: 1.3, sun: { dir: [-0.3, 0.8, -0.5], color: 0x9fb4ff, intensity: 0.06, radius: 4 },
-           skybox: true, floor: 'shadow', bloom: 0.55, fog: null, lampGround: 1.0 },
+           ground: { kind: 'asphalt', color: [0.32, 0.32, 0.33], rough: 0.38, refl: 0.42, env: 1.0 }, bg: { intensity: 1, blur: 0 }, bloom: 0.55, fog: [40, 380] },
 };
 
+// procedural asphalt (albedo detail + roughness variation), tiles every ASPH_TILE metres
+const ASPH_TILE = 3.0;
+function asphaltTextures() {
+  const N = 1024;
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d');
+  const img = g.createImageData(N, N);
+  const r = document.createElement('canvas'); r.width = r.height = N;
+  const gr = r.getContext('2d');
+  const rimg = gr.createImageData(N, N);
+  let s = 1234567;
+  const rnd = () => ((s = (s * 1103515245 + 12345) >>> 0) / 4294967296);
+  // value noise (periodic) for patches
+  const P = 32, grid = new Float32Array(P * P).map(() => rnd());
+  const vn = (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
+    const a = grid[(yi % P) * P + (xi % P)], b = grid[(yi % P) * P + ((xi + 1) % P)];
+    const cc = grid[((yi + 1) % P) * P + (xi % P)], d = grid[((yi + 1) % P) * P + ((xi + 1) % P)];
+    const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+    return a + (b - a) * u + (cc - a) * v + (a - b - cc + d) * u * v;
+  };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const patch = vn(x / N * P, y / N * P) * 0.6 + vn(x / N * P * 0.25 % P, y / N * P * 0.25 % P) * 0.4;
+    const grain = rnd();
+    const stone = grain > 0.985 ? 1.6 : grain > 0.93 ? 1.25 : grain < 0.05 ? 0.55 : 1.0;
+    const v = Math.min(255, (120 + patch * 50 - 25) * stone * (0.85 + rnd() * 0.3));
+    const i = (y * N + x) * 4;
+    img.data[i] = v; img.data[i + 1] = v; img.data[i + 2] = v * 1.03; img.data[i + 3] = 255;
+    const rv = Math.min(255, 150 + (1 - patch) * 70 + (stone > 1.2 ? -60 : 0) + rnd() * 30);
+    rimg.data[i] = rv; rimg.data[i + 1] = rv; rimg.data[i + 2] = rv; rimg.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0); gr.putImageData(rimg, 0, 0);
+  const mk = (cv, srgb) => { const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; return t; };
+  return { map: mk(c, true), rough: mk(r, false) };
+}
+
+// painted parking-bay lines around the car (decal plane)
+function bayLines() {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, 1024, 512);
+  g.fillStyle = 'rgba(236,232,220,0.92)';
+  const L = 1024 / 7.0;          // px per metre (7 m x 3.5 m decal)
+  g.fillRect(0.5 * L, 0.25 * L, 6.0 * L, 0.12 * L);           // side lines along the car
+  g.fillRect(0.5 * L, 3.13 * L, 6.0 * L, 0.12 * L);
+  g.fillRect(0.5 * L, 0.25 * L, 0.12 * L, 3.0 * L);            // front/back stop line
+  const img = g.getImageData(0, 0, 1024, 512);
+  for (let i = 0; i < img.data.length; i += 4) if (img.data[i + 3] > 0) img.data[i + 3] *= 0.75 + Math.random() * 0.25;
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(7, 3.5), new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(-0.4, 0.002, 0);
+  m.receiveShadow = true;
+  m.renderOrder = 1;
+  return m;
+}
+
 export class Environment {
-  constructor(renderer, scene) {
+  constructor(renderer, scene, opts = {}) {
+    this.lite = !!opts.lite;
     this.renderer = renderer;
     this.scene = scene;
     this.pmrem = new THREE.PMREMGenerator(renderer);
@@ -28,7 +86,7 @@ export class Environment {
     this.sun = new THREE.DirectionalLight(0xffffff, 3);
     this.sun.castShadow = true;
     const s = this.sun.shadow;
-    s.mapSize.set(4096, 4096);
+    s.mapSize.set(opts.lite ? 2048 : 4096, opts.lite ? 2048 : 4096);
     s.camera.left = -3.6; s.camera.right = 3.6; s.camera.top = 3.6; s.camera.bottom = -3.6;
     s.camera.near = 0.5; s.camera.far = 40;
     s.bias = -0.00015; s.normalBias = 0.015; s.radius = 3;
@@ -36,26 +94,15 @@ export class Environment {
     this.sun.target = this.sunTarget;
     scene.add(this.sun, this.sunTarget);
 
-    // shadow catcher
-    this.shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: 0.55, color: 0x05070a }));
-    this.shadowPlane.rotation.x = -Math.PI / 2;
-    this.shadowPlane.position.y = 0.001;
-    this.shadowPlane.receiveShadow = true;
-    this.group.add(this.shadowPlane);
-
-    // ground that receives the car's lamps (additive over the backdrop)
-    this.lampGround = new THREE.Mesh(new THREE.CircleGeometry(45, 96), new THREE.MeshStandardMaterial({
-      color: new THREE.Color().setRGB(0.11, 0.11, 0.115, THREE.LinearSRGBColorSpace), roughness: 0.42, metalness: 0,
-      envMapIntensity: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    this.lampGround.rotation.x = -Math.PI / 2;
-    this.lampGround.position.y = 0.0015;
-    this.lampGround.renderOrder = 1;
-    this.group.add(this.lampGround);
-
-    // glossy studio floor with planar reflection
+    // one ground for every scene: lit by the sun and the car's lamps, planar reflection when wet/polished
+    this.asphalt = asphaltTextures();
     this.floor = makeGlossFloor(renderer);
     this.group.add(this.floor.mesh);
+    this.bay = bayLines();
+    this.group.add(this.bay);
+    // compatibility handles used by main.js
+    this.shadowPlane = this.floor.mesh;
+    this.lampGround = this.floor.mesh;
 
     this.contact = new ContactShadow(renderer, 6.0, 3.2, 1024);
     this.group.add(this.contact.mesh);
@@ -79,31 +126,51 @@ export class Environment {
     scene.environment = env;
     scene.environmentIntensity = P.envIntensity;
     this.renderer.toneMappingExposure = P.exposure * (extras.exposureScale || 1);
-    if (this.skybox) { this.group.remove(this.skybox); this.skybox.geometry.dispose(); this.skybox.material.dispose(); this.skybox = null; }
-    if (P.skybox) {
-      this.skybox = new GroundedSkybox(hdr, 1.0, 55, 128);
-      this.skybox.position.y = 1.0 - 0.002;
-      this.group.add(this.skybox);
-      scene.background = null;
-    } else {
-      scene.background = hdr;
-      scene.backgroundBlurriness = 0.45;
-      scene.backgroundIntensity = 0.3;
-    }
+    scene.background = hdr;
+    scene.backgroundBlurriness = P.bg.blur;
+    scene.backgroundIntensity = P.bg.intensity;
+    // ground material
+    const G = P.ground, fm = this.floor.mesh.material;
+    fm.color.setRGB(...G.color, THREE.LinearSRGBColorSpace);
+    fm.roughness = G.rough;
+    fm.envMapIntensity = G.env;
+    const asph = G.kind === 'asphalt';
+    fm.map = asph ? this.asphalt.map : null;
+    fm.roughnessMap = asph ? this.asphalt.rough : null;
+    fm.needsUpdate = true;
+    this.floor.uniforms.uReflStrength.value = this.lite ? 0 : G.refl;
+    this.floor.uniforms.uWorldUV.value = asph ? 1 / ASPH_TILE : 0;
+    this.bay.visible = asph;
+    // fog blends the ground into the horizon colour of the panorama
+    if (P.fog) {
+      const hc = horizonColor(hdr);
+      scene.fog = new THREE.Fog(new THREE.Color().setRGB(hc[0], hc[1], hc[2], THREE.LinearSRGBColorSpace), P.fog[0], P.fog[1]);
+    } else scene.fog = null;
     const d = new THREE.Vector3(...P.sun.dir).normalize();
     this.sun.position.copy(d).multiplyScalar(15);
     this.sun.color.set(P.sun.color);
     this.sun.intensity = P.sun.intensity;
     this.sun.shadow.radius = P.sun.radius;
-    this.floor.mesh.visible = P.floor === 'gloss';
-    this.shadowPlane.visible = P.floor !== 'gloss';
-    this.shadowPlane.material.opacity = name === 'night' ? 0.2 : 0.55;
-    this.lampGround.material.opacity = P.lampGround;
-    this.lampGround.visible = true;
     this.current = name;
     this.preset = P;
     return P;
   }
+}
+
+// average radiance in a thin band just below the horizon of an equirect HDR texture
+function horizonColor(hdr) {
+  const { data, width, height } = hdr.image;
+  const half = hdr.type === THREE.HalfFloatType;
+  const get = i => half ? THREE.DataUtils.fromHalfFloat(data[i]) : data[i];
+  const acc = [0, 0, 0];
+  let n = 0;
+  for (let y = Math.floor(height * 0.505); y < Math.floor(height * 0.53); y++) {
+    for (let x = 0; x < width; x += 4) {
+      const i = (y * width + x) * 4;
+      acc[0] += get(i); acc[1] += get(i + 1); acc[2] += get(i + 2); n++;
+    }
+  }
+  return acc.map(v => v / n);
 }
 
 // ----------------------------------------------------------------------------------------------
@@ -154,7 +221,6 @@ class ContactShadow {
     scene.background = null;
     scene.overrideMaterial = this.depthMat;
     r.setClearColor(0x000000, 0);
-    this.cam.position.set(target.position.x, 0.0, target.position.z);
     this.cam.updateMatrixWorld();
     r.setRenderTarget(this.rt);
     r.clear();
@@ -172,9 +238,10 @@ class ContactShadow {
     }
     r.setRenderTarget(prevRT);
     r.setClearAlpha(prevClear);
-    this.mesh.position.x = target.position.x;
-    this.mesh.position.z = target.position.z;
   }
+
+  // ride along with the car: the footprint only changes when a panel moves
+  attach(carRoot) { carRoot.add(this.mesh, this.cam); }
 }
 
 // ----------------------------------------------------------------------------------------------
@@ -183,12 +250,13 @@ function makeGlossFloor(renderer) {
   const size = 60;
   const rtSize = new THREE.Vector2(768, 768);
   const rt = new THREE.WebGLRenderTarget(rtSize.x, rtSize.y, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
-  const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color().setRGB(0.012, 0.013, 0.015, THREE.LinearSRGBColorSpace), roughness: 0.3, metalness: 0, envMapIntensity: 0.22 });
-  const uniforms = { tReflect: { value: rt.texture }, uReflMatrix: { value: new THREE.Matrix4() }, uReflStrength: { value: 0.55 } };
+  const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(0.012, 0.013, 0.015, THREE.LinearSRGBColorSpace), roughness: 0.3, metalness: 0, envMapIntensity: 0.22 });
+  const uniforms = { tReflect: { value: rt.texture }, uReflMatrix: { value: new THREE.Matrix4() }, uReflStrength: { value: 0.55 }, uWorldUV: { value: 0 } };
   mat.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, uniforms);
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform mat4 uReflMatrix; varying vec4 vReflUv;')
-      .replace('#include <project_vertex>', '#include <project_vertex>\nvReflUv = uReflMatrix * modelMatrix * vec4( transformed, 1.0 );');
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform mat4 uReflMatrix; varying vec4 vReflUv; uniform float uWorldUV;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvReflUv = uReflMatrix * modelMatrix * vec4( transformed, 1.0 );')
+      .replace('#include <uv_vertex>', '#include <uv_vertex>\n#if defined( USE_MAP ) || defined( USE_ROUGHNESSMAP )\n{ vec3 wp = (modelMatrix * vec4(position, 1.0)).xyz; vec2 wuv = wp.xz * uWorldUV;\n#ifdef USE_MAP\nvMapUv = wuv;\n#endif\n#ifdef USE_ROUGHNESSMAP\nvRoughnessMapUv = wuv;\n#endif\n}\n#endif');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D tReflect; uniform float uReflStrength; varying vec4 vReflUv;')
       .replace('#include <opaque_fragment>', `
         vec2 ruv = vReflUv.xy / vReflUv.w;
@@ -199,17 +267,17 @@ function makeGlossFloor(renderer) {
         refl += textureLod(tReflect, ruv + vec2(0.0, 0.014), lod + 1.2).rgb * 0.3;
         float fres = 0.04 + 0.96 * pow(1.0 - clamp(dot(normalize(vViewPosition), -normal) * -1.0, 0.0, 1.0), 5.0);
         float dist = length(vReflUv.xy / vReflUv.w - 0.5);
-        outgoingLight += refl * uReflStrength * mix(0.12, 1.0, fres);
+        outgoingLight += refl * uReflStrength * mix(0.12, 1.0, fres) * (1.0 - roughnessFactor * 0.6);
         #include <opaque_fragment>`);
   };
-  const mesh = new THREE.Mesh(new THREE.CircleGeometry(size / 2, 128), mat);
+  const mesh = new THREE.Mesh(new THREE.CircleGeometry(450, 128), mat);
   mesh.rotation.x = -Math.PI / 2;
   mesh.receiveShadow = true;
   const mirrorCam = new THREE.PerspectiveCamera();
   const tmp = new THREE.Vector3();
   const bias = new THREE.Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1);
   function update(scene, camera) {
-    if (!mesh.visible) return;
+    if (!mesh.visible || uniforms.uReflStrength.value <= 0) return;
     mirrorCam.copy(camera);
     // reflect camera about y=0
     mirrorCam.position.set(camera.position.x, -camera.position.y, camera.position.z);

@@ -38,7 +38,17 @@ function px(x) { return (x + FACE_W / 2) * PX; }
 function py(y) { return (FACE_H / 2 - y) * PX; }
 
 export class Cluster {
-  constructor(pivot, lib) {
+  constructor(pivotNode, lib) {
+    // glTF converts the pivot's local frame too: its local +Y is the face normal (toward the
+    // driver) and local -Z is "up" on the dial. Work in a child frame with +Z = normal, +Y = up.
+    const pivot = new THREE.Group();
+    pivot.rotation.x = -Math.PI / 2;
+    pivotNode.add(pivot);
+    // centre the dial in the binnacle window (body coords: x 0.512, y 0.727, z -0.37)
+    const body = pivotNode.parent;
+    body.updateMatrixWorld(true);
+    const want = body.localToWorld(new THREE.Vector3(0.505, 0.727, -0.37));
+    pivot.position.copy(pivotNode.worldToLocal(want));
     this.pivot = pivot;
     this.base = document.createElement('canvas');
     this.glow = document.createElement('canvas');
@@ -116,7 +126,7 @@ export class Cluster {
       for (let v = 0; v <= 85; v += 2.5) tick(v, v % 10 === 0 ? 0.13 : v % 5 === 0 ? 0.085 : 0.05, v % 10 === 0 ? R * 0.022 : R * 0.012);
       for (let v = 10; v <= 80; v += 10) num(v, String(v), 0.68, R * 0.17);
       // km/h inner scale (orange)
-      for (let k = 0; k <= 140; k += 20) {
+      for (let k = 20; k <= 140; k += 20) {
         const v = k / 1.609344;
         num(v, String(k), 0.45, R * 0.085, opt.ink2, 500);
       }
@@ -324,7 +334,8 @@ export class ConsoleDisplays {
     const rm = new THREE.MeshStandardMaterial({ color: 0x060504, roughness: 0.2, emissive: 0xffffff, emissiveMap: this.radio.t, emissiveIntensity: 0 });
     const rad = new THREE.Mesh(new THREE.PlaneGeometry(0.070, 0.016), rm);
     rad.position.z = 0.0015;
-    if (radioPivot) radioPivot.add(rad);
+    const rf = new THREE.Group(); rf.rotation.x = -Math.PI / 2; rf.add(rad);
+    if (radioPivot) radioPivot.add(rf);
     this.radioMat = rm;
     this.last = '';
   }

@@ -1,9 +1,9 @@
 import { chromium } from 'playwright-core';
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
-const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
+const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
 page.on('pageerror', e => console.log('[pageerror]', e.message));
 page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') console.log('[console]', m.text().slice(0, 300)); });
-await page.goto('http://localhost:8123/web/index.html?still=1');
+await page.goto('http://localhost:8123/web/index.html?still=1' + (process.env.QS || ''));
 await page.waitForFunction(() => document.title === 'READY', null, { timeout: 300000 });
 const r = await page.evaluate(new Function(process.argv[2] || 'return 1'));
 console.log(JSON.stringify(r, null, 1));

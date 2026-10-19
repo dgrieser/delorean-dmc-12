@@ -16,9 +16,11 @@ import { bindUI } from './ui.js';
 
 const q = new URLSearchParams(location.search);
 const STILL = q.has('still');
+// phones / small GPUs: lower resolution, no planar reflection, smaller shadow maps
+const LITE = q.has('lite') || (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900);
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: STILL });
-const DPR = Math.min(devicePixelRatio || 1, STILL ? 1 : 2);
+const DPR = Math.min(devicePixelRatio || 1, STILL ? 1 : LITE ? 1.25 : 2);
 renderer.setPixelRatio(DPR);
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -34,7 +36,7 @@ camera.position.set(5.4, 1.45, 4.5);
 
 const lib = createLibrary();
 window.lib = lib;
-const env = new Environment(renderer, scene);
+const env = new Environment(renderer, scene, { lite: LITE });
 
 // --- post ---------------------------------------------------------------------------------
 const rt = new THREE.WebGLRenderTarget(innerWidth * DPR, innerHeight * DPR, { type: THREE.HalfFloatType, samples: 4 });
@@ -53,7 +55,6 @@ carRoot.name = 'CarRoot';
 world.add(carRoot);
 const road = makeRoad();
 road.visible = false;
-world.add(road);
 
 const state = { env: 'studio', trim: 'grey', drive: false, sound: false, cameraMode: 'orbit' };
 let car, lamps, cluster, displays, rig, ui;
@@ -96,6 +97,28 @@ async function init() {
     for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) - u0) / (u1 - u0), (uv.getY(i) - v0) / (v1 - v0));
     uv.needsUpdate = true;
   }
+  // brushed stainless: U and the tangent follow the car's length (DMC panels are brushed
+  // front-to-back), V wraps over the section without seams.
+  body.updateMatrixWorld(true);
+  body.traverse(o => {
+    if (!o.isMesh || !['Stainless', 'BadgeAlu'].includes(o.material.name)) return;
+    const g = o.geometry, P = g.attributes.position, N = g.attributes.normal, n = P.count;
+    const M = o.matrixWorld, Mi = new THREE.Matrix4().copy(M).invert();
+    const ax = new THREE.Vector3(1, 0, 0).transformDirection(Mi);
+    const uv = new Float32Array(n * 2), tan = new Float32Array(n * 4);
+    const p = new THREE.Vector3(), nn = new THREE.Vector3(), t = new THREE.Vector3();
+    for (let i = 0; i < n; i++) {
+      p.fromBufferAttribute(P, i).applyMatrix4(M);
+      uv[i * 2] = p.x; uv[i * 2 + 1] = p.y + p.z;
+      nn.fromBufferAttribute(N, i);
+      t.copy(ax).addScaledVector(nn, -nn.dot(ax));
+      if (t.lengthSq() < 1e-6) t.set(0, 1, 0).addScaledVector(nn, -nn.y);
+      t.normalize();
+      tan[i * 4] = t.x; tan[i * 4 + 1] = t.y; tan[i * 4 + 2] = t.z; tan[i * 4 + 3] = 1;
+    }
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setAttribute('tangent', new THREE.BufferAttribute(tan, 4));
+  });
   // meshes without baked AO get neutral attributes (the AO shader patch reads `ao`/`ao2`)
   carRoot.traverse(o => {
     if (!o.isMesh) return;
@@ -107,6 +130,7 @@ async function init() {
   cluster = new Cluster(car.nodes.gauge, lib);
   displays = new ConsoleDisplays(car.nodes.clock, car.nodes.radio);
   rig = new CameraRig(camera, canvas, car);
+  env.contact.attach(carRoot);
   wirePanelEvents();
   lamps.onTick = on => audio.relay(on);
   await envReady;
@@ -151,8 +175,8 @@ function setTrimColor(name) { state.trim = name; setTrim(lib, name); }
 function setDrive(on) {
   state.drive = on;
   sim.drive = on;
-  road.visible = on;
-  if (on && state.env === 'studio') { setEnv('day'); ui?.refresh(); }
+  env.bay.visible = !on && state.env !== 'studio';
+  if (on && state.env === 'studio') { setEnv('day').then(() => { env.bay.visible = false; ui?.refresh(); }); }
   if (!on) { sim.x = sim.z = sim.yaw = 0; sim.speed = 0; }
 }
 async function toggleSound(on) {
@@ -203,7 +227,17 @@ let contactDirty = true, lastContact = 0, shadowFrames = 8;
 const clock = new THREE.Clock();
 const sunDir = new THREE.Vector3();
 function frame() {
-  const dt = Math.min(Math.max(clock.getDelta(), 1 / 240), 0.05);
+  // keep real time on slow GPUs: sub-step long frames (up to 0.25 s per rendered frame)
+  const total = Math.min(Math.max(clock.getDelta(), 1 / 240), 0.25);
+  const n = Math.ceil(total / 0.034);
+  update.skipRender = true;
+  for (let i = 0; i < n - 1; i++) update(total / n);
+  update.skipRender = false;
+  update(total / n);
+  composer.render();
+}
+
+function update(dt) {
   if (car && ui) {
     ui.input(dt);
     sim.loadAmps = lamps.load();
@@ -217,9 +251,7 @@ function frame() {
     // drive mode: move the car; keep backdrop helpers centred on it
     carRoot.position.set(sim.x, 0, sim.z);
     carRoot.rotation.y = sim.yaw;
-    if (env.skybox) env.skybox.position.set(sim.x, env.skybox.position.y, sim.z);
-    env.shadowPlane.position.set(sim.x, 0.001, sim.z);
-    env.lampGround.position.set(sim.x, 0.0015, sim.z);
+    env.floor.mesh.position.set(sim.x, 0, sim.z);
     env.sunTarget.position.set(sim.x, 0, sim.z);
     sunDir.set(...env.preset.sun.dir).normalize();
     env.sun.position.copy(env.sunTarget.position).addScaledVector(sunDir, 15);
@@ -247,17 +279,19 @@ function frame() {
     const doorOpen = Math.max(car.doorL.amount, car.doorR.amount);
     audio.update(sim, { inside: rig.inside, doorOpen, wiper: car.wipers.motorLoad, strut, engineDistance: 1 });
     for (const e of sim.events.splice(0)) { if (e === 'crank') audio.key(); if (e === 'ignOn') audio.switchClick(); }
-    const moving = Object.values(car.panels).some(p => p.moving) || Math.abs(sim.speed) > 0.01;
+    const panelsMoving = Object.values(car.panels).some(p => p.moving) || car.tollMoving;
+    const moving = panelsMoving || Math.abs(sim.speed) > 0.01;
     // shadows only re-render when something moves (or a few frames after)
     if (moving || shadowFrames > 0 || car.wipers.running) renderer.shadowMap.needsUpdate = true;
     shadowFrames = moving ? 4 : Math.max(0, shadowFrames - 1);
     const now = performance.now();
-    if ((moving || contactDirty) && now - lastContact > 120) { env.contact.update(scene, carRoot); lastContact = now; contactDirty = moving; }
-    env.floor.update(scene, camera);
+    if ((panelsMoving || contactDirty) && now - lastContact > 120 && !update.skipRender) { env.contact.update(scene, carRoot); lastContact = now; contactDirty = panelsMoving; }
+    if (!update.skipRender) env.floor.update(scene, camera);
     ui.hud();
   }
-  composer.render();
 }
+// advance the simulation without rendering (used by tests / screenshots)
+function tick(n = 1, dt = 1 / 60) { update.skipRender = true; for (let i = 0; i < n; i++) update(dt); update.skipRender = false; }
 
 window.view = (c, t, f, mode) => {
   if (mode && rig) rig.setMode(mode, true);
@@ -265,7 +299,8 @@ window.view = (c, t, f, mode) => {
   camera.updateProjectionMatrix();
   frame();
 };
-window.app = { composer, rt, bloom, get car() { return car; }, sim, get lamps() { return lamps; }, get rig() { return rig; }, get ui() { return ui; }, setEnv, frame, state, setTrimColor, setDrive, env, scene, camera, renderer };
+window.THREE = THREE;
+window.app = { tick, get cluster() { return cluster; }, get displays() { return displays; }, composer, rt, bloom, get car() { return car; }, sim, get lamps() { return lamps; }, get rig() { return rig; }, get ui() { return ui; }, setEnv, frame, state, setTrimColor, setDrive, env, scene, camera, renderer };
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();

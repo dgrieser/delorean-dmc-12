@@ -32,8 +32,16 @@ PARTS = [
 ]
 
 
+import body as B
+
+
+def inside(f):
+    return lambda X, Y, Z: np.maximum(f(X, Y, Z), B.shell(X, Y, Z) + 0.005)
+
+
 def build(p):
     t = time.time()
+    p = dict(p, f=inside(p['f']))
     V, F = extract(p['f'], p['bmin'], p['bmax'], p['h'], verbose=False)
     if len(F) == 0:
         print('EMPTY', p['name'], flush=True)

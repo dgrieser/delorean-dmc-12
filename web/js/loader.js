@@ -2,6 +2,9 @@
 import * as THREE from 'three';
 
 async function inflate(buf) {
+  const u8 = new Uint8Array(buf);
+  // a host may already have removed the gzip layer (Content-Encoding); only inflate real gzip data
+  if (!(u8[0] === 0x1f && u8[1] === 0x8b)) return u8;
   if (typeof DecompressionStream !== 'undefined') {
     const ds = new DecompressionStream('gzip');
     const stream = new Blob([buf]).stream().pipeThrough(ds);
@@ -142,7 +145,7 @@ export function buildGeometry(m, bytes) {
 export async function loadPacked(base, makeMaterial, onProgress) {
   const [header, raw] = await Promise.all([
     fetch(base + '.json').then(r => { if (!r.ok) throw new Error('Could not load ' + base + '.json'); return r.json(); }),
-    fetchProgress(base + '.bin.gz', onProgress),
+    fetchProgress(base + '.bin', onProgress),
   ]);
   const bytes = await inflate(raw);
   const objs = header.nodes.map(n => {

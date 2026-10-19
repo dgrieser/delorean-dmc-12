@@ -165,17 +165,17 @@ export class Lamps {
     // headlamp filaments (seen through the fluted lens) + beams
     set('hl_bulb_Lo_L', low * 60); set('hl_bulb_Lo_R', low * 60);
     set('hl_bulb_Hi_L', high * 60 + low * 4); set('hl_bulb_Hi_R', high * 60 + low * 4);
-    this.lights.lowL.intensity = this.lights.lowR.intensity = low * 900;
+    this.lights.lowL.intensity = this.lights.lowR.intensity = low * 2600;
     this.lights.lowL.shadow.autoUpdate = this.lights.lowR.shadow.autoUpdate = low > 0.01;
-    this.lights.highL.intensity = this.lights.highR.intensity = high * 2200;
+    this.lights.highL.intensity = this.lights.highR.intensity = high * 7000;
     // front amber: parking (dim) + turn (bright) share the bulb (dual filament)
-    set('turn_front_L', Math.max(park * 0.9, tL * 7)); set('turn_front_R', Math.max(park * 0.9, tR * 7));
+    set('turn_front_L', Math.max(park * 0.6, tL * 4)); set('turn_front_R', Math.max(park * 0.6, tR * 4));
     set('marker_front_L', Math.max(park * 1.2, tL * 4)); set('marker_front_R', Math.max(park * 1.2, tR * 4));
     set('marker_rear_L', park * 2.0); set('marker_rear_R', park * 2.0);
-    set('tl_turn_L', tL * 7); set('tl_turn_R', tR * 7);
-    const tail = park * 1.5 + brk * 9;
+    set('tl_turn_L', tL * 4); set('tl_turn_R', tR * 4);
+    const tail = park * 0.7 + brk * 3.2;
     set('tl_tail_L', tail); set('tl_tail_R', tail);
-    set('tl_rev_L', rev * 6); set('tl_rev_R', rev * 6);
+    set('tl_rev_L', rev * 4); set('tl_rev_R', rev * 4);
     this.lights.tailL.intensity = this.lights.tailR.intensity = park * 0.25 + brk * 1.6;
     this.lights.revL.intensity = this.lights.revR.intensity = rev * 3.5;
     this.lights.turnFL.intensity = tL * 1.6 + park * 0.08; this.lights.turnFR.intensity = tR * 1.6 + park * 0.08;
@@ -186,7 +186,7 @@ export class Lamps {
     this.lights.cabin.intensity = b.cab.step(cabOn ? 1 : 0, dt) * 0.8;
     set('courtesy_L', b.courtL.step(this.car.doorL.theta > 0.05 ? 1 : 0, dt) * 5);
     set('courtesy_R', b.courtR.step(this.car.doorR.theta > 0.05 ? 1 : 0, dt) * 5);
-    this.lights.dash.intensity = parkOn && ign ? 0.025 * s.dimmer : 0;
+    this.lights.dash.intensity = parkOn && ign ? 0.004 * s.dimmer : 0;
     return { panel: parkOn, dimmer: s.dimmer, turnL: tL > 0.5, turnR: tR > 0.5, high: highOn };
   }
 }

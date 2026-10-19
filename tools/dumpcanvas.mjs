@@ -1,0 +1,10 @@
+import { chromium } from 'playwright-core';
+import fs from 'fs';
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
+await page.goto('http://localhost:8123/web/index.html?still=1');
+await page.waitForFunction(() => document.title === 'READY', null, { timeout: 300000 });
+const urls = await page.evaluate(() => { const c = window.app.cluster; c.setLamps({brake:1, oil:1, charge:1, door:1, turnL:1, turnR:1, high:1, fuel:1}, true); c.drawBase(14329.6, 128.6); return [c.base.toDataURL(), c.glow.toDataURL()]; });
+fs.writeFileSync('/tmp/ana/cl_base.png', Buffer.from(urls[0].split(',')[1], 'base64'));
+fs.writeFileSync('/tmp/ana/cl_glow.png', Buffer.from(urls[1].split(',')[1], 'base64'));
+await browser.close();

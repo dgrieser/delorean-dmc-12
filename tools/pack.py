@@ -222,13 +222,13 @@ def pack(glb_path, out_base):
             nodes_out[c]['parent'] = ni
     header = {'version': 1, 'nodes': nodes_out, 'meshes': meshes_out, 'materials': mats, 'byteLength': P.size}
     blob = b''.join(P.parts)
-    open(out_base + '.bin.gz', 'wb').write(gzip.compress(blob, 9))
+    open(out_base + '.bin', 'wb').write(gzip.compress(blob, 9))
     json.dump(header, open(out_base + '.json', 'w'), separators=(',', ':'))
     tv = sum(m['count'] for m in meshes_out)
     ti = sum(m['index']['count'] for m in meshes_out) // 3
     import os
     print(f'packed {glb_path}: {len(meshes_out)} meshes, {tv} verts, {ti} tris, raw {P.size/1e6:.1f} MB, '
-          f'gz {os.path.getsize(out_base + ".bin.gz")/1e6:.1f} MB')
+          f'gz {os.path.getsize(out_base + ".bin")/1e6:.1f} MB')
 
 
 if __name__ == '__main__':

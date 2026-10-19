@@ -32,11 +32,23 @@ def windshield():
     return out
 
 
+TOLL = np.array([(-0.06, 0.886), (0.27, 0.886), (0.27, 0.962), (-0.06, 0.962)])
+
+
 def door_glass():
+    from patch import round_poly
     pts = B.DOOR_GLASS_POLY
+    toll = round_poly(TOLL, 0.014)
     for side, tag in [(1, 'L'), (-1, 'R')]:
-        V, F, N = patch(shell, offset_poly(pts, 0.006), ('X', 'Z'), 'Y', side, offset=-0.0035, step=0.02)
+        V, F, N = patch(shell, offset_poly(pts, 0.006), ('X', 'Z'), 'Y', side, offset=-0.0035, step=0.016,
+                        holes=[offset_poly(toll, 0.002)])
         save(f'glass_door_{tag}', V, F, N)
+        # toll window pane (slides down into the door) + its black surround on the fixed glass
+        V, F, N = patch(shell, offset_poly(toll, 0.006), ('X', 'Z'), 'Y', side, offset=-0.0055, step=0.012)
+        save(f'glass_toll_{tag}', V, F, N)
+        V, F, N = patch(shell, offset_poly(toll, 0.011), ('X', 'Z'), 'Y', side, offset=-0.002, step=0.006,
+                        holes=[offset_poly(toll, 0.0015)], thickness=0.003)
+        save(f'toll_frame_{tag}', V, F, N)
         V, F, N = patch(shell, offset_poly(pts, 0.013), ('X', 'Z'), 'Y', side, offset=-0.0008, step=0.008,
                         holes=[offset_poly(pts, -0.008)], thickness=0.004)
         save(f'gasket_door_{tag}', V, F, N)

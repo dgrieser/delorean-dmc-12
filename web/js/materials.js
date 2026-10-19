@@ -119,7 +119,7 @@ export function enhance(mat, tri = null) {
   const T = mat.userData.tri;
   mat.onBeforeCompile = sh => {
     sh.uniforms.uAOOpen = AO.open;
-    sh.uniforms.uAOStr = AO.strength;
+    sh.uniforms.uAOStr = mat.userData.aoStr || AO.strength;
     let v = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float ao; attribute float ao2; varying float vAO; uniform float uAOOpen;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAO = mix(ao, ao2, uAOOpen);');
     let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAO; uniform float uAOStr;')
@@ -176,6 +176,8 @@ export function enhance(mat, tri = null) {
           normal = gl_FrontFacing ? nV : -nV;
         }`);
     }
+    // guard: a NaN pixel would be smeared over the whole frame by the bloom mip chain
+    f = f.replace(/}\s*$/, '  if (any(isnan(gl_FragColor)) || any(isinf(gl_FragColor))) gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);\n}');
     if (mat.userData.thin) {
       // thin glass: keep full Fresnel reflection, let the background show through (premultiplied)
       f = f.replace('#include <opaque_fragment>', `
@@ -222,17 +224,19 @@ export function setTrim(lib, name) {
 
 export function createLibrary(opts = {}) {
   const T = 'assets/tex/';
-  const brushedN = tex(T + 'brushed_n.png', { repeat: 2.2 });
-  const brushedR = tex(T + 'brushed_r_soft.png', { repeat: 2.2 });
+  const brushedN = tex(T + 'brushed_n.png', { repeat: 1.6 });
+  brushedN.repeat.set(1.2, 7.0);
+  const brushedR = tex(T + 'brushed_r_soft.png', { repeat: 1.6 });
+  brushedR.repeat.set(0.9, 5.0);
   const grainN = tex(T + 'plastic_grain_n.png', { repeat: 6 });
   const flute = fluteNormal();
   const prism = prismNormal();
   const lib = {};
 
   lib.Stainless = new THREE.MeshPhysicalMaterial({
-    name: 'Stainless', color: lin(0.66, 0.66, 0.67), metalness: 1, roughness: 0.60,
-    roughnessMap: brushedR, normalMap: brushedN, normalScale: new THREE.Vector2(0.05, 0.05),
-    anisotropy: 0.55, anisotropyRotation: 0, side: THREE.DoubleSide, envMapIntensity: 1.0,
+    name: 'Stainless', color: lin(0.58, 0.58, 0.59), metalness: 1, roughness: 0.50,
+    roughnessMap: brushedR, normalMap: brushedN, normalScale: new THREE.Vector2(0.08, 0.08),
+    anisotropy: 0.4, anisotropyRotation: Math.PI / 2, side: THREE.DoubleSide, envMapIntensity: 1.0,
   });
   lib.Urethane = new THREE.MeshPhysicalMaterial({
     name: 'Urethane', color: lin(0.030, 0.032, 0.035), metalness: 0, roughness: 0.52,
@@ -248,7 +252,7 @@ export function createLibrary(opts = {}) {
   lib.GlassDark = new THREE.MeshPhysicalMaterial({ name: 'GlassDark', color: lin(0.006, 0.006, 0.007), roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.03 });
   lib.Chrome = new THREE.MeshStandardMaterial({ name: 'Chrome', color: lin(0.92, 0.92, 0.92), metalness: 1, roughness: 0.06, side: THREE.DoubleSide });
   lib.MirrorGlass = new THREE.MeshStandardMaterial({ name: 'MirrorGlass', color: lin(0.88, 0.89, 0.9), metalness: 1, roughness: 0.0 });
-  lib.BadgeAlu = new THREE.MeshPhysicalMaterial({ name: 'BadgeAlu', color: lin(0.80, 0.80, 0.82), metalness: 1, roughness: 0.28, anisotropy: 0.6, normalMap: brushedN, normalScale: new THREE.Vector2(0.2, 0.2) });
+  lib.BadgeAlu = new THREE.MeshPhysicalMaterial({ name: 'BadgeAlu', color: lin(0.80, 0.80, 0.82), metalness: 1, roughness: 0.26, clearcoat: 0.4 });
   lib.Exhaust = new THREE.MeshStandardMaterial({ name: 'Exhaust', color: lin(0.5, 0.48, 0.46), metalness: 1, roughness: 0.38 });
 
   // lamps: emissiveIntensity is driven by the lighting system
@@ -312,6 +316,9 @@ export function createLibrary(opts = {}) {
   thinGlass(lib.Glass, 0.16); lib.Glass.color = lin(0.30, 0.34, 0.33); lib.Glass.side = THREE.FrontSide;
   thinGlass(lib.Lamp_HeadLens, 0.10); lib.Lamp_HeadLens.side = THREE.FrontSide;
   for (const k of ['Lamp_TurnFront', 'Lamp_MarkerFront', 'Lamp_TurnRear', 'Lamp_Tail', 'Lamp_MarkerRear', 'Lamp_Reverse', 'Lamp_Courtesy']) thinGlass(lib[k], 0.82);
+  // AO strength per material: the exterior steel is mostly specular -> light occlusion only
+  const aoStr = { Stainless: 0.3, Urethane: 0.6, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5 };
+  for (const [k, v] of Object.entries(aoStr)) lib[k].userData.aoStr = { value: v };
   for (const [k, m] of Object.entries(lib)) if (m && m.isMaterial && !m.userData.tri) enhance(m);
   return lib;
 }

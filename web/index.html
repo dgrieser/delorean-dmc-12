@@ -1,6 +1,5 @@
 <meta charset="utf-8">
 <title>DMC-12 Garage</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -84,6 +83,8 @@
   #loader .bar { height: 2px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
   #loader .bar i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: linear-gradient(90deg, #8d949b, #e9ecef); transition: width .2s; }
   #loader p { font-size: 13px; color: var(--muted); letter-spacing: 0.08em; margin: 12px 0 0; font-family: var(--font-data); }
+  #note { position: fixed; left: 50%; transform: translateX(-50%); top: calc(16px + env(safe-area-inset-top, 0px)); background: var(--glass-hi); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 14px; font-size: 14px; color: var(--fg); z-index: 15; }
   #err { position: fixed; left: 16px; right: 16px; bottom: 90px; color: var(--red); font: 14px var(--font-ui); text-align: center; }
 
   @media (max-width: 720px) {
@@ -140,6 +141,9 @@
     <div class="row">
       <button data-panel="hood" aria-pressed="false">Bonnet</button><button data-panel="lid" aria-pressed="false">Engine cover</button><button data-panel="fuel" aria-pressed="false">Fuel flap</button>
     </div>
+    <div class="row">
+      <button data-toll="L" aria-pressed="false">Toll window L</button><button data-toll="R" aria-pressed="false">Toll window R</button>
+    </div>
   </section>
 
   <section class="sec">
@@ -184,6 +188,7 @@
       <dt>W A S D · Q E</dt><dd>Free roam: move, down/up (Shift = fast)</dd>
       <dt>O · P</dt><dd>Driver / passenger gull-wing door</dd>
       <dt>H · T · Y</dt><dd>Bonnet · engine cover · fuel flap</dd>
+      <dt>[ · ]</dt><dd>Left / right toll window (ignition on)</dd>
       <dt>K (hold)</dt><dd>Ignition: Off → Acc → On → Start. Shift+K switches off</dd>
       <dt>↑ ↓</dt><dd>Throttle · brake pedal</dd>
       <dt>← →</dt><dd>Steer</dd>
@@ -202,6 +207,7 @@
 
 <div id="loader"><div class="w"><h1>DMC-12</h1><div class="bar"><i id="progress"></i></div><p id="load-msg">Loading body shell…</p></div></div>
 <div id="err" role="alert"></div>
+<div id="note" role="status" hidden></div>
 
 <script type="importmap">
 { "imports": {
