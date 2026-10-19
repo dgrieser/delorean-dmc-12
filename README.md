@@ -67,6 +67,9 @@ cd .. && python3 pack.py ../web/assets/dmc12_raw.glb ../web/assets/car
 python3 pack.py out/wheels.glb ../web/assets/wheels
 ```
 
+`python3 tools/b64split.py <dir>` writes a text-only copy of `web/` (binary payloads as base64
+chunks, which `web/js/fetchbin.js` falls back to) for hosts that only serve text and images.
+
 Dimensions follow published figures: length 4216 mm, wheelbase 2413 mm, height 1140 mm,
 track 1590/1588 mm, 195/60 R14 front and 235/60 R15 rear tyres. The photos in `ref/` were
 used for proportions and details.

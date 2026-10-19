@@ -2,6 +2,7 @@
 // contact shadows, light-receiving ground (for the car's own lamps) and a glossy studio floor.
 import * as THREE from 'three';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { fetchBinary } from './fetchbin.js';
 import { HorizontalBlurShader } from 'three/addons/shaders/HorizontalBlurShader.js';
 import { VerticalBlurShader } from 'three/addons/shaders/VerticalBlurShader.js';
 
@@ -112,7 +113,14 @@ export class Environment {
 
   async load(name) {
     if (this.cache[name]) return this.cache[name];
-    const hdr = await new RGBELoader().loadAsync('assets/env/' + PRESETS[name].hdr);
+    const buf = await fetchBinary('assets/env/' + PRESETS[name].hdr);
+    const d = new RGBELoader().setDataType(THREE.HalfFloatType).parse(buf);
+    const hdr = new THREE.DataTexture(d.data, d.width, d.height, THREE.RGBAFormat, d.type);
+    hdr.colorSpace = THREE.LinearSRGBColorSpace;
+    hdr.minFilter = hdr.magFilter = THREE.LinearFilter;
+    hdr.generateMipmaps = false;
+    hdr.flipY = true;
+    hdr.needsUpdate = true;
     hdr.mapping = THREE.EquirectangularReflectionMapping;
     const env = this.pmrem.fromEquirectangular(hdr).texture;
     this.cache[name] = { hdr, env };

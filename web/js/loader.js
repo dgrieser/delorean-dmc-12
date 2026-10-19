@@ -1,5 +1,6 @@
 // Decoder for the compact quantized scene container written by tools/pack.py.
 import * as THREE from 'three';
+import { fetchBinary } from './fetchbin.js';
 
 async function inflate(buf) {
   const u8 = new Uint8Array(buf);
@@ -12,31 +13,6 @@ async function inflate(buf) {
   }
   const { gunzipSync } = await import('https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js');
   return gunzipSync(new Uint8Array(buf));
-}
-
-async function fetchProgress(url, onProgress) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Could not load ${url} (${res.status})`);
-  const total = +res.headers.get('content-length') || 0;
-  if (!res.body || !total) {
-    const b = await res.arrayBuffer();
-    onProgress?.(1);
-    return b;
-  }
-  const reader = res.body.getReader();
-  const chunks = [];
-  let got = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    got += value.length;
-    onProgress?.(Math.min(1, got / total));
-  }
-  const out = new Uint8Array(got);
-  let o = 0;
-  for (const c of chunks) { out.set(c, o); o += c.length; }
-  return out.buffer;
 }
 
 // undo delta + zigzag + byte planes -> Uint16 values (n * k)
@@ -145,7 +121,7 @@ export function buildGeometry(m, bytes) {
 export async function loadPacked(base, makeMaterial, onProgress) {
   const [header, raw] = await Promise.all([
     fetch(base + '.json').then(r => { if (!r.ok) throw new Error('Could not load ' + base + '.json'); return r.json(); }),
-    fetchProgress(base + '.bin', onProgress),
+    fetchBinary(base + '.bin', onProgress),
   ]);
   const bytes = await inflate(raw);
   const objs = header.nodes.map(n => {
