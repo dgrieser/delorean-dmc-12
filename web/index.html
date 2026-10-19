@@ -1,0 +1,218 @@
+<meta charset="utf-8">
+<title>DMC-12 Garage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: full-bleed 3D stage; brand top-left, live readout bottom-left, control rack on the right
+     (bottom sheet on phones). Single deliberate dark look: graphite glass over the scene. */
+  :root {
+    --stage: #07080a;
+    --glass: rgba(14, 16, 19, 0.74);
+    --glass-hi: rgba(28, 31, 36, 0.86);
+    --line: rgba(196, 202, 208, 0.14);
+    --steel: #c7ccd1;
+    --fg: #e9ecef;
+    --muted: #8d949b;
+    --amber: #ffb02e;
+    --red: #ff5b4d;
+    --green: #47e48a;
+    --font-display: "Michroma", "Eurostile", "Arial Black", sans-serif;
+    --font-ui: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; background: var(--stage); color: var(--fg); overflow: hidden; font-family: var(--font-ui); }
+  body { padding-left: max(0px, env(safe-area-inset-left, 0px)); padding-right: max(0px, env(safe-area-inset-right, 0px)); }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+
+  .brand { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(14px + env(safe-area-inset-top, 0px)); pointer-events: none; }
+  .brand h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 22px; letter-spacing: 0.32em; color: var(--steel); text-shadow: 0 1px 12px rgba(0,0,0,.6); }
+  .brand p { margin: 6px 0 0; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+  .rack { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    width: 304px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-right: 2px; }
+  .rack.collapsed { display: none; }
+  .sec { background: var(--glass); backdrop-filter: blur(14px) saturate(1.1); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 12px; }
+  .sec h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; }
+  .sec h2 small { font-family: var(--font-data); font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--steel); }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .row + .row { margin-top: 6px; }
+  .seg { display: flex; flex: 1 1 100%; background: rgba(0,0,0,0.35); border: 1px solid var(--line); border-radius: 7px; padding: 2px; gap: 2px; }
+  button { font: 600 13px/1 var(--font-ui); letter-spacing: 0.04em; color: var(--fg); background: rgba(255,255,255,0.05); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 9px; cursor: pointer; flex: 1 1 auto; min-width: 0; white-space: nowrap; transition: background .12s, color .12s, border-color .12s; touch-action: manipulation; }
+  .seg button { border: 0; background: transparent; padding: 7px 4px; }
+  button:hover { background: rgba(255,255,255,0.10); }
+  button:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+  button[aria-pressed="true"] { background: rgba(255,176,46,0.16); color: var(--amber); border-color: rgba(255,176,46,0.45); }
+  .seg button[aria-pressed="true"] { background: var(--glass-hi); color: var(--amber); box-shadow: inset 0 0 0 1px rgba(255,176,46,0.35); }
+  button.hold:active, button.hold.active { background: rgba(255,91,77,0.22); color: #ffd7d2; border-color: rgba(255,91,77,0.5); }
+  button.blink { color: var(--green); border-color: rgba(71,228,138,0.5); }
+  .key { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+  .status { font-family: var(--font-data); font-size: 12px; color: var(--muted); margin-top: 8px; display: flex; gap: 10px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+  .status b { color: var(--fg); font-weight: 500; }
+  label.tog { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+
+  .hud { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(4, auto); gap: 4px 18px;
+    background: var(--glass); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    font-family: var(--font-data); font-variant-numeric: tabular-nums; pointer-events: none; }
+  .hud div { display: flex; flex-direction: column; }
+  .hud span { font-family: var(--font-ui); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .hud b { font-weight: 500; font-size: 18px; color: var(--fg); }
+  .hud b.big { font-size: 26px; }
+  .hud .warn { color: var(--red); }
+
+  .tools { position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: none; gap: 6px; }
+  .fab { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: max(324px, calc(env(safe-area-inset-right, 0px) + 324px)); display: flex; gap: 6px; }
+  .fab button { flex: 0 0 auto; background: var(--glass); backdrop-filter: blur(10px); padding: 8px 11px; }
+  .rack.collapsed ~ .fab { right: max(12px, env(safe-area-inset-right, 0px)); }
+
+  #help { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(4,5,6,0.6); backdrop-filter: blur(6px); z-index: 20; padding: 16px; }
+  #help .card { max-width: 640px; width: 100%; background: var(--glass-hi); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; max-height: 86vh; overflow: auto; }
+  #help h3 { margin: 0 0 4px; font-family: var(--font-display); font-weight: 400; letter-spacing: 0.2em; font-size: 15px; color: var(--steel); }
+  #help p { color: var(--muted); margin: 0 0 14px; font-size: 14px; line-height: 1.45; max-width: 60ch; }
+  #help dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
+  #help dt { font-family: var(--font-data); color: var(--amber); font-size: 13px; }
+  #help dd { margin: 0; color: var(--fg); }
+
+  #loader { position: fixed; inset: 0; display: grid; place-items: center; background: var(--stage); z-index: 30; transition: opacity .6s; }
+  #loader.done { opacity: 0; pointer-events: none; }
+  #loader .w { width: min(320px, 80vw); text-align: center; }
+  #loader h1 { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.42em; color: var(--steel); font-size: 26px; margin: 0 0 18px; padding-left: 0.42em; }
+  #loader .bar { height: 2px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+  #loader .bar i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: linear-gradient(90deg, #8d949b, #e9ecef); transition: width .2s; }
+  #loader p { font-size: 13px; color: var(--muted); letter-spacing: 0.08em; margin: 12px 0 0; font-family: var(--font-data); }
+  #note { position: fixed; left: 50%; transform: translateX(-50%); top: calc(16px + env(safe-area-inset-top, 0px)); background: var(--glass-hi); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 14px; font-size: 14px; color: var(--fg); z-index: 15; }
+  #err { position: fixed; left: 16px; right: 16px; bottom: 90px; color: var(--red); font: 14px var(--font-ui); text-align: center; }
+
+  @media (max-width: 720px) {
+    .brand h1 { font-size: 17px; }
+    .brand p { display: none; }
+    .rack { top: auto; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); width: auto; height: 44vh; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+    .hud { bottom: auto; top: calc(48px + env(safe-area-inset-top, 0px)); grid-template-columns: repeat(4, auto); padding: 6px 10px; gap: 2px 10px; }
+    .hud b { font-size: 14px; } .hud b.big { font-size: 18px; }
+    .fab { right: max(8px, env(safe-area-inset-right, 0px)); top: calc(10px + env(safe-area-inset-top, 0px)); }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<canvas id="view" tabindex="0" aria-label="3D view of the DeLorean DMC-12"></canvas>
+
+<div class="brand"><h1>DMC-12</h1><p>Stainless · PRV 2.85 L V6 · 1981–1983</p></div>
+
+<div class="hud" id="hud" aria-live="off">
+  <div><span>Speed</span><b class="big" id="h-speed">0</b></div>
+  <div><span>RPM</span><b class="big" id="h-rpm">0</b></div>
+  <div><span>Gear</span><b class="big" id="h-gear">N</b></div>
+  <div><span>Engine</span><b id="h-eng">Off</b></div>
+  <div><span>Coolant</span><b id="h-temp">–</b></div>
+  <div><span>Oil</span><b id="h-oil">–</b></div>
+  <div><span>Volts</span><b id="h-volt">–</b></div>
+  <div><span>Fuel</span><b id="h-fuel">–</b></div>
+</div>
+
+<aside class="rack" id="rack" aria-label="Car controls">
+  <section class="sec">
+    <h2>View <small id="cam-name">Orbit</small></h2>
+    <div class="seg" data-group="cam">
+      <button data-cam="orbit" aria-pressed="true">Orbit</button><button data-cam="free">Free</button><button data-cam="driver">Driver</button><button data-cam="passenger">Passenger</button><button data-cam="cinematic">Cine</button>
+    </div>
+    <div class="row">
+      <button data-shot="engine">Engine bay</button><button data-shot="frunk">Front trunk</button><button data-shot="wheel">Wheel</button><button data-shot="cockpit">Cockpit</button>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Scene</h2>
+    <div class="seg" data-group="env"><button data-env="studio" aria-pressed="true">Studio</button><button data-env="day">Day</button><button data-env="night">Night</button></div>
+    <div class="row">
+      <div class="seg" data-group="trim" style="flex:1 1 60%"><button data-trim="grey" aria-pressed="true">Grey hide</button><button data-trim="black">Black hide</button></div>
+      <button id="snd" aria-pressed="false" style="flex:0 0 auto">Sound</button>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Body</h2>
+    <div class="row">
+      <button data-panel="doorL" aria-pressed="false">Driver door</button><button data-panel="doorR" aria-pressed="false">Passenger door</button>
+    </div>
+    <div class="row">
+      <button data-panel="hood" aria-pressed="false">Bonnet</button><button data-panel="lid" aria-pressed="false">Engine cover</button><button data-panel="fuel" aria-pressed="false">Fuel flap</button>
+    </div>
+    <div class="row">
+      <button data-toll="L" aria-pressed="false">Toll window L</button><button data-toll="R" aria-pressed="false">Toll window R</button>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Ignition <small id="eng-state">engine off</small></h2>
+    <div class="seg key" data-group="ign"><button data-ign="0" aria-pressed="true">Off</button><button data-ign="1">Acc</button><button data-ign="2">On</button><button data-ign="3" class="hold">Start</button></div>
+    <div class="row">
+      <button class="hold" id="throttle">Throttle</button><button class="hold" id="brake">Brake</button><button id="hbrake" aria-pressed="true">Handbrake</button>
+    </div>
+    <div class="row">
+      <div class="seg" data-group="gear"><button data-gear="R">R</button><button data-gear="N" aria-pressed="true">N</button><button data-gear="1">1</button><button data-gear="2">2</button><button data-gear="3">3</button><button data-gear="4">4</button><button data-gear="5">5</button></div>
+    </div>
+    <div class="row"><button id="drive" aria-pressed="false">Drive mode</button></div>
+  </section>
+
+  <section class="sec">
+    <h2>Lights</h2>
+    <div class="seg" data-group="lights"><button data-lights="0" aria-pressed="true">Off</button><button data-lights="1">Park</button><button data-lights="2">Low</button><button data-lights="3">High</button></div>
+    <div class="row">
+      <button id="turnL">◀ Turn</button><button id="hazard">Hazard</button><button id="turnR">Turn ▶</button>
+    </div>
+    <div class="row">
+      <button class="hold" id="flash">Flash</button>
+      <div class="seg" data-group="cabin" style="flex:1 1 60%"><button data-cabin="door" aria-pressed="true">Dome: door</button><button data-cabin="on">On</button><button data-cabin="off">Off</button></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Wipers</h2>
+    <div class="seg" data-group="wipe"><button data-wipe="off" aria-pressed="true">Off</button><button data-wipe="int">Int</button><button data-wipe="low">Low</button><button data-wipe="high">High</button></div>
+    <div class="row"><button class="hold" id="wash">Wash</button></div>
+  </section>
+</aside>
+
+<div class="fab"><button id="help-btn" aria-label="Keyboard shortcuts">? Keys</button><button id="rack-btn" aria-expanded="true">Hide panel</button></div>
+
+<div id="help" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <h3 id="help-title">Controls</h3>
+    <p>Drag to look around, scroll to zoom. In the seat views, drag turns your head and scroll changes the field of view. Turn the key to On, then hold Start until the V6 catches.</p>
+    <dl>
+      <dt>1 2 3 4 5</dt><dd>Orbit, free roam, driver, passenger, cinematic</dd>
+      <dt>W A S D · Q E</dt><dd>Free roam: move, down/up (Shift = fast)</dd>
+      <dt>O · P</dt><dd>Driver / passenger gull-wing door</dd>
+      <dt>H · T · Y</dt><dd>Bonnet · engine cover · fuel flap</dd>
+      <dt>[ · ]</dt><dd>Left / right toll window (ignition on)</dd>
+      <dt>K (hold)</dt><dd>Ignition: Off → Acc → On → Start. Shift+K switches off</dd>
+      <dt>↑ ↓</dt><dd>Throttle · brake pedal</dd>
+      <dt>← →</dt><dd>Steer</dd>
+      <dt>X · Z · N · R</dt><dd>Gear up · down · neutral · reverse</dd>
+      <dt>V</dt><dd>Handbrake</dd>
+      <dt>G</dt><dd>Drive mode (car moves under its own power)</dd>
+      <dt>L · J (hold)</dt><dd>Lights Off/Park/Low/High · flash high beams</dd>
+      <dt>, · . · /</dt><dd>Left / right indicator · hazards</dd>
+      <dt>I · U (hold)</dt><dd>Wiper speed · washer</dd>
+      <dt>B · M</dt><dd>Scene (studio/day/night) · sound</dd>
+      <dt>Tab</dt><dd>Show / hide the panel</dd>
+    </dl>
+    <div class="row" style="margin-top:16px"><button id="help-close">Close</button></div>
+  </div>
+</div>
+
+<div id="loader"><div class="w"><h1>DMC-12</h1><div class="bar"><i id="progress"></i></div><p id="load-msg">Loading body shell…</p></div></div>
+<div id="err" role="alert"></div>
+<div id="note" role="status" hidden></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="js/main.js"></script>

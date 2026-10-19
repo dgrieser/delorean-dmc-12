@@ -1,0 +1,9 @@
+tools/node_modules/
+tools/out/
+tools/wgltest/
+tools/model/__pycache__/
+tools/__pycache__/
+tools/tex/__pycache__/
+web/assets/dmc12_raw.glb
+web/assets/dmc12.glb
+*.pyc

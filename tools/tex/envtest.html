@@ -1,0 +1,41 @@
+<!doctype html><html><body style="margin:0;background:#000">
+<script type="importmap">{"imports":{"three":"/tools/node_modules/three/build/three.module.js","three/addons/":"/tools/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+const q = new URLSearchParams(location.search);
+const env = q.get('env') || 'studio';
+const W = innerWidth, H = innerHeight;
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(W, H); document.body.appendChild(r.domElement);
+r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = +(q.get('exp') || 1);
+const s = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(40, W / H, 0.05, 200);
+cam.position.set(0, 1.1, 4.2); cam.lookAt(0, 0.45, 0);
+const tl = new THREE.TextureLoader();
+const tex = (n, srgb) => { const t = tl.load('/web/assets/tex/' + n); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
+new RGBELoader().load(`/web/assets/env/${env}.hdr`, h => {
+  h.mapping = THREE.EquirectangularReflectionMapping;
+  const pm = new THREE.PMREMGenerator(r);
+  s.environment = pm.fromEquirectangular(h).texture;
+  s.background = h; s.backgroundBlurriness = 0.0;
+  const mats = [
+    new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: 0.02 }),
+    new THREE.MeshPhysicalMaterial({ color: 0xc8c9cb, metalness: 1, roughness: 0.28, anisotropy: 0.8,
+      normalMap: tex('brushed_n.png'), roughnessMap: tex('brushed_r.png') }),
+    new THREE.MeshPhysicalMaterial({ color: 0x5a5d62, metalness: 0, roughness: 0.55, normalMap: tex('leather_n.png'), roughnessMap: tex('leather_r.png') }),
+    new THREE.MeshPhysicalMaterial({ color: 0x888888, metalness: 0, roughness: 0.95, map: tex('carpet_c.png', true), normalMap: tex('carpet_n.png') }),
+    new THREE.MeshPhysicalMaterial({ color: 0x111111, metalness: 0, roughness: 0.4, normalMap: tex('plastic_grain_n.png') }),
+  ];
+  mats.forEach((m, i) => {
+    const g = new THREE.SphereGeometry(0.42, 96, 64); g.computeTangents();
+    const me = new THREE.Mesh(g, m); me.position.set(-2.2 + i * 1.1, 0.45, 0); s.add(me);
+  });
+  const box = new THREE.BoxGeometry(1.6, 0.5, 0.9);
+  const slab = new THREE.Mesh(box, mats[1]); slab.position.set(0, 0.25, 1.5); slab.rotation.y = 0.5; s.add(slab);
+  let n = 0;
+  const loop = () => { r.render(s, cam); if (done && ++n > 3) { document.title = 'READY'; return; } requestAnimationFrame(loop); };
+  loop();
+});
+let done = false;
+THREE.DefaultLoadingManager.onLoad = () => { done = true; };
+</script></body></html>
