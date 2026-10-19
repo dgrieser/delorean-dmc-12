@@ -240,14 +240,16 @@ export function createLibrary(opts = {}) {
   const lib = {};
 
   lib.Stainless = new THREE.MeshPhysicalMaterial({
-    // brushed: anisotropic lobe (rough across the grain, tighter along it) keeps reflections soft but readable
-    name: 'Stainless', color: lin(0.60, 0.60, 0.61), metalness: 1, roughness: 0.34,
+    // brushed grain lives in the normal / roughness maps; the lobe itself is isotropic: three.js's
+    // anisotropic IBL bends the lookup normal along the grain, which smears away the light-over-dark
+    // flank gradient the reference photos show
+    name: 'Stainless', color: lin(0.60, 0.60, 0.61), metalness: 1, roughness: 0.30,
     roughnessMap: brushedR, normalMap: brushedN, normalScale: new THREE.Vector2(0.08, 0.08),
-    anisotropy: 0.6, anisotropyRotation: Math.PI / 2, side: THREE.DoubleSide, envMapIntensity: 1.0,
+    side: THREE.DoubleSide, envMapIntensity: 1.0,
   });
   lib.Urethane = new THREE.MeshPhysicalMaterial({
     // satin charcoal urethane: picks up soft reflections that show the bumper's shape
-    name: 'Urethane', color: lin(0.034, 0.036, 0.039), metalness: 0, roughness: 0.46,
+    name: 'Urethane', color: lin(0.062, 0.064, 0.068), metalness: 0, roughness: 0.5,
     normalMap: grainN, normalScale: new THREE.Vector2(0.2, 0.2), clearcoat: 0.3, clearcoatRoughness: 0.32,
   });
   lib.Rubber = new THREE.MeshStandardMaterial({ name: 'Rubber', color: lin(0.010, 0.010, 0.011), roughness: 0.78 });
@@ -286,6 +288,19 @@ export function createLibrary(opts = {}) {
   lib.Tyre_Rubber = new THREE.MeshPhysicalMaterial({ name: 'Tyre_Rubber', color: lin(0.018, 0.018, 0.019), roughness: 0.86, sheen: 0.15, sheenRoughness: 0.8, sheenColor: lin(0.2, 0.2, 0.2) });
   lib.Wheel_Alloy = new THREE.MeshPhysicalMaterial({ name: 'Wheel_Alloy', color: lin(0.80, 0.80, 0.81), metalness: 1, roughness: 0.24, clearcoat: 0.6, clearcoatRoughness: 0.1 });
   lib.Wheel_SlotDark = new THREE.MeshStandardMaterial({ name: 'Wheel_SlotDark', color: lin(0.05, 0.05, 0.05), roughness: 0.6, metalness: 0.4 });
+  // Peter_D's "DeLorean wheels" (Sketchfab, CC BY 4.0): glTF PBR maps, UVs in glTF orientation,
+  // occlusion / roughness / metalness packed in R / G / B
+  const pdTex = (part, k) => { const t = tex(T + `pd_${part}_${k}.jpg`, { srgb: k === 'base' }); t.flipY = false; return t; };
+  const pdMat = (name, part, o = {}) => {
+    const orm = pdTex(part, 'orm');
+    return new THREE.MeshPhysicalMaterial({ name, map: pdTex(part, 'base'), normalMap: pdTex(part, 'normal'), aoMap: orm,
+      roughnessMap: orm, metalnessMap: orm, roughness: 1, metalness: 1, side: THREE.DoubleSide, ...o });
+  };
+  lib.Tyre_PD_F = pdMat('Tyre_PD_F', 'tyre_f', { metalness: 0, sheen: 0.12, sheenRoughness: 0.8, sheenColor: lin(0.2, 0.2, 0.2) });
+  lib.Tyre_PD_R = pdMat('Tyre_PD_R', 'tyre_r', { metalness: 0, sheen: 0.12, sheenRoughness: 0.8, sheenColor: lin(0.2, 0.2, 0.2) });
+  // the source albedo is a dull grey; the turbine faces on the reference car read bright silver
+  lib.Wheel_PD = pdMat('Wheel_PD', 'wheel', { aoMapIntensity: 0.74, roughness: 0.75, clearcoat: 0.35, clearcoatRoughness: 0.2 });
+  lib.Wheel_PD.color.setScalar(1.5);
   lib.Brake_Disc = new THREE.MeshStandardMaterial({ name: 'Brake_Disc', color: lin(0.42, 0.40, 0.38), metalness: 1, roughness: 0.48 });
   lib.Brake_Caliper = new THREE.MeshStandardMaterial({ name: 'Brake_Caliper', color: lin(0.03, 0.03, 0.03), roughness: 0.5 });
   lib.Lug_Chrome = lib.Chrome;

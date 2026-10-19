@@ -1,7 +1,7 @@
 """Extract all outer-shell parts of the body and save them as NPZ (+ a preview GLB)."""
 import sys, time, os
 import numpy as np
-from extract import extract, decimate, sdf_normals, orient_faces, project_to_surface, keep_faces, finish4
+from extract import extract, decimate, sdf_normals, orient_faces, project_to_surface, keep_faces, finish4, clip_level
 from sdf import smax, smin
 import body as B
 
@@ -41,7 +41,11 @@ def panel(region):
 
 
 def fixed(X, Y, Z):
-    return smax(B.shell(X, Y, Z), GAP / 2 - cut_all(X, Y, Z), ROLL)
+    d = smax(B.shell(X, Y, Z), GAP / 2 - cut_all(X, Y, Z), ROLL)
+    # the nose skin stops just below the airdam's top edge, hidden behind it (a cut in the field
+    # gives a clean edge; a face mask would leave a sawtooth in the line under the bumper)
+    nose = np.maximum(1.70 - X, Z - (B.FB_Z[0] - 0.03))
+    return smax(d, -nose, 0.004)
 
 
 def skin_mask(X, Y, Z):
@@ -59,11 +63,12 @@ PARTS = {
     'bumper_r': (B.rear_bumper, B.RBUMP_BMIN, B.RBUMP_BMAX, False),
     'rocker': (B.rocker, B.ROCKER_BMIN, B.ROCKER_BMAX, False),
     'airdam': (B.airdam, B.AIRDAM_BMIN, B.AIRDAM_BMAX, False),
+    'rvalance': (B.rear_valance, B.RVAL_BMIN, B.RVAL_BMAX, False),
 }
 
 
 BUDGET = {'body': 260000, 'hood': 40000, 'bumper_f': 40000, 'bumper_r': 42000, 'rocker': 10000, 'lid_skin': 1000,
-          'door_L': 45000, 'door_R': 45000, 'fuel_flap': 2500, 'airdam': 24000}
+          'door_L': 45000, 'door_R': 45000, 'fuel_flap': 2500, 'airdam': 24000, 'rvalance': 6000}
 
 
 # stainless panels: split long slivers (baked AO smears along them); dark/flat parts are left as is
@@ -75,13 +80,8 @@ def build(name, reduction=0.86):
     t = time.time()
     V, F = extract(f, a, b, H, verbose=False)
     if skin:
-        def m(x, y, z):
-            keep = skin_mask(x, y, z)
-            under = z < 0.285
-            # the nose skin below the front bumper's lower edge (z 0.336) would show as a steel lip
-            under |= (x > 1.70) & (z < 0.345)
-            return keep & ~under
-        V, F = keep_faces(V, F, m)
+        # skin down to DEPTH (the rolled edge walls) and nothing under the floor line, cut exactly
+        V, F = clip_level(V, F, lambda x, y, z: np.minimum(B.shell(x, y, z) + DEPTH, z - 0.285))
     V, F, N = finish4(f, V, F, BUDGET.get(name, 30000), int(os.environ.get('REFINE', '3')), max_edge=0.05 if name in SPLIT else None)
     np.savez_compressed(f'{OUT}/{name}.npz', V=V.astype(np.float32), F=F.astype(np.int32), N=N.astype(np.float32))
     print(f'{name}: {len(V)} verts {len(F)} faces {time.time() - t:.1f}s', flush=True)

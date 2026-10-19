@@ -2,22 +2,27 @@
 
 Frame: X forward, Y left, Z up, metres. Ground z=0, X=0 at mid wheelbase.
 Published figures used: length 4216 mm (166 in), wheelbase 2413 mm (95 in),
-height 1140 mm, width 1857 mm, track 1590/1588 mm, ground clearance 142/155 mm,
-tyres 195/60 HR14 front, 235/60 HR15 rear.
+height 1140 mm, width 1857 mm, track 1590/1588 mm, tyres 195/60 HR14 front, 235/60 HR15 rear.
+
+Stance: the studio reference car (ref/studio) sits STANCE lower over its wheels than a stock US
+car. The body is modelled in its stock frame; the wheel centres (and the arches around them)
+sit STANCE higher in that frame, and assemble.py lowers the whole car by STANCE so the tyres
+stand on z = 0.
 """
 import numpy as np
 from sdf import smin, smax, interp, cubic_interp, cyl_y, poly2d, box
 
 DEG = np.pi / 180
 X_FA, X_RA = 1.2065, -1.2065
-R_F, R_R = 0.292, 0.322          # loaded wheel-centre heights
-ARCH_F, ARCH_R = 0.372, 0.390
+STANCE = 0.06
+R_F, R_R = 0.292 + STANCE, 0.322 + STANCE    # wheel-centre heights in the body frame (loaded radius + stance)
+ARCH_F, ARCH_R = 0.315, 0.350                # ~2 cm clear of the tyres, as on the reference car
 TRACK_F, TRACK_R = 1.590, 1.588
 
 
 # ---- longitudinal control functions -------------------------------------------------
 def z_crease(X):
-    return interp(X, [-2.2, -1.2, 0.0, 1.2, 2.2], [0.640, 0.636, 0.626, 0.612, 0.598])
+    return interp(X, [-2.2, -1.2, 0.0, 1.2, 2.2], [0.610, 0.606, 0.596, 0.582, 0.568])
 
 
 def w_crease(X):
@@ -188,11 +193,19 @@ def bpillar_vents(X, Y, Z):
     return np.maximum(slot, -depth)
 
 
+def rear_slots(X, Y, Z):
+    """Row of slots in the stainless strip between the rear bumper and the lower valance."""
+    u = np.mod(Y + 0.045, 0.090) - 0.045
+    slots = np.maximum(_rbox2(u, Z - RB_SLOT_Z, 0.030, 0.0055, 0.004), np.abs(Y) - 0.62)
+    return np.maximum(slots, -((x_tail(Z) + 0.012) - X))
+
+
 def shell(X, Y, Z):
     d = smin(lower_body(X, Y, Z), greenhouse(X, Y, Z), 0.010)
     d = smax(d, -arch_cyl(X, Y, Z), 0.006)
     d = smax(d, -nose_recesses(X, Y, Z), 0.004)
     d = smax(d, -tail_recess(X, Y, Z), 0.005)
+    d = smax(d, -rear_slots(X, Y, Z), 0.002)
     d = smax(d, -bpillar_vents(X, Y, Z), 0.004)
     return d
 
@@ -301,26 +314,39 @@ def r_quarter(X, Y, Z):
 
 
 # ---- bumpers (grey urethane) -------------------------------------------------------------
+# Slim bands as on the reference car: the stainless nose / tail panels come down to them, they
+# wrap only ~0.2 m round the corners, and a stainless line separates them from the black
+# valances below.
+FB_Z = (0.420, 0.535)          # front bumper bottom / top (top rises 15 mm toward the corners)
+FB_X_SIDE = 1.80               # rear end of the front bumper along the flanks
+RB_Z = (0.440, 0.600)
+RB_X_SIDE = -1.84
+RB_SLOT_Z = 0.420              # centre of the slotted stainless strip under the rear bumper
+TURN_Z = 0.5 * (FB_Z[0] + FB_Z[1])
+
+
+def _wrap(yy, y0, y1):
+    t = np.clip((yy - y0) / (y1 - y0), 0, 1)
+    return t * t * (3 - 2 * t)
+
+
 def front_bumper(X, Y, Z):
     yy = np.abs(Y)
     wc = w_crease(X)
     zc = z_crease(X)
-    xb = 2.117 - 0.055 * (yy / 0.8) ** 2 - np.maximum(0.0, 0.37 - Z) ** 2 * 3.0
+    xb = 2.117 - 0.055 * (yy / 0.8) ** 2 - np.maximum(0.0, FB_Z[0] + 0.03 - Z) ** 2 * 3.0
     d_front = X - xb
     d_side = (yy - (wc + 0.010)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
-    t = np.clip((yy - 0.66) / 0.24, 0, 1)
-    ztop = 0.536 + (zc + 0.002 - 0.536) * (t * t * (3 - 2 * t))
-    d_top = Z - ztop
-    d_back = 1.50 - X
-    zb = 0.335 - 0.10 * np.clip((yy - 0.62) / 0.28, 0, 1)
-    d_bot = zb - Z
+    d_top = Z - (FB_Z[1] + 0.015 * _wrap(yy, 0.62, 0.90))
+    d_bot = FB_Z[0] - Z
+    d_back = FB_X_SIDE - X
     d = smax(d_front, d_side, 0.13)
-    d = smax(d, d_top, 0.010)
-    d = smax(d, d_bot, 0.02)
-    d = smax(d, d_back, 0.0)
+    d = smax(d, d_top, 0.008)
+    d = smax(d, d_bot, 0.010)
+    d = smax(d, d_back, 0.012)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_FA, R_F, ARCH_F), 0.55 - yy), 0.006)
     # turn-signal pockets
-    ts = _rbox2(yy - 0.585, Z - 0.455, 0.085, 0.028, 0.004)
+    ts = _rbox2(yy - 0.585, Z - TURN_Z, 0.085, 0.030, 0.004)
     pocket = np.maximum(ts, -(X - (xb - 0.012)))
     d = smax(d, -pocket, 0.003)
     return d
@@ -330,30 +356,39 @@ def rear_bumper(X, Y, Z):
     yy = np.abs(Y)
     wc = w_crease(X)
     zc = z_crease(X)
-    xb = -2.097 + 0.05 * (yy / 0.85) ** 2 + np.maximum(0.0, 0.395 - Z) * 0.30
+    xb = -2.097 + 0.05 * (yy / 0.85) ** 2 + np.maximum(0.0, RB_Z[0] + 0.03 - Z) * 0.30
     d_rear = xb - X
     d_side = (yy - (wc + 0.010)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
-    t = np.clip((yy - 0.70) / 0.2, 0, 1)
-    ztop = 0.578 + (zc + 0.002 - 0.578) * (t * t * (3 - 2 * t))
-    d_top = Z - ztop
-    d_front = X + 1.565
-    d_bot = 0.245 - Z
+    d_top = Z - (RB_Z[1] + 0.012 * _wrap(yy, 0.70, 0.90))
+    d_front = X - RB_X_SIDE
+    d_bot = RB_Z[0] - Z
     d = smax(d_rear, d_side, 0.11)
-    d = smax(d, d_top, 0.010)
-    d = smax(d, d_bot, 0.015)
-    d = smax(d, d_front, 0.0)
+    d = smax(d, d_top, 0.008)
+    d = smax(d, d_bot, 0.010)
+    d = smax(d, d_front, 0.012)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_RA, R_R, ARCH_R), 0.55 - yy), 0.006)
-    # slot row in the lower valance
-    u = np.mod(Y + 0.032, 0.064) - 0.032
-    slots = np.maximum(_rbox2(u, Z - 0.375, 0.022, 0.006, 0.003), yy - 0.28)
-    d = smax(d, -np.maximum(slots, -(xb + 0.01 - X)), 0.002)
     return d
 
 
-FBUMP_BMIN = (1.45, -0.96, 0.15)
-FBUMP_BMAX = (2.14, 0.96, 0.64)
-RBUMP_BMIN = (-2.12, -0.97, 0.22)
-RBUMP_BMAX = (-1.50, 0.97, 0.67)
+FBUMP_BMIN = (1.70, -0.96, 0.38)
+FBUMP_BMAX = (2.14, 0.96, 0.58)
+RBUMP_BMIN = (-2.12, -0.97, 0.40)
+RBUMP_BMAX = (-1.78, 0.97, 0.64)
+
+
+def rear_valance(X, Y, Z):
+    """Black lower valance across the tail, under the slotted strip, with exhaust cut-outs."""
+    yy = np.abs(Y)
+    xt = x_tail(Z)
+    d = np.maximum((xt - 0.006) - X, X - (xt + 0.10))
+    d = smax(d, yy - 0.80, 0.03)
+    d = smax(d, np.maximum(Z - (RB_SLOT_Z - 0.022), 0.262 - Z), 0.008)
+    tip = np.sqrt((yy - 0.540) ** 2 + (Z - 0.300) ** 2) - 0.034
+    return smax(d, -tip, 0.003)
+
+
+RVAL_BMIN = (-2.08, -0.86, 0.24)
+RVAL_BMAX = (-1.82, 0.86, 0.42)
 
 
 def rocker(X, Y, Z):
@@ -376,18 +411,18 @@ ROCKER_BMAX = (0.86, 0.95, 0.30)
 def airdam(X, Y, Z):
     """Black lower valance / spoiler under the front bumper with the full-width intake slot."""
     yy = np.abs(Y)
-    xb = 2.117 - 0.055 * (yy / 0.8) ** 2 - 0.028 - np.maximum(0.0, 0.30 - Z) * 0.35
+    xb = 2.117 - 0.055 * (yy / 0.8) ** 2 - 0.028 - np.maximum(0.0, 0.34 - Z) * 0.35
     d = X - xb
     d = smax(d, (yy - (w_crease(X) - 0.03)), 0.10)
-    d = smax(d, np.maximum(Z - 0.36, 0.186 - Z), 0.012)
+    d = smax(d, np.maximum(Z - (FB_Z[0] - 0.020), 0.262 - Z), 0.012)
     d = smax(d, 1.72 - X, 0.0)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_FA, R_F, ARCH_F + 0.01), 0.55 - yy), 0.01)
-    slot = _rbox2(Y, Z - 0.272, 0.56, 0.034, 0.012)
+    slot = _rbox2(Y, Z - 0.335, 0.56, 0.038, 0.012)
     d = smax(d, -np.maximum(slot, -(X - (xb - 0.05))), 0.004)
     # vanes inside the slot
-    v = np.maximum(np.abs(np.mod(Z - 0.272 + 0.009, 0.018) - 0.009) - 0.0022, np.maximum(slot - 0.002, np.abs(X - (xb - 0.03)) - 0.012))
+    v = np.maximum(np.abs(np.mod(Z - 0.335 + 0.009, 0.018) - 0.009) - 0.0022, np.maximum(slot - 0.002, np.abs(X - (xb - 0.03)) - 0.012))
     return np.minimum(d, v)
 
 
-AIRDAM_BMIN = (1.70, -0.93, 0.17)
-AIRDAM_BMAX = (2.10, 0.93, 0.38)
+AIRDAM_BMIN = (1.70, -0.93, 0.24)
+AIRDAM_BMAX = (2.10, 0.93, 0.42)

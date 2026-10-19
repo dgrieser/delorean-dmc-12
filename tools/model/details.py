@@ -138,7 +138,7 @@ def grille_badge_letters(X, Y, Z):
 def front_turn_lens(X, Y, Z):
     yy = np.abs(Y)
     xb = 2.117 - 0.055 * (yy / 0.8) ** 2
-    r = _rbox2(yy - 0.585, Z - 0.455, 0.083, 0.026, 0.004)
+    r = _rbox2(yy - 0.585, Z - B.TURN_Z, 0.083, 0.028, 0.004)
     face = xb - 0.004
     d = np.maximum(X - face, (face - 0.006) - X)
     return smax(d, r, 0.0015)
@@ -147,7 +147,8 @@ def front_turn_lens(X, Y, Z):
 def side_marker_front(X, Y, Z):
     yy = np.abs(Y)
     w = B.w_crease(X) + 0.010
-    r = _rbox2(X - 1.73, Z - 0.572, 0.10, 0.011, 0.006)
+    # on the stainless wing ahead of the arch, in line with the rubbing strip
+    r = _rbox2(X - 1.67, Z - B.z_crease(X), 0.085, 0.011, 0.006)
     d = np.maximum(yy - (w + 0.003), (w - 0.006) - yy)
     return smax(d, r, 0.0015)
 
@@ -155,7 +156,7 @@ def side_marker_front(X, Y, Z):
 def side_marker_rear(X, Y, Z):
     yy = np.abs(Y)
     w = B.w_crease(X) + 0.010
-    r = _rbox2(X + 1.80, Z - 0.605, 0.085, 0.011, 0.006)
+    r = _rbox2(X + 1.735, Z - B.z_crease(X), 0.075, 0.011, 0.006)
     d = np.maximum(yy - (w + 0.003), (w - 0.006) - yy)
     return smax(d, r, 0.0015)
 
@@ -315,7 +316,8 @@ def well_liner(X, Y, Z, front=True):
 
 def underbody(X, Y, Z):
     yy = np.abs(Y)
-    pan = np.maximum(np.abs(Z - 0.215) - 0.006, np.maximum(yy - 0.88, np.maximum(X - 2.02, -1.98 - X)))
+    # kept inside the tucked-in lower flanks so no edge shows past the sills or bumpers
+    pan = np.maximum(np.abs(Z - 0.215) - 0.006, np.maximum(yy - 0.80, np.maximum(X - 1.98, -1.94 - X)))
     pan = smax(pan, -B.arch_cyl(X, Y, Z, 0.02), 0.002)
     # backbone tunnel
     bb = rbox3(X, Y, Z, (0.1, 0, 0.24), (1.5, 0.11, 0.03), 0.02)
@@ -376,7 +378,7 @@ def bumper_letters(X, Y, Z):
     yy = Y
     H = 0.050
     u = (-(Y - 0.38)) / H + DEL_W / 2         # reads left->right when seen from behind
-    v = (Z - 0.488) / H
+    v = (Z - 0.5 * (B.RB_Z[0] + B.RB_Z[1])) / H
     d = np.full(np.shape(X), 1.0)
     for adds, subs in DEL_GLYPHS:
         g = np.full(np.shape(X), 1.0)

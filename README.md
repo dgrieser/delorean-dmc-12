@@ -1,9 +1,10 @@
 # delorean-dmc-12
 
-An interactive, browser-based DeLorean DMC-12. The model is built from scratch in code, no
-downloaded meshes. Signed distance fields sculpt it, Blender assembles it and bakes ambient
-occlusion, and three.js renders it with brushed-stainless PBR materials. Doors, bonnet, engine
-cover, lights, gauges, wipers and the engine are all simulated.
+An interactive, browser-based DeLorean DMC-12. The body, cabin and engine bay are built from
+scratch in code: signed distance fields sculpt them, Blender assembles them and bakes ambient
+occlusion, and three.js renders them with brushed-stainless PBR materials. The wheels and tyres
+are Peter_D's CC BY model (see Credits). Doors, bonnet, engine cover, lights, gauges, wipers and
+the engine are all simulated.
 
 ## Run it
 
@@ -27,7 +28,7 @@ three.js 0.170 loads from jsDelivr, so the page needs internet access. Add `?env
 | **Lights** | Park, low and high beam (spot lights with a beam-pattern cookie and cut-off), flash-to-pass, indicators and hazards at 85 flashes/min with relay clicks, brake and reverse lamps, side markers, dome and door courtesy lamps. The bulbs have warm-up and cool-down time. |
 | **Wipers** | Interval, low and high, plus washer. The tandem arms follow the curved windscreen. |
 | **Driving** | Drive mode moves the car under its own power. The torque curve, 5-speed gear ratios, final drive, drag, rolling resistance, traction limit, Ackermann steering and body pitch/roll come from published DMC-12 figures. |
-| **Scenes** | Photographic HDRI environments: studio cyclorama (polished floor with planar reflection), day (sunlit open lot) and night (city square under street lamps), each with a shadow-casting key light measured from the photo. The car's own lamps light the ground. |
+| **Scenes** | Studio: a white cyclorama under a car-photography light set (overhead softbox, strip boxes), like the reference photos. Day (sunlit open lot) and night (city square under street lamps) are photographic HDRIs with a shadow-casting key light measured from the photo. The car's own lamps light the ground. |
 | **Trim** | Grey or black hide interior. |
 
 Press `?` in the app for the full keyboard map. The control panel has a latch on top: drag it
@@ -45,11 +46,13 @@ tools/model/details.py           quad sealed-beam headlamps, grille + DMC badge,
 tools/model/interior.py          seats, dash + binnacle, console, door cards, steering wheel,
                                  pedals, shifter, handbrake, carpets, seals
 tools/model/engine.py            PRV V6 engine bay, front luggage compartment
-tools/model/wheels.py            Blender: turbine wheels, tyres with tread, brakes
+tools/model/build_edges.py       door edge walls and aperture jambs
+tools/model/wheels.py            Blender: procedural wheel assemblies, discs, calipers
+tools/model/wheels_pd.py         Blender: fits Peter_D's wheels and tyres into those assemblies
 tools/model/assemble.py          Blender: assembles all parts, pivots, bakes two AO sets
                                  (doors shut / open) into vertex attributes, exports glTF
 tools/pack.py                    quantised, delta-coded, gzip container (web/assets/*.bin)
-tools/tex/                       procedural textures; prep_hdri.py prepares the HDRIs
+tools/tex/                       procedural textures; prep_hdri.py (day/night HDRIs), studio_env.py
 web/js/                          viewer: materials, environment, car rig, lamps, cluster,
                                  vehicle simulation, procedural engine audio, cameras, UI
 ```
@@ -60,8 +63,8 @@ To rebuild the assets (needs Blender 4, Python with numpy/scipy/scikit-image/tri
 ```bash
 cd tools/model
 python3 build_shell.py && python3 build_trim.py && python3 build_details.py
-python3 build_interior.py && python3 build_engine.py
-blender -b -P wheels.py
+python3 build_interior.py && python3 build_engine.py && python3 build_edges.py
+blender -b -P wheels_pd.py -- <downloaded "DeLorean wheels" glb>   # or wheels.py for the procedural set
 python3 manifest.py
 blender -b -P assemble.py -- ../../web/assets/dmc12_raw.glb --ao
 cd .. && python3 pack.py ../web/assets/dmc12_raw.glb ../web/assets/car
@@ -71,9 +74,17 @@ python3 pack.py out/wheels.glb ../web/assets/wheels
 `python3 tools/b64split.py <dir>` writes a text-only copy of `web/` (binary payloads as base64
 chunks, which `web/js/fetchbin.js` falls back to) for hosts that only serve text and images.
 
-The HDRI environments are CC0 from [Poly Haven](https://polyhaven.com) (Cyclorama Hard Light,
-Driving School, Hansaplatz); see `web/assets/env/NOTES.md`.
-
 Dimensions follow published figures: length 4216 mm, wheelbase 2413 mm, height 1140 mm,
 track 1590/1588 mm, 195/60 R14 front and 235/60 R15 rear tyres. The photos in `ref/` were
-used for proportions and details.
+used for proportions and details; the studio set in `ref/studio/` (see its README) sets the
+stance, arch fit, bumper bands and strip line. That car sits about 6 cm lower over its wheels than
+a stock US car, and the model follows it (`STANCE` in `tools/model/body.py`).
+
+## Credits
+
+- Wheels and tyres: ["DeLorean wheels"](https://sketchfab.com/3d-models/delorean-wheels-813336c9381a4772a8a1ed1e7c6fae42)
+  by [Peter_D](https://sketchfab.com/better_peter), licensed
+  [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). Decimated for the web and fitted to
+  the car's hubs and brakes (`tools/model/wheels_pd.py`); textures re-encoded as JPEG.
+- Day and night HDRI environments: CC0 from [Poly Haven](https://polyhaven.com) (Driving School,
+  Hansaplatz); see `web/assets/env/NOTES.md`. The studio environment is generated.
