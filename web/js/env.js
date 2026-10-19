@@ -9,7 +9,7 @@ export const PRESETS = {
   studio: { hdr: 'studio.hdr', exposure: 0.9, envIntensity: 1.0, sun: { dir: [0.15, 1, 0.25], color: 0xfff6ee, intensity: 1.2, radius: 6 },
             ground: { kind: 'studio', color: [0.012, 0.013, 0.015], rough: 0.3, refl: 0.55, env: 0.22 }, bg: { intensity: 0.3, blur: 0.45 }, bloom: 0.18, fog: null },
   day: { hdr: 'day.hdr', exposure: 0.78, envIntensity: 1.0, sun: { dir: [0.6275, 0.5736, 0.5265], color: 0xfff0dc, intensity: 3.6, radius: 2 },
-         ground: { kind: 'asphalt', color: [0.78, 0.75, 0.72], rough: 0.92, refl: 0.0, env: 0.8 }, bg: { intensity: 1, blur: 0 }, bloom: 0.10, fog: [60, 420] },
+         ground: { kind: 'asphalt', color: [0.44, 0.42, 0.40], rough: 0.92, refl: 0.0, env: 0.7 }, bg: { intensity: 1, blur: 0 }, bloom: 0.10, fog: [60, 420] },
   night: { hdr: 'night.hdr', exposure: 1.05, envIntensity: 1.3, sun: { dir: [-0.3, 0.8, -0.5], color: 0x9fb4ff, intensity: 0.06, radius: 4 },
            ground: { kind: 'asphalt', color: [0.32, 0.32, 0.33], rough: 0.38, refl: 0.42, env: 1.0 }, bg: { intensity: 1, blur: 0 }, bloom: 0.55, fog: [40, 380] },
 };
