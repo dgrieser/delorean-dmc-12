@@ -5,14 +5,21 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { fetchBinary } from './fetchbin.js';
 import { HorizontalBlurShader } from 'three/addons/shaders/HorizontalBlurShader.js';
 import { VerticalBlurShader } from 'three/addons/shaders/VerticalBlurShader.js';
+import { GroundedSkybox } from 'three/addons/objects/GroundedSkybox.js';
 
+// Photographic HDRIs (CC0, Poly Haven): cyclorama_hard_light, driving_school, hansaplatz.
+// The over-bright key light (sun / lamp / softbox core) was clamped out of each map by
+// tools/tex/prep_hdri.py; its measured direction and irradiance (assets/env/env.json) drive a
+// shadow-casting DirectionalLight instead. Day and night use a ground-projected 4k backdrop.
 export const PRESETS = {
-  studio: { hdr: 'studio.hdr', exposure: 0.9, envIntensity: 1.0, sun: { dir: [0.15, 1, 0.25], color: 0xfff6ee, intensity: 1.2, radius: 6 },
-            ground: { kind: 'studio', color: [0.012, 0.013, 0.015], rough: 0.3, refl: 0.55, env: 0.22 }, bg: { intensity: 0.3, blur: 0.45 }, bloom: 0.18, fog: null },
-  day: { hdr: 'day.hdr', exposure: 0.78, envIntensity: 1.0, sun: { dir: [0.6275, 0.5736, 0.5265], color: 0xfff0dc, intensity: 3.6, radius: 2 },
-         ground: { kind: 'asphalt', color: [0.44, 0.42, 0.40], rough: 0.92, refl: 0.0, env: 0.7 }, bg: { intensity: 1, blur: 0 }, bloom: 0.10, fog: [60, 420] },
-  night: { hdr: 'night.hdr', exposure: 1.05, envIntensity: 1.3, sun: { dir: [-0.3, 0.8, -0.5], color: 0x9fb4ff, intensity: 0.06, radius: 4 },
-           ground: { kind: 'asphalt', color: [0.32, 0.32, 0.33], rough: 0.38, refl: 0.42, env: 1.0 }, bg: { intensity: 1, blur: 0 }, bloom: 0.55, fog: [40, 380] },
+  studio: { hdr: 'studio.hdr', exposure: 0.9, envIntensity: 1.0, keyScale: 0.6, shadowRadius: 6, keyAzimuth: 55,
+            ground: { kind: 'studio', color: [0.010, 0.011, 0.012], rough: 0.28, refl: 0.6, env: 0.3 }, bg: { intensity: 0.16, blur: 0.55 }, bloom: 0.2 },
+  day: { hdr: 'day.hdr', exposure: 1.0, envIntensity: 1.0, keyScale: 1.0, shadowRadius: 2,
+         backdrop: { jpg: 'day_bg.jpg', height: 1.65, radius: 140 },
+         ground: { kind: 'asphalt', color: [0.62, 0.60, 0.58], rough: 0.92, refl: 0.0, env: 0.8 }, bg: { intensity: 1, blur: 0 }, bloom: 0.08, fog: [70, 480] },
+  night: { hdr: 'night.hdr', exposure: 1.0, envIntensity: 1.0, keyScale: 0.8, shadowRadius: 5,
+           backdrop: { jpg: 'night_bg.jpg', height: 1.65, radius: 90 },
+           ground: { kind: 'asphalt', color: [0.34, 0.34, 0.35], rough: 0.55, refl: 0.0, env: 1.0 }, bg: { intensity: 1, blur: 0 }, bloom: 0.5, fog: [40, 380] },
 };
 
 // procedural asphalt (albedo detail + roughness variation), tiles every ASPH_TILE metres
@@ -74,6 +81,7 @@ function bayLines() {
 }
 
 export class Environment {
+  get presets() { return PRESETS; }
   constructor(renderer, scene, opts = {}) {
     this.lite = !!opts.lite;
     this.renderer = renderer;
@@ -82,8 +90,10 @@ export class Environment {
     this.cache = {};
     this.group = new THREE.Group();
     scene.add(this.group);
+    this.meta = fetch('assets/env/env.json').then(r => r.json()).catch(() => ({}));
+    this.meta.then(m => { this.metaCache = m; });
 
-    // sun
+    // key light (sun / lamp / softbox), shadow casting
     this.sun = new THREE.DirectionalLight(0xffffff, 3);
     this.sun.castShadow = true;
     const s = this.sun.shadow;
@@ -95,25 +105,52 @@ export class Environment {
     this.sun.target = this.sunTarget;
     scene.add(this.sun, this.sunTarget);
 
-    // one ground for every scene: lit by the sun and the car's lamps, planar reflection when wet/polished
+    // studio floor / drive-mode asphalt: lit ground with optional planar reflection
     this.asphalt = asphaltTextures();
     this.floor = makeGlossFloor(renderer);
     this.group.add(this.floor.mesh);
     this.bay = bayLines();
+    this.bay.visible = false;
     this.group.add(this.bay);
-    // compatibility handles used by main.js
-    this.shadowPlane = this.floor.mesh;
-    this.lampGround = this.floor.mesh;
+
+    // projected backdrop scenes: shadow catcher + a ground that only the car's own lamps light
+    const cm = new THREE.ShadowMaterial({ opacity: 0.6, color: 0x000000, depthWrite: false });
+    cm.onBeforeCompile = sh => {
+      // only the key light's shadow: the headlight spots' maps must not darken the photo ground
+      sh.fragmentShader = sh.fragmentShader.replace('#include <shadowmask_pars_fragment>',
+        THREE.ShaderChunk.shadowmask_pars_fragment.replace('#if NUM_SPOT_LIGHT_SHADOWS > 0', '#if 0').replace('#if NUM_POINT_LIGHT_SHADOWS > 0', '#if 0'));
+    };
+    this.catcher = new THREE.Mesh(new THREE.CircleGeometry(30, 64), cm);
+    this.catcher.rotation.x = -Math.PI / 2;
+    this.catcher.position.y = 0.001;
+    this.catcher.receiveShadow = true;
+    this.catcher.renderOrder = 1;
+    this.group.add(this.catcher);
+    const lg = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(0.09, 0.09, 0.095, THREE.LinearSRGBColorSpace), roughness: 0.5,
+      envMapIntensity: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+    lg.onBeforeCompile = sh => {
+      // directional (sun / lamp) light is already in the photo: only spot + point lights add
+      sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_begin>',
+        THREE.ShaderChunk.lights_fragment_begin.replace('#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )', '#if 0'));
+    };
+    this.lampGround = new THREE.Mesh(new THREE.CircleGeometry(40, 64), lg);
+    this.lampGround.rotation.x = -Math.PI / 2;
+    this.lampGround.position.y = 0.0015;
+    this.lampGround.renderOrder = 2;
+    this.group.add(this.lampGround);
+    this.shadowPlane = this.catcher;
 
     this.contact = new ContactShadow(renderer, 6.0, 3.2, 1024);
     this.group.add(this.contact.mesh);
     this.skybox = null;
     this.current = null;
+    this.driving = false;
   }
 
   async load(name) {
     if (this.cache[name]) return this.cache[name];
-    const buf = await fetchBinary('assets/env/' + PRESETS[name].hdr);
+    const P = PRESETS[name];
+    const buf = await fetchBinary('assets/env/' + P.hdr);
     const d = new RGBELoader().setDataType(THREE.HalfFloatType).parse(buf);
     const hdr = new THREE.DataTexture(d.data, d.width, d.height, THREE.RGBAFormat, d.type);
     hdr.colorSpace = THREE.LinearSRGBColorSpace;
@@ -123,22 +160,79 @@ export class Environment {
     hdr.needsUpdate = true;
     hdr.mapping = THREE.EquirectangularReflectionMapping;
     const env = this.pmrem.fromEquirectangular(hdr).texture;
-    this.cache[name] = { hdr, env };
+    let bg = null;
+    if (P.backdrop) {
+      bg = await new THREE.TextureLoader().loadAsync('assets/env/' + P.backdrop.jpg);
+      bg.colorSpace = THREE.SRGBColorSpace;
+      bg.mapping = THREE.EquirectangularReflectionMapping;
+      bg.anisotropy = 8;
+    }
+    this.cache[name] = { hdr, env, bg };
     return this.cache[name];
   }
 
   async set(name, extras = {}) {
     const P = PRESETS[name];
-    const { hdr, env } = await this.load(name);
+    const [{ hdr, env, bg }, meta] = await Promise.all([this.load(name), this.meta]);
+    const M = P.metaOverride || meta[name] || {};
     const scene = this.scene;
     scene.environment = env;
     scene.environmentIntensity = P.envIntensity;
     this.renderer.toneMappingExposure = P.exposure * (extras.exposureScale || 1);
-    scene.background = hdr;
-    scene.backgroundBlurriness = P.bg.blur;
-    scene.backgroundIntensity = P.bg.intensity;
-    // ground material
+    // key light from the measured HDR data
+    let kd = new THREE.Vector3(...(M.keyDir || [0.3, 0.9, 0.3])).normalize();
+    // optionally turn the panorama so the key light falls on the default view (studio)
+    let rot = 0;
+    if (P.keyAzimuth !== undefined) rot = Math.atan2(kd.z, kd.x) - P.keyAzimuth * Math.PI / 180;
+    scene.environmentRotation.set(0, rot, 0);
+    scene.backgroundRotation.set(0, rot, 0);
+    kd.applyAxisAngle(new THREE.Vector3(0, 1, 0), rot);
+    kd = kd.toArray();
+    const E = M.keyIrradiance || [3, 3, 3];
+    const lumE = E[0] * 0.2126 + E[1] * 0.7152 + E[2] * 0.0722;
+    P.sun = { dir: kd };
+    this.sun.color.setRGB(E[0] / lumE, E[1] / lumE, E[2] / lumE, THREE.LinearSRGBColorSpace);
+    this.sun.intensity = lumE * P.keyScale;
+    this.sun.shadow.radius = P.shadowRadius;
+    this.sun.position.copy(new THREE.Vector3(...kd)).multiplyScalar(15);
+    this.current = name;
+    this.preset = P;
+    this.bgTex = bg;
+    this.hdrTex = hdr;
+    this.applyGround();
+    return P;
+  }
+
+  setDriving(on) { this.driving = on; if (this.preset) this.applyGround(); }
+
+  applyGround() {
+    const P = this.preset, scene = this.scene;
+    const projected = !!(P.backdrop && this.bgTex && !this.driving);
+    if (this.skybox) { this.group.remove(this.skybox); this.skybox.geometry.dispose(); this.skybox.material.dispose(); this.skybox = null; }
+    if (projected) {
+      const B = P.backdrop;
+      this.skybox = new GroundedSkybox(this.bgTex, B.height, B.radius, 96);
+      this.skybox.position.y = B.height - 0.001;
+      // the jpeg holds srgb(L * k): scale back to scene radiance so exposure / tone mapping match
+      const k = 1 / ((P.metaOverride?.backdropScale) || (this.metaCache?.[this.current]?.backdropScale) || (this.current === 'day' ? 0.32 : 1.6));
+      this.skybox.material.color.setScalar(k);
+      this.skybox.renderOrder = -1;
+      this.group.add(this.skybox);
+      scene.background = null;
+      scene.fog = null;
+    } else {
+      scene.background = this.hdrTex;
+      scene.backgroundBlurriness = P.bg.blur;
+      scene.backgroundIntensity = P.bg.intensity;
+      if (P.fog && this.driving) {
+        const hc = horizonColor(this.hdrTex);
+        scene.fog = new THREE.Fog(new THREE.Color().setRGB(hc[0], hc[1], hc[2], THREE.LinearSRGBColorSpace), P.fog[0], P.fog[1]);
+      } else scene.fog = null;
+    }
+    // floor: studio gloss always; asphalt only while driving through a projected scene
     const G = P.ground, fm = this.floor.mesh.material;
+    const showFloor = G.kind === 'studio' || !projected;
+    this.floor.mesh.visible = showFloor;
     fm.color.setRGB(...G.color, THREE.LinearSRGBColorSpace);
     fm.roughness = G.rough;
     fm.envMapIntensity = G.env;
@@ -148,20 +242,10 @@ export class Environment {
     fm.needsUpdate = true;
     this.floor.uniforms.uReflStrength.value = this.lite ? 0 : G.refl;
     this.floor.uniforms.uWorldUV.value = asph ? 1 / ASPH_TILE : 0;
-    this.bay.visible = asph;
-    // fog blends the ground into the horizon colour of the panorama
-    if (P.fog) {
-      const hc = horizonColor(hdr);
-      scene.fog = new THREE.Fog(new THREE.Color().setRGB(hc[0], hc[1], hc[2], THREE.LinearSRGBColorSpace), P.fog[0], P.fog[1]);
-    } else scene.fog = null;
-    const d = new THREE.Vector3(...P.sun.dir).normalize();
-    this.sun.position.copy(d).multiplyScalar(15);
-    this.sun.color.set(P.sun.color);
-    this.sun.intensity = P.sun.intensity;
-    this.sun.shadow.radius = P.sun.radius;
-    this.current = name;
-    this.preset = P;
-    return P;
+    this.catcher.visible = projected;
+    this.catcher.material.opacity = this.current === 'night' ? 0.45 : 0.62;
+    this.lampGround.visible = projected && this.current === 'night';
+    this.bay.visible = false;
   }
 }
 

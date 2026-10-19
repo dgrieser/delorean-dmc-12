@@ -218,7 +218,9 @@ SPINE_Y = 0.118
 
 def r_door(X, Y, Z, side=1):
     d = poly2d(X, Z, DOOR_POLY)
-    return np.maximum(d, SPINE_Y - side * Y)
+    d = np.maximum(d, SPINE_Y - side * Y)
+    # never reach forward into the windshield (the outline is a 2D shape extruded across the car)
+    return np.maximum(d, d_windshield(X, np.abs(Y), Z) + 0.012)
 
 
 def _hood_poly():

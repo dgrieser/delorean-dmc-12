@@ -301,6 +301,10 @@ def layer(X, Y, Z, t_out, t_in):
     return np.maximum(s + t_out, -(s + t_in))
 
 
+# how far trims stop short of a door/aperture edge; the edge walls' flange covers that strip
+TRIM_RECESS = 0.0075
+
+
 def door_t(Z):
     return 0.085 - 0.050 * smoothstep(0.62, 0.86, Z) - 0.012 * smoothstep(0.95, 1.05, Z)
 
@@ -309,8 +313,10 @@ def door_trim(X, Y, Z, side=1, upper=False):
     s = SX.shell(X, Y, Z)
     t = door_t(Z)
     d = np.maximum(s + 0.004, -(s + t))
-    d = np.maximum(d, B.r_door(X, Y, Z, side) + 0.006)
-    d = smax(d, -(B.r_door_glass(X, Y, Z, side) - 0.012), 0.004)
+    # stop just short of the door's edge walls (build_edges.py), whose dark flange band runs under
+    # the trim's end, so the two never share a surface (that z-fights into a sawtooth)
+    d = np.maximum(d, B.r_door(X, Y, Z, side) + TRIM_RECESS)
+    d = smax(d, -(B.r_door_glass(X, Y, Z, side) - TRIM_RECESS), 0.002)
     d = np.maximum(d, 0.345 - Z)
     split = 0.875
     d = np.maximum(d, (split - Z) if upper else (Z - split))
@@ -332,14 +338,6 @@ def door_trim(X, Y, Z, side=1, upper=False):
     return d
 
 
-def door_jamb(X, Y, Z, side=1):
-    """Door edge seal: black rubber band around the door's inner perimeter."""
-    s = SX.shell(X, Y, Z)
-    r = B.r_door(X, Y, Z, side)
-    d = np.maximum(np.abs(r + 0.010) - 0.008, np.maximum(s + 0.012, -(s + door_t(Z) + 0.004)))
-    return np.maximum(d, 0.30 - Z)
-
-
 def body_trim(X, Y, Z):
     """Fixed inner trim: A-pillars, roof spine, B/C-pillar corners (headliner/vinyl)."""
     s = SX.shell(X, Y, Z)
@@ -347,17 +345,9 @@ def body_trim(X, Y, Z):
     d = np.maximum(d, np.maximum(CAB_X0 - X, X - 0.86))
     d = np.maximum(d, 0.62 - Z)
     rd = np.minimum(B.r_door(X, Y, Z, 1), B.r_door(X, Y, Z, -1))
-    d = np.maximum(d, -(rd - 0.006))
+    d = np.maximum(d, -(rd - TRIM_RECESS))
     d = smax(d, -(B.r_windshield(X, Y, Z) - 0.010), 0.004)
     return d
-
-
-def aperture_seal(X, Y, Z, side=1):
-    """Body-side door seal: black rubber band on the aperture flange."""
-    s = SX.shell(X, Y, Z)
-    r = B.r_door(X, Y, Z, side)
-    d = np.maximum(np.abs(r - 0.012) - 0.007, np.maximum(s + 0.010, -(s + 0.032)))
-    return np.maximum(d, 0.29 - Z)
 
 
 # ======================================================================================

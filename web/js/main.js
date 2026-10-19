@@ -175,8 +175,8 @@ function setTrimColor(name) { state.trim = name; setTrim(lib, name); }
 function setDrive(on) {
   state.drive = on;
   sim.drive = on;
-  env.bay.visible = !on && state.env !== 'studio';
-  if (on && state.env === 'studio') { setEnv('day').then(() => { env.bay.visible = false; ui?.refresh(); }); }
+  env.setDriving(on);
+  if (on && state.env === 'studio') { setEnv('day').then(() => ui?.refresh()); }
   if (!on) { sim.x = sim.z = sim.yaw = 0; sim.speed = 0; }
 }
 async function toggleSound(on) {
@@ -252,6 +252,8 @@ function update(dt) {
     carRoot.position.set(sim.x, 0, sim.z);
     carRoot.rotation.y = sim.yaw;
     env.floor.mesh.position.set(sim.x, 0, sim.z);
+    env.catcher.position.set(sim.x, 0.001, sim.z);
+    env.lampGround.position.set(sim.x, 0.0015, sim.z);
     env.sunTarget.position.set(sim.x, 0, sim.z);
     sunDir.set(...env.preset.sun.dir).normalize();
     env.sun.position.copy(env.sunTarget.position).addScaledVector(sunDir, 15);
@@ -265,6 +267,8 @@ function update(dt) {
       rig.orbit.target.add(d); camera.position.add(d);
     }
     const lst = lamps.update(dt, sim);
+    const beamsOn = lamps.lights.lowL.intensity > 1 || lamps.lights.highL.intensity > 1;
+    if (beamsOn !== update.beamsOn) { update.beamsOn = beamsOn; shadowFrames = Math.max(shadowFrames, 3); }
     const doorAjar = car.doorL.theta > 0.02 || car.doorR.theta > 0.02 || !car.hood.latched || !car.lid.latched;
     const bulb = sim.bulbCheck > 0;
     const on = sim.electrics;

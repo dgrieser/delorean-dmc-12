@@ -259,13 +259,51 @@ def decimate_mo(V, F, N, ratio, err=0.0005):
     return V2, F2, N2
 
 
-def finish4(f, V, F, target, refine_iters=3, max_angle=8.0, min_len=0.0008, err=0.0004):
+def split_long(V, F, max_len, iters=6):
+    """Conforming red-green bisection of every edge longer than max_len.
+
+    The decimator leaves long slivers across flat panels; per-vertex attributes (baked AO,
+    normals) interpolated along them show up as streaks fanning across the surface."""
+    for _ in range(iters):
+        E = np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]])
+        Es = np.sort(E, 1)
+        uniq, inv = np.unique(Es, axis=0, return_inverse=True)
+        inv = inv.reshape(3, -1).T                          # face -> its 3 edge ids (e01, e12, e20)
+        long_ = np.linalg.norm(V[uniq[:, 0]] - V[uniq[:, 1]], axis=1) > max_len
+        if not long_.any():
+            break
+        mid = np.full(len(uniq), -1, np.int64)
+        mid[long_] = len(V) + np.arange(long_.sum())
+        V = np.concatenate([V, 0.5 * (V[uniq[long_, 0]] + V[uniq[long_, 1]])])
+        M = mid[inv]                                        # midpoint per face edge or -1
+        k = (M >= 0).sum(1)
+        out = [F[k == 0]]
+        # rotate each face so the pattern is canonical: 1 mark -> on e01; 2 marks -> e01 and e12
+        for r in range(3):
+            Fr, Mr = np.roll(F, -r, 1), np.roll(M, -r, 1)
+            one = (k == 1) & (Mr[:, 0] >= 0)
+            v0, v1, v2, m = Fr[one, 0], Fr[one, 1], Fr[one, 2], Mr[one, 0]
+            out += [np.stack([v0, m, v2], 1), np.stack([m, v1, v2], 1)]
+            two = (k == 2) & (Mr[:, 0] >= 0) & (Mr[:, 1] >= 0)
+            v0, v1, v2, a, b = Fr[two, 0], Fr[two, 1], Fr[two, 2], Mr[two, 0], Mr[two, 1]
+            out += [np.stack([a, v1, b], 1), np.stack([v0, a, b], 1), np.stack([v0, b, v2], 1)]
+        three = k == 3
+        v0, v1, v2 = F[three, 0], F[three, 1], F[three, 2]
+        a, b, c = M[three, 0], M[three, 1], M[three, 2]
+        out += [np.stack([v0, a, c], 1), np.stack([a, v1, b], 1), np.stack([c, b, v2], 1), np.stack([a, b, c], 1)]
+        F = np.concatenate(out)
+    return V, F
+
+
+def finish4(f, V, F, target, refine_iters=3, max_angle=8.0, min_len=0.0008, err=0.0004, max_edge=None):
     V = project_to_surface(f, V, 2)
     N = sdf_normals(f, V)
     V, F, N = refine(f, V, F, N, max_angle=max_angle, iters=refine_iters, min_len=min_len)
     ratio = (target / len(F)) if target else 1.0
     if ratio < 1:
         V, F, N = decimate_mo(V, F, N, ratio, err)
+        if max_edge:
+            V, F = split_long(V, F, max_edge)
         V = project_to_surface(f, V, 1)
         N = sdf_normals(f, V)
     F = orient_faces(V, F, N)

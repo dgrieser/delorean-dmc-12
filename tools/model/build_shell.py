@@ -66,6 +66,10 @@ BUDGET = {'body': 260000, 'hood': 40000, 'bumper_f': 40000, 'bumper_r': 42000, '
           'door_L': 45000, 'door_R': 45000, 'fuel_flap': 2500, 'airdam': 24000}
 
 
+# stainless panels: split long slivers (baked AO smears along them); dark/flat parts are left as is
+SPLIT = {'body', 'door_L', 'door_R', 'hood', 'fuel_flap'}
+
+
 def build(name, reduction=0.86):
     f, a, b, skin = PARTS[name]
     t = time.time()
@@ -74,9 +78,11 @@ def build(name, reduction=0.86):
         def m(x, y, z):
             keep = skin_mask(x, y, z)
             under = z < 0.285
+            # the nose skin below the front bumper's lower edge (z 0.336) would show as a steel lip
+            under |= (x > 1.70) & (z < 0.345)
             return keep & ~under
         V, F = keep_faces(V, F, m)
-    V, F, N = finish4(f, V, F, BUDGET.get(name, 30000), int(os.environ.get('REFINE', '3')))
+    V, F, N = finish4(f, V, F, BUDGET.get(name, 30000), int(os.environ.get('REFINE', '3')), max_edge=0.05 if name in SPLIT else None)
     np.savez_compressed(f'{OUT}/{name}.npz', V=V.astype(np.float32), F=F.astype(np.int32), N=N.astype(np.float32))
     print(f'{name}: {len(V)} verts {len(F)} faces {time.time() - t:.1f}s', flush=True)
     return V, F, N

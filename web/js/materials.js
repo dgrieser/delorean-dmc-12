@@ -110,7 +110,7 @@ function decalJump() {
 const lin = (r, g, b) => new THREE.Color().setRGB(r, g, b, THREE.LinearSRGBColorSpace);
 
 // Shared uniforms for baked AO: blend between the doors-closed and doors-open bakes.
-export const AO = { open: { value: 0 }, strength: { value: 1 } };
+export const AO = { open: { value: 0 }, strength: { value: 1 }, direct: { value: 0 } };
 
 // One onBeforeCompile per material: optional triplanar texturing (object space, for meshes
 // without UVs) + baked per-vertex ambient occlusion (attributes `ao`, `ao2`).
@@ -120,13 +120,19 @@ export function enhance(mat, tri = null) {
   mat.onBeforeCompile = sh => {
     sh.uniforms.uAOOpen = AO.open;
     sh.uniforms.uAOStr = mat.userData.aoStr || AO.strength;
+    sh.uniforms.uAODirect = mat.userData.aoDirect || AO.direct;
     let v = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float ao; attribute float ao2; varying float vAO; uniform float uAOOpen;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAO = mix(ao, ao2, uAOOpen);');
-    let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAO; uniform float uAOStr;')
+    let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAO; uniform float uAOStr; uniform float uAODirect;')
       .replace('#include <aomap_fragment>', `#include <aomap_fragment>
       {
         float ambientOcclusion = mix(1.0, clamp(vAO * 1.06, 0.0, 1.0), uAOStr);
         reflectedLight.indirectDiffuse *= ambientOcclusion;
+        // micro-shadowing: the shadow map can't resolve a 4 mm panel gap, so the baked AO dims
+        // direct light on the rolled edges that face into it (open panel areas sit at ~1)
+        float aoDirect = mix(1.0, smoothstep(0.5, 0.97, vAO), uAODirect);
+        reflectedLight.directSpecular *= aoDirect;
+        reflectedLight.directDiffuse *= aoDirect;
         #if defined( USE_CLEARCOAT )
           clearcoatSpecularIndirect *= ambientOcclusion;
         #endif
@@ -234,13 +240,15 @@ export function createLibrary(opts = {}) {
   const lib = {};
 
   lib.Stainless = new THREE.MeshPhysicalMaterial({
-    name: 'Stainless', color: lin(0.58, 0.58, 0.59), metalness: 1, roughness: 0.50,
+    // brushed: anisotropic lobe (rough across the grain, tighter along it) keeps reflections soft but readable
+    name: 'Stainless', color: lin(0.60, 0.60, 0.61), metalness: 1, roughness: 0.34,
     roughnessMap: brushedR, normalMap: brushedN, normalScale: new THREE.Vector2(0.08, 0.08),
-    anisotropy: 0.4, anisotropyRotation: Math.PI / 2, side: THREE.DoubleSide, envMapIntensity: 1.0,
+    anisotropy: 0.6, anisotropyRotation: Math.PI / 2, side: THREE.DoubleSide, envMapIntensity: 1.0,
   });
   lib.Urethane = new THREE.MeshPhysicalMaterial({
-    name: 'Urethane', color: lin(0.030, 0.032, 0.035), metalness: 0, roughness: 0.52,
-    normalMap: grainN, normalScale: new THREE.Vector2(0.25, 0.25), clearcoat: 0.08, clearcoatRoughness: 0.5,
+    // satin charcoal urethane: picks up soft reflections that show the bumper's shape
+    name: 'Urethane', color: lin(0.034, 0.036, 0.039), metalness: 0, roughness: 0.46,
+    normalMap: grainN, normalScale: new THREE.Vector2(0.2, 0.2), clearcoat: 0.3, clearcoatRoughness: 0.32,
   });
   lib.Rubber = new THREE.MeshStandardMaterial({ name: 'Rubber', color: lin(0.010, 0.010, 0.011), roughness: 0.78 });
   lib.PlasticBlack = new THREE.MeshPhysicalMaterial({ name: 'PlasticBlack', color: lin(0.012, 0.012, 0.013), roughness: 0.42, clearcoat: 0.15, clearcoatRoughness: 0.4, side: THREE.DoubleSide });
@@ -295,6 +303,9 @@ export function createLibrary(opts = {}) {
     { normal: carpetN, scale: 14, normalScale: 0.3 });
   lib.Carpet = triplanar(new THREE.MeshPhysicalMaterial({ name: 'Carpet', color: lin(0.105, 0.108, 0.112), roughness: 1.0, sheen: 0.6, sheenRoughness: 0.9, sheenColor: lin(0.25, 0.25, 0.26) }),
     { normal: carpetN, color: carpetC, scale: 4, normalScale: 1.0 });
+  // door edges and aperture jambs: the black-painted inner door frame / rubber seal faces
+  lib.DoorEdge = triplanar(new THREE.MeshPhysicalMaterial({ name: 'DoorEdge', color: lin(0.022, 0.022, 0.024), roughness: 0.55, metalness: 0.0, clearcoat: 0.2, clearcoatRoughness: 0.5, side: THREE.DoubleSide }),
+    { normal: grainN, scale: 9, normalScale: 0.25 });
   lib.PedalRubber = new THREE.MeshStandardMaterial({ name: 'PedalRubber', color: lin(0.02, 0.02, 0.02), roughness: 0.82 });
   lib.MetalDark = new THREE.MeshStandardMaterial({ name: 'MetalDark', color: lin(0.07, 0.07, 0.075), metalness: 1, roughness: 0.42 });
   lib.Lamp_Courtesy = new THREE.MeshPhysicalMaterial({ name: 'Lamp_Courtesy', color: lin(0.5, 0.03, 0.02), roughness: 0.2, transmission: 0.4, thickness: 0.004, emissive: lin(1, 0.08, 0.04), emissiveIntensity: 0 });
@@ -316,9 +327,10 @@ export function createLibrary(opts = {}) {
   thinGlass(lib.Glass, 0.16); lib.Glass.color = lin(0.30, 0.34, 0.33); lib.Glass.side = THREE.FrontSide;
   thinGlass(lib.Lamp_HeadLens, 0.10); lib.Lamp_HeadLens.side = THREE.FrontSide;
   for (const k of ['Lamp_TurnFront', 'Lamp_MarkerFront', 'Lamp_TurnRear', 'Lamp_Tail', 'Lamp_MarkerRear', 'Lamp_Reverse', 'Lamp_Courtesy']) thinGlass(lib[k], 0.82);
-  // AO strength per material: the exterior steel is mostly specular -> light occlusion only
-  const aoStr = { Stainless: 0.3, Urethane: 0.6, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5 };
+  // AO strength per material (open steel panels bake to ~1, so this mostly darkens gaps, arches and the strip's shadow)
+  const aoStr = { Stainless: 0.6, Urethane: 0.6, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5 };
   for (const [k, v] of Object.entries(aoStr)) lib[k].userData.aoStr = { value: v };
+  lib.Stainless.userData.aoDirect = { value: 0.85 };
   for (const [k, m] of Object.entries(lib)) if (m && m.isMaterial && !m.userData.tri) enhance(m);
   return lib;
 }

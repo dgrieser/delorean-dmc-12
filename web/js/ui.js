@@ -1,4 +1,6 @@
 // Control rack + keyboard bindings. Smooths pedal inputs, auto-clutch, hold-to-crank key.
+import { initPanel } from './panel.js';
+
 export function bindUI(ctx) {
   const { car, sim, lamps, audio, rig, env, state } = ctx;
   const $ = s => document.querySelector(s);
@@ -107,14 +109,9 @@ export function bindUI(ctx) {
     else if (b.id === 'snd') A.sound();
     else if (b.id === 'help-btn') $('#help').hidden = false;
     else if (b.id === 'help-close') $('#help').hidden = true;
-    else if (b.id === 'rack-btn') toggleRack();
   });
-  function toggleRack() {
-    const r = $('#rack');
-    r.classList.toggle('collapsed');
-    $('#rack-btn').textContent = r.classList.contains('collapsed') ? 'Show panel' : 'Hide panel';
-    $('#rack-btn').setAttribute('aria-expanded', String(!r.classList.contains('collapsed')));
-  }
+  const panel = initPanel($('#rack'), $('#grip'));
+  function toggleRack() { panel.toggle(); }
   $('#help').addEventListener('click', e => { if (e.target.id === 'help') $('#help').hidden = true; });
   // hold buttons (pointer)
   const holdMap = { throttle: '#throttle', brake: '#brake', flash: '#flash', wash: '#wash', start: '[data-ign="3"]' };
