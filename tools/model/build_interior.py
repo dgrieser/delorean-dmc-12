@@ -13,6 +13,10 @@ def P(name, f, bmin, bmax, h, target, mirror=False):
     return dict(name=name, f=f, bmin=bmin, bmax=bmax, h=h, target=target, mirror=mirror)
 
 
+# light, broad trim panels: split the decimator's long slivers so baked AO can't streak across them
+SPLIT = ('door_card', 'door_liner', 'body_trim')
+
+
 SY = I.SEAT_Y
 PARTS = [
     P('seat_L', lambda X, Y, Z: I.seat(X, Y, Z, 1), (-0.80, SY - 0.30, 0.20), (0.15, SY + 0.30, 1.12), 0.004, 60000),
@@ -30,10 +34,6 @@ PARTS = [
     P('door_card_R', lambda X, Y, Z: I.door_trim(X, Y, Z, -1, False), (-0.78, -0.95, 0.33), (0.70, -0.55, 0.90), 0.004, 50000),
     P('door_liner_L', lambda X, Y, Z: I.door_trim(X, Y, Z, 1, True), (-0.78, 0.08, 0.85), (0.70, 0.90, 1.15), 0.004, 30000),
     P('door_liner_R', lambda X, Y, Z: I.door_trim(X, Y, Z, -1, True), (-0.78, -0.90, 0.85), (0.70, -0.08, 1.15), 0.004, 30000),
-    P('door_seal_L', lambda X, Y, Z: I.door_jamb(X, Y, Z, 1), (-0.80, 0.08, 0.25), (0.72, 0.96, 1.16), 0.003, 20000),
-    P('door_seal_R', lambda X, Y, Z: I.door_jamb(X, Y, Z, -1), (-0.80, -0.96, 0.25), (0.72, -0.08, 1.16), 0.003, 20000),
-    P('ap_seal_L', lambda X, Y, Z: I.aperture_seal(X, Y, Z, 1), (-0.82, 0.08, 0.25), (0.74, 0.96, 1.16), 0.003, 20000),
-    P('ap_seal_R', lambda X, Y, Z: I.aperture_seal(X, Y, Z, -1), (-0.82, -0.96, 0.25), (0.74, -0.08, 1.16), 0.003, 20000),
     P('body_trim', I.body_trim, (-0.80, -0.90, 0.60), (0.88, 0.90, 1.15), 0.004, 40000),
     P('carpet', I.carpet, (-0.79, -0.82, 0.22), (0.97, 0.82, 0.57), 0.005, 30000),
     P('sills', I.sill, (-0.62, -0.86, 0.24), (0.62, 0.86, 0.35), 0.004, 8000),
@@ -68,7 +68,7 @@ def build(p):
     if len(F) == 0:
         print('EMPTY', p['name'], flush=True)
         return
-    V, F, N = finish4(p['f'], V, F, p['target'], 2, max_angle=10.0, min_len=0.0006)
+    V, F, N = finish4(p['f'], V, F, p['target'], 2, max_angle=10.0, min_len=0.0006, max_edge=0.05 if p['name'].startswith(SPLIT) else None)
     np.savez_compressed(f"{OUT}/{p['name']}.npz", V=V.astype(np.float32), F=F.astype(np.int32), N=N.astype(np.float32))
     print(f"{p['name']}: {len(V)} v {len(F)} f {time.time() - t:.1f}s", flush=True)
 

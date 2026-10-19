@@ -43,6 +43,7 @@ MATERIALS = {
     'Decal_Jump':       ((0.02, 0.02, 0.02), 0.0, 0.5, {}),
     'RedPaint':         ((0.45, 0.02, 0.02), 0.0, 0.35, {}),
     'Tyre_Rubber':      ((0.018, 0.018, 0.019), 0.0, 0.86, {}),
+    'DoorEdge':         ((0.03, 0.03, 0.032), 0.3, 0.55, {}),
 }
 
 # part file -> (material, parent, uv)
@@ -122,8 +123,8 @@ INTERIOR = {
     'column': ('PlasticBlack', 'Body'),
     'door_card_L': ('Leather', 'Door_L'), 'door_card_R': ('Leather', 'Door_R'),
     'door_liner_L': ('Headliner', 'Door_L'), 'door_liner_R': ('Headliner', 'Door_R'),
-    'door_seal_L': ('Rubber', 'Door_L'), 'door_seal_R': ('Rubber', 'Door_R'),
-    'ap_seal_L': ('Rubber', 'Body'), 'ap_seal_R': ('Rubber', 'Body'),
+    'door_edge_L': ('DoorEdge', 'Door_L'), 'door_edge_R': ('DoorEdge', 'Door_R'),
+    'jamb_L': ('DoorEdge', 'Body'), 'jamb_R': ('DoorEdge', 'Body'),
     'body_trim': ('Headliner', 'Body'), 'carpet': ('Carpet', 'Body'), 'sills': ('Carpet', 'Body'),
     'sill_plates': ('Rubber', 'Body'), 'parcel': ('Carpet', 'Body'), 'rear_window': ('Glass', 'Body'),
     'bulkhead': ('Vinyl', 'Body'), 'rear_mirror': ('PlasticBlack', 'Body'),

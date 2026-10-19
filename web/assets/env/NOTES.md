@@ -1,83 +1,34 @@
 # Environment maps
 
-Rendered with Blender 4.0 / Cycles (`tools/tex/render_env.py`), post-processed with
-`tools/tex/post_env.py` (normalisation, edge-preserving denoise of dim areas, clamped sun,
-RLE Radiance output, ACES-tonemapped sRGB backdrops). All panoramas are 2048 x 1024
-equirectangular, linear Rec.709 radiance, camera 1.0 m above the floor at the car's origin.
+Photographic HDRIs from [Poly Haven](https://polyhaven.com), all CC0 (public domain):
 
-## Orientation (three.js world, Y up, car front = +X, car right = +Z)
+| scene | source | files |
+|-------|--------|-------|
+| studio | [Cyclorama Hard Light](https://polyhaven.com/a/cyclorama_hard_light) (Dimitrios Savva) | `studio.hdr` |
+| day | [Driving School](https://polyhaven.com/a/driving_school) (Dimitrios Savva, Jarod Guest) | `day.hdr`, `day_bg.jpg` |
+| night | [Hansaplatz](https://polyhaven.com/a/hansaplatz) (Sergej Majboroda) | `night.hdr`, `night_bg.jpg` |
 
-The panoramas follow three.js' equirect lookup directly (`u = atan2(z, x) / 2π + 0.5`,
-top row = +Y):
+`tools/tex/prep_hdri.py` turns the 4k (studio: 2k) downloads into what the viewer loads:
 
-| image u | direction (three.js) |
-|---------|----------------------|
-| 0.50    | +X (straight ahead of the car's nose) |
-| 0.75    | +Z (car's right / passenger side)     |
-| 0.25    | -Z (car's left / driver side)         |
-| 0 / 1   | -X (behind the car)                   |
+- The over-bright key light (sun, lamp or softbox core) is clamped out of the map. Its energy and
+  mean direction are measured and stored in `env.json` (`keyDir`, `keyIrradiance`), and
+  `web/js/env.js` puts a shadow-casting `DirectionalLight` there, so the car's shadow comes from
+  the same place as the light in the photo.
+- `*.hdr`: 2048 x 1024 Radiance (RLE) of the clamped map, for PMREM lighting and reflections.
+- `*_bg.jpg`: 4096 x 2048 sRGB backdrop holding `srgb(L * backdropScale)`. The viewer projects
+  it onto a `GroundedSkybox` (camera height 1.65 m) and divides by `backdropScale` in the
+  material colour, so it renders at the HDR's real radiance under the same exposure.
 
-No rotation is needed: `texture.mapping = THREE.EquirectangularReflectionMapping`.
+Direction convention: three.js equirect lookup (`u = atan2(z, x) / 2π + 0.5`, top row = +Y);
+car front = +X. `env.js` rotates each map (`environmentRotation` / `backgroundRotation`) so the
+key light sits where the preset wants it.
 
-## Files
+Re-create (after downloading the HDRIs into `<src>`):
 
-| file | content | peak | notes |
-|------|---------|------|-------|
-| `studio.hdr` | dark showroom, glossy dark floor, softboxes | ~21 | upper-hemisphere mean ≈ 2.7 |
-| `day.hdr` | Nishita clear sky, sunlit asphalt lot, tree line, distant buildings | 1500 (sun core) | upper mean ≈ 1.6 |
-| `night.hdr` | dark sky with orange light-pollution band, sodium/LED street lamps, lit windows, wet-look asphalt | ~88 (lamp lenses) | upper mean ≈ 0.012, lower ≈ 0.004 |
-| `*_bg.jpg` | ACES-tonemapped sRGB versions for a visible backdrop | – | studio exp 1.0, day 0.65, night 2.2 |
-
-### studio.hdr
-- Overhead: an 8 x 3.2 m diffuser at 6.6 m (radiance 7) straight above the car, plus two
-  11 m x 0.45 m strips at 5.6 m running along the car's length, 3.6 m either side of the
-  centreline (radiance 22). These draw long lengthwise highlights on the hood, roof and shoulders.
-- Sides: 9 x 2.4 m vertical panels 9 m to the left and right (centre height 1.9 m, radiance 5.5),
-  which put one horizontal highlight band along each flank.
-- Front fill at +X 12 m (radiance 3), rear fill at -X 12 m (radiance 2.2). Two tall kicker
-  strips sit at the front-left and rear-right corners (radiance 12 and 9). Two white bounce
-  boards sit at rear-left and front-right.
-- The light colour is white-balanced in post to a near-neutral warm white (R:G:B ≈ 1.05 : 1 : 0.965).
-- Floor: albedo 0.03, roughness 0.32, so the softboxes reflect into it as soft pools.
-
-### day.hdr
-- Sun: elevation 35°, azimuth 40° from +X toward +Z. The direction *towards* the sun (three.js) is
-  **(0.6275, 0.5736, 0.5265)**. It sits ahead of the car and to its right, so the
-  driver's side is in shade.
-- Sun disc: radius ~0.42°, peak radiance 1500, plus a soft glow (σ 2.2°, peak 22, and σ 9°, peak 2).
-  The disc is clamped on purpose. Add a `DirectionalLight` from that direction for real
-  shadows and specular. A good starting balance is sun intensity ≈ 3–4 with
-  `envMapIntensity` 1.0 at exposure ≈ 0.7–0.9 (ACES).
-- The sky is normalised so its upper-hemisphere mean radiance is 1.6. Sunlit asphalt reads
-  ≈ 0.3–0.6, the tree line is dark green, and buildings sit 170–320 m out.
-
-### night.hdr
-- The sky is ~0.001–0.003 at the zenith, with an orange glow band (~0.015) just above the horizon.
-- Ten street lamps sit 12–50 m away. Most are sodium (2100 K); two are cool LED (4300 K), at
-  about -Z 28 m and -X 32 m. Each lamp head is a small emitting lens (radiance ~90) over a pool
-  of light on wet-looking asphalt (puddle roughness 0.05–0.45).
-- Building silhouettes sit 55–160 m out with sparse warm and cool lit windows. A few red
-  aircraft beacons are on towers.
-- Intended use: `envMapIntensity` 1.0–1.5 at exposure ≈ 1.0. The car's own lamps should dominate.
-  For the visible backdrop use `night_bg.jpg`, or the HDR with `backgroundIntensity` ≈ 2.
-
-## Recommended three.js usage
-
-```js
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-const pmrem = new THREE.PMREMGenerator(renderer);
-new RGBELoader().load('assets/env/studio.hdr', (hdr) => {
-  hdr.mapping = THREE.EquirectangularReflectionMapping;
-  scene.environment = pmrem.fromEquirectangular(hdr).texture;   // lighting + reflections
-  scene.background = hdr;            // or a TextureLoader'd *_bg.jpg (colorSpace = SRGBColorSpace)
-  scene.backgroundBlurriness = 0.0;  // 0.02–0.05 softens the backdrop slightly
-});
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+```bash
+python3 tools/tex/prep_hdri.py <src> web/assets/env \
+  studio=cyclorama_hard_light_2k.hdr:60:- day=driving_school_4k.hdr:40:0.32 night=hansaplatz_4k.hdr:25:1.6
 ```
-
-Exposure starting points (ACES): studio 1.0, day 0.75, night 1.0 (with the car's lamps on).
-If you use the HDR as the background, ground-projected skyboxes (`GroundedSkybox`, height ≈ 1.0,
-radius ≈ 30–60) make the floor read correctly under the car.
 
 # Textures (`../tex/`)
 

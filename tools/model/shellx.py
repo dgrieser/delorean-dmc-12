@@ -33,6 +33,8 @@ def _build():
     d_in = ndimage.distance_transform_edt(inside) * H
     # signed distance to the voxel boundary (half-voxel offset to centre it on the surface)
     sd = np.where(inside, -(d_in - 0.5 * H), d_out - 0.5 * H).astype(np.float32)
+    # the voxelised boundary quantises distances to ~H/2: smooth away the staircase
+    sd = ndimage.gaussian_filter(sd, 1.3).astype(np.float32)
     np.savez_compressed(CACHE, sd=sd)
     return sd
 

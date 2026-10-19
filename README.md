@@ -27,10 +27,11 @@ three.js 0.170 loads from jsDelivr, so the page needs internet access. Add `?env
 | **Lights** | Park, low and high beam (spot lights with a beam-pattern cookie and cut-off), flash-to-pass, indicators and hazards at 85 flashes/min with relay clicks, brake and reverse lamps, side markers, dome and door courtesy lamps. The bulbs have warm-up and cool-down time. |
 | **Wipers** | Interval, low and high, plus washer. The tandem arms follow the curved windscreen. |
 | **Driving** | Drive mode moves the car under its own power. The torque curve, 5-speed gear ratios, final drive, drag, rolling resistance, traction limit, Ackermann steering and body pitch/roll come from published DMC-12 figures. |
-| **Scenes** | Studio (polished floor with planar reflection), day (sunlit parking bay), night (wet asphalt, sodium street lamps). The car's own lamps light the ground. |
+| **Scenes** | Photographic HDRI environments: studio cyclorama (polished floor with planar reflection), day (sunlit open lot) and night (city square under street lamps), each with a shadow-casting key light measured from the photo. The car's own lamps light the ground. |
 | **Trim** | Grey or black hide interior. |
 
-Press `?` in the app for the full keyboard map.
+Press `?` in the app for the full keyboard map. The control panel has a latch on top: drag it
+to any height, all the way down so only the latch shows, and tap it to fold or unfold.
 
 ## How it is built
 
@@ -48,7 +49,7 @@ tools/model/wheels.py            Blender: turbine wheels, tyres with tread, brak
 tools/model/assemble.py          Blender: assembles all parts, pivots, bakes two AO sets
                                  (doors shut / open) into vertex attributes, exports glTF
 tools/pack.py                    quantised, delta-coded, gzip container (web/assets/*.bin)
-tools/tex/                       procedural textures and Blender-rendered HDR environments
+tools/tex/                       procedural textures; prep_hdri.py prepares the HDRIs
 web/js/                          viewer: materials, environment, car rig, lamps, cluster,
                                  vehicle simulation, procedural engine audio, cameras, UI
 ```
@@ -69,6 +70,9 @@ python3 pack.py out/wheels.glb ../web/assets/wheels
 
 `python3 tools/b64split.py <dir>` writes a text-only copy of `web/` (binary payloads as base64
 chunks, which `web/js/fetchbin.js` falls back to) for hosts that only serve text and images.
+
+The HDRI environments are CC0 from [Poly Haven](https://polyhaven.com) (Cyclorama Hard Light,
+Driving School, Hansaplatz); see `web/assets/env/NOTES.md`.
 
 Dimensions follow published figures: length 4216 mm, wheelbase 2413 mm, height 1140 mm,
 track 1590/1588 mm, 195/60 R14 front and 235/60 R15 rear tyres. The photos in `ref/` were

@@ -13,7 +13,7 @@ await page.evaluate(() => { for (let i = 0; i < 4; i++) window.app.frame(); });
 await page.waitForTimeout(1500);
 for (const v of vars) {
   const [name, js] = v.split('|');
-  await page.evaluate(new Function("__p", `let [c, t, f] = __p; const a = window.app; const cam = (C, T, F) => { c = C; t = T; f = F; }; { ${js || ""} }; window.view(c, t, f); window.view(c, t, f);`), [c.split(',').map(Number), t.split(',').map(Number), +f]);
+  await page.evaluate(new Function("__p", `return (async () => { let [c, t, f] = __p; const a = window.app; const cam = (C, T, F) => { c = C; t = T; f = F; }; { ${js || ""} }; window.view(c, t, f); window.view(c, t, f); })();`), [c.split(',').map(Number), t.split(',').map(Number), +f]);
   await page.screenshot({ path: `${out}${name}.png`, timeout: 400000 });
   console.log('shot', name);
 }
