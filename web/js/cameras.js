@@ -16,7 +16,7 @@ export class CameraRig {
     this.orbit.dampingFactor = 0.07;
     this.orbit.maxPolarAngle = Math.PI * 0.497;
     this.orbit.minDistance = 0.6;
-    this.orbit.maxDistance = 22;
+    this.orbit.maxDistance = 18;
     this.orbit.zoomSpeed = 0.8;
     this.yaw = 0; this.pitch = 0; this.fov = 50;
     this.keys = {};

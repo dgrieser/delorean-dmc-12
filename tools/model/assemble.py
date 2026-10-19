@@ -181,7 +181,15 @@ def bake_ao(tag, samples=64, dist=0.6, door_angle=0.0):
     print('baked', tag, len(V), 'verts', round(time.time() - t, 1), 's', flush=True)
     buf = np.zeros(len(V) * 4, np.float32)
     cm.color_attributes['aobake'].data.foreach_get('color', buf)
-    ao = buf[0::4]
+    ao = buf[0::4].astype(np.float64)
+    # per-vertex Monte Carlo noise shows as fuzz on dense trim: two light neighbour-averaging passes
+    # (parts share no vertices, so this never bleeds across a gap between parts)
+    E = np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]])
+    deg = np.bincount(E[:, 0], minlength=len(V)) + np.bincount(E[:, 1], minlength=len(V))
+    for _ in range(2):
+        nsum = np.bincount(E[:, 0], ao[E[:, 1]], len(V)) + np.bincount(E[:, 1], ao[E[:, 0]], len(V))
+        ao = 0.5 * ao + 0.5 * np.where(deg > 0, nsum / np.maximum(deg, 1), ao)
+    ao = ao.astype(np.float32)
     for o, s0, n in offs:
         me = o.data
         if tag not in me.attributes:
@@ -207,6 +215,11 @@ def NOAO(o):
 if DO_AO:
     bake_ao('_AO', door_angle=0.0)
     bake_ao('_AO2', door_angle=72.0)
+
+# the body is modelled in its stock frame; lower the whole car (wheel pivots included, which sit
+# STANCE higher in that frame) so the tyres stand on the ground
+car.location.z = -man.get('stance', 0.0)
+bpy.context.view_layer.update()
 
 # external GLB assets (wheels) are merged by the app; nothing else here.
 bpy.ops.export_scene.gltf(filepath=GLB, export_format='GLB', export_normals=True, export_tangents=True,

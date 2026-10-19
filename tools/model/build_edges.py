@@ -14,10 +14,10 @@ import build_shell as S
 
 OUT = os.environ.get('OUT', '/home/user/delorean-dmc-12/tools/out')
 GAP = S.GAP
-LIFT = 0.003      # edge flanges sit this much behind the trim surface, so the trim always wins
+LIFT = 0.005      # edge flanges sit this much behind the trim surface, so the trim always wins
 BAND = 0.009      # flange width measured from the panel edge (trims stop at I.TRIM_RECESS)
 JAMB_D = 0.028 - LIFT
-INSET = 0.001     # walls sit behind the skin's own rolled edge wall (build_shell DEPTH) where they overlap
+INSET = 0.0025    # walls sit behind the skin's own rolled edge wall (build_shell DEPTH) where they overlap
 
 
 SKIN = 0.0095     # solids start this far under the skin, inside the panels' own edge walls (12 mm)
@@ -30,8 +30,11 @@ def door_solid(side):
         d = smax(s + SKIN, reg + GAP / 2 + INSET, 0.0015)
         d = smax(d, -(s + I.door_t(Z) - LIFT), 0.002)
         # a frame band along the edges (the trim covers the rest) plus everything below the door card,
-        # closed off at the skins' lower cut; all bounds live in the field, so every edge is clean
-        band = np.minimum(-(reg + BAND), Z - 0.35)
+        # closed off at the skins' lower cut; all bounds live in the field, so every edge is clean.
+        # The band is measured on the skin so its inner wall stands square to it.
+        Xs, Ys, Zs = SX.to_skin(X, Y, Z)
+        reg_s = np.maximum(B.r_door(Xs, Ys, Zs, side), -B.r_door_glass(Xs, Ys, Zs, side))
+        band = np.minimum(-(reg_s + BAND), Z - 0.35)
         d = smax(d, band, 0.0015)
         return smax(d, 0.285 - Z, 0.0015)
     return f
@@ -42,8 +45,8 @@ def jamb_solid(side):
         s = SX.shell(X, Y, Z)
         d = smax(s + SKIN, GAP / 2 + INSET - B.r_door(X, Y, Z, side), 0.0015)
         d = smax(d, -(s + JAMB_D), 0.002)
-        # only a band around the aperture, ending in a clean wall under the body trim
-        d = smax(d, B.r_door(X, Y, Z, side) - BAND, 0.0015)
+        # only a band around the aperture (measured on the skin), ending in a clean wall under the trim
+        d = smax(d, B.r_door(*SX.to_skin(X, Y, Z), side) - BAND, 0.0015)
         return smax(d, 0.29 - Z, 0.0015)
     return f
 

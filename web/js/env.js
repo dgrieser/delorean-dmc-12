@@ -7,13 +7,15 @@ import { HorizontalBlurShader } from 'three/addons/shaders/HorizontalBlurShader.
 import { VerticalBlurShader } from 'three/addons/shaders/VerticalBlurShader.js';
 import { GroundedSkybox } from 'three/addons/objects/GroundedSkybox.js';
 
-// Photographic HDRIs (CC0, Poly Haven): cyclorama_hard_light, driving_school, hansaplatz.
-// The over-bright key light (sun / lamp / softbox core) was clamped out of each map by
-// tools/tex/prep_hdri.py; its measured direction and irradiance (assets/env/env.json) drive a
-// shadow-casting DirectionalLight instead. Day and night use a ground-projected 4k backdrop.
+// Day and night: photographic HDRIs (CC0, Poly Haven: driving_school, hansaplatz). The
+// over-bright key light (sun / lamp) was clamped out of each map by tools/tex/prep_hdri.py; its
+// measured direction and irradiance (assets/env/env.json) drive a shadow-casting DirectionalLight
+// instead, and a ground-projected 4k backdrop shows the place. Studio: a procedural car studio
+// (tools/tex/studio_env.py: overhead softbox, strip boxes, shaded floor) lights the car while a
+// white cyclorama set is what the camera sees, as in the studio reference photos.
 export const PRESETS = {
-  studio: { hdr: 'studio.hdr', exposure: 0.9, envIntensity: 1.0, keyScale: 0.6, shadowRadius: 6, keyAzimuth: 55,
-            ground: { kind: 'studio', color: [0.010, 0.011, 0.012], rough: 0.28, refl: 0.6, env: 0.3 }, bg: { intensity: 0.16, blur: 0.55 }, bloom: 0.2 },
+  studio: { hdr: 'studio.hdr', exposure: 0.62, envIntensity: 1.0, keyScale: 1.0, shadowRadius: 14, cyc: true,
+            ground: { kind: 'studio', color: [0.60, 0.60, 0.60], rough: 0.55, refl: 0.10, env: 1.0 }, bg: { color: [0.45, 0.45, 0.46] }, bloom: 0.12 },
   day: { hdr: 'day.hdr', exposure: 1.0, envIntensity: 1.0, keyScale: 1.0, shadowRadius: 2,
          backdrop: { jpg: 'day_bg.jpg', height: 1.65, radius: 140 },
          ground: { kind: 'asphalt', color: [0.62, 0.60, 0.58], rough: 0.92, refl: 0.0, env: 0.8 }, bg: { intensity: 1, blur: 0 }, bloom: 0.08, fog: [70, 480] },
@@ -109,6 +111,8 @@ export class Environment {
     this.asphalt = asphaltTextures();
     this.floor = makeGlossFloor(renderer);
     this.group.add(this.floor.mesh);
+    this.cyc = makeCyc();
+    this.group.add(this.cyc);
     this.bay = bayLines();
     this.bay.visible = false;
     this.group.add(this.bay);
@@ -220,10 +224,13 @@ export class Environment {
       this.group.add(this.skybox);
       scene.background = null;
       scene.fog = null;
+    } else if (P.cyc && !this.driving) {
+      scene.background = new THREE.Color().setRGB(...P.bg.color, THREE.LinearSRGBColorSpace);
+      scene.fog = null;
     } else {
       scene.background = this.hdrTex;
-      scene.backgroundBlurriness = P.bg.blur;
-      scene.backgroundIntensity = P.bg.intensity;
+      scene.backgroundBlurriness = P.bg.blur ?? 0;
+      scene.backgroundIntensity = P.bg.intensity ?? 1;
       if (P.fog && this.driving) {
         const hc = horizonColor(this.hdrTex);
         scene.fog = new THREE.Fog(new THREE.Color().setRGB(hc[0], hc[1], hc[2], THREE.LinearSRGBColorSpace), P.fog[0], P.fog[1]);
@@ -242,6 +249,7 @@ export class Environment {
     fm.needsUpdate = true;
     this.floor.uniforms.uReflStrength.value = this.lite ? 0 : G.refl;
     this.floor.uniforms.uWorldUV.value = asph ? 1 / ASPH_TILE : 0;
+    this.cyc.visible = !!P.cyc && !this.driving;
     this.catcher.visible = projected;
     this.catcher.material.opacity = this.current === 'night' ? 0.45 : 0.62;
     this.lampGround.visible = projected && this.current === 'night';
@@ -337,7 +345,26 @@ class ContactShadow {
 }
 
 // ----------------------------------------------------------------------------------------------
-// Glossy floor: dark polished concrete + blurred planar reflection of the scene
+// White cyclorama: floor-to-wall cove all round the car (a lathe profile), matte, lit by the
+// studio environment like a real one. The reflective floor inside it stays the gloss floor.
+function makeCyc() {
+  const pts = [];
+  const R0 = 16, cove = 4.0, top = 34;     // wall beyond the orbit camera's reach
+  pts.push(new THREE.Vector2(R0 - 0.5, 0.0005));
+  for (let i = 0; i <= 16; i++) {
+    const a = (i / 16) * Math.PI / 2;
+    pts.push(new THREE.Vector2(R0 + Math.sin(a) * cove, cove - Math.cos(a) * cove + 0.0005));
+  }
+  pts.push(new THREE.Vector2(R0 + cove, top));
+  const geo = new THREE.LatheGeometry(pts, 96);
+  const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(0.60, 0.60, 0.60, THREE.LinearSRGBColorSpace), roughness: 0.95, side: THREE.DoubleSide, envMapIntensity: 1.0 });
+  const m = new THREE.Mesh(geo, mat);
+  m.visible = false;
+  return m;
+}
+
+// Floor with a blurred planar reflection of the scene (white cyc floor in the studio, asphalt
+// while driving)
 function makeGlossFloor(renderer) {
   const size = 60;
   const rtSize = new THREE.Vector2(768, 768);

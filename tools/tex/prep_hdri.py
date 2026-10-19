@@ -1,4 +1,5 @@
-"""Prepare Poly Haven HDRIs (CC0) for the viewer.
+"""Prepare Poly Haven HDRIs (CC0) for the viewer's day and night scenes (the studio is procedural:
+tools/tex/studio_env.py).
 
 For each environment: clamp the over-bright key light (sun / lamp / softbox core) out of the
 map, measure the clamped energy and its direction (-> a DirectionalLight with matching
@@ -17,7 +18,6 @@ os.makedirs(DST, exist_ok=True)
 
 SCENES = {
     # name: (source file, clamp level, backdrop scale k (jpeg = srgb(L * k)), want backdrop, yaw offset deg)
-    'studio': ('cyclorama_hard_light_2k.hdr', 60.0, None, False, 0.0),
     'day': ('driving_school_4k.hdr', 40.0, 0.32, True, 0.0),
     'night': ('hansaplatz_4k.hdr', 25.0, 1.6, True, 0.0),
 }

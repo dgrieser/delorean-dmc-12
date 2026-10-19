@@ -75,8 +75,14 @@ def strips():
     xs = np.linspace(-0.9, 0.9, 1801)
     inside = poly2d(xs, np.full_like(xs, zc), B.DOOR_POLY) < 0
     xd0, xd1 = xs[inside].min() + 0.004, xs[inside].max() - 0.004
-    segs = {'fender': (xd1 + 0.008, 1.010), 'door': (xd0, xd1), 'quarter': (-0.975, xd0 - 0.008),
-            'rearcorner': (-1.565, -1.440)}
+    # arch openings at strip height
+    def arch_span(cx, cz, r, z):
+        h = np.sqrt(max(r * r - (z - cz) ** 2, 0.0))
+        return cx - h, cx + h
+    fa0, fa1 = arch_span(B.X_FA, B.R_F, B.ARCH_F, float(B.z_crease(np.array(B.X_FA))))
+    ra0, ra1 = arch_span(B.X_RA, B.R_R, B.ARCH_R, float(B.z_crease(np.array(B.X_RA))))
+    segs = {'fender': (xd1 + 0.008, fa0 - 0.012), 'nose': (fa1 + 0.012, 1.575), 'door': (xd0, xd1),
+            'quarter': (ra1 + 0.012, xd0 - 0.008), 'rearcorner': (-1.650, ra0 - 0.012)}
     for side, tag in [(1, 'L'), (-1, 'R')]:
         for k, (a, b) in segs.items():
             pts = band(min(a, b), max(a, b), None)

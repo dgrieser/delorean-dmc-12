@@ -113,10 +113,18 @@ export class Car {
       pos.add(steer);
       const w = asm.clone(true);
       w.name = 'Wheel_' + k;
-      if (k.endsWith('R')) w.scale.z = -1;
+      // right side: the same wheel turned round (not mirrored, so the sidewall lettering reads
+      // correctly); its spin axis then points the other way. The caliper is mirrored back so it
+      // stays behind the axle.
+      const right = k.endsWith('R');
+      if (right) {
+        w.rotation.y = Math.PI;
+        const cal = w.getObjectByName('Caliper_' + k[0]);
+        if (cal) cal.scale.x = -1;
+      }
       steer.add(w);
       const spin = w.getObjectByName(k[0] === 'F' ? 'Wheel_F' : 'Wheel_R');
-      this.wheels[k] = { pos, steer, spin, radius: k[0] === 'F' ? 0.292 : 0.322, angle: 0 };
+      this.wheels[k] = { pos, steer, spin, dir: right ? -1 : 1, radius: k[0] === 'F' ? 0.292 : 0.322, angle: 0 };
     }
     this.track = 1.59; this.wheelbase = 2.413;
 
@@ -172,7 +180,7 @@ export class Car {
     const v = sim ? sim.speed : 0;
     for (const w of Object.values(this.wheels)) {
       w.angle -= (v / w.radius) * dt;
-      if (w.spin) w.spin.rotation.z = w.angle;
+      if (w.spin) w.spin.rotation.z = w.angle * w.dir;
     }
     const sw = this.nodes.wheel;
     if (sw) sw.quaternion.copy(sw.userData.base).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.steerWheelAngle));

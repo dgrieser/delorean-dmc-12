@@ -46,6 +46,21 @@ def grid():
     return _grid
 
 
+def to_skin(X, Y, Z, e=0.002):
+    """Closest point on the skin (one Newton step along the field gradient).
+
+    Panel regions are outlines extruded along a fixed axis, so where the skin runs almost along
+    that axis (roof header, upper A-pillar) their iso-surfaces meet the skin at a shallow angle
+    and any band cut by them smears and staircases. Evaluating a region at the projected point
+    makes its cuts perpendicular to the skin instead."""
+    X, Y, Z = np.broadcast_arrays(np.asarray(X, np.float64), Y, Z)
+    s = shell(X, Y, Z)
+    g = np.stack([shell(X + e, Y, Z) - shell(X - e, Y, Z), shell(X, Y + e, Z) - shell(X, Y - e, Z),
+                  shell(X, Y, Z + e) - shell(X, Y, Z - e)]) / (2 * e)
+    g /= np.maximum(np.linalg.norm(g, axis=0), 1e-9)
+    return X - s * g[0], Y - s * g[1], Z - s * g[2]
+
+
 def shell(X, Y, Z):
     X = np.asarray(X, np.float64)
     shp = np.shape(X)

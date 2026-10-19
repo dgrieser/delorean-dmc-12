@@ -58,6 +58,7 @@ PARTS = {
     'bumper_r': ('Urethane', 'Body', 'box'),
     'rocker': ('PlasticMatte', 'Body', 'box'),
     'airdam': ('PlasticMatte', 'Body', 'box'),
+    'rvalance': ('PlasticMatte', 'Body', 'box'),
     'door_handle_L': ('PlasticBlack', 'Door_L', 'box'),
     'door_handle_R': ('PlasticBlack', 'Door_R', 'box'),
     'bumper_letters': ('Urethane', 'Body', 'box'),
@@ -80,6 +81,8 @@ PARTS = {
     'strip_quarter_L': ('Rubber', 'Body', 'box'),
     'strip_quarter_R': ('Rubber', 'Body', 'box'),
     'strip_rearcorner_L': ('Rubber', 'Body', 'box'),
+    'strip_nose_L': ('Rubber', 'Body', 'box'),
+    'strip_nose_R': ('Rubber', 'Body', 'box'),
     'strip_rearcorner_R': ('Rubber', 'Body', 'box'),
     'strip_door_L': ('Rubber', 'Door_L', 'box'),
     'strip_door_R': ('Rubber', 'Door_R', 'box'),
@@ -184,7 +187,7 @@ PIVOTS = {
 MARKERS = {
     'LP_HeadLo_L': (2.03, 0.570, 0.608), 'LP_HeadLo_R': (2.03, -0.570, 0.608),
     'LP_HeadHi_L': (2.03, 0.385, 0.608), 'LP_HeadHi_R': (2.03, -0.385, 0.608),
-    'LP_TurnF_L': (2.11, 0.585, 0.455), 'LP_TurnF_R': (2.11, -0.585, 0.455),
+    'LP_TurnF_L': (2.11, 0.585, B.TURN_Z), 'LP_TurnF_R': (2.11, -0.585, B.TURN_Z),
     'LP_TurnR_L': (-1.97, 0.745, 0.725), 'LP_TurnR_R': (-1.97, -0.745, 0.725),
     'LP_Tail_L': (-1.97, 0.53, 0.725), 'LP_Tail_R': (-1.97, -0.53, 0.725),
     'LP_Rev_L': (-1.97, 0.33, 0.725), 'LP_Rev_R': (-1.97, -0.33, 0.725),
@@ -200,6 +203,7 @@ if __name__ == '__main__':
             'materials': {k: {'rgb': v[0], 'metallic': v[1], 'roughness': v[2], **v[3]} for k, v in MATERIALS.items()},
             'parts': {k: {'material': v[0], 'parent': v[1], 'uv': v[2]} for k, v in PARTS.items()},
             'pivots': {k: {'loc': [float(x) for x in v[0]], 'parent': v[1], 'rot': v[2] if len(v) > 2 else None} for k, v in PIVOTS.items()},
-            'markers': {k: [float(x) for x in v] for k, v in MARKERS.items()}}
+            'markers': {k: [float(x) for x in v] for k, v in MARKERS.items()},
+            'stance': float(B.STANCE)}
     json.dump(data, open(f'{out}/manifest.json', 'w'), indent=1)
     print('manifest written', len(data['parts']), 'parts')

@@ -315,8 +315,9 @@ def door_trim(X, Y, Z, side=1, upper=False):
     d = np.maximum(s + 0.004, -(s + t))
     # stop just short of the door's edge walls (build_edges.py), whose dark flange band runs under
     # the trim's end, so the two never share a surface (that z-fights into a sawtooth)
-    d = np.maximum(d, B.r_door(X, Y, Z, side) + TRIM_RECESS)
-    d = smax(d, -(B.r_door_glass(X, Y, Z, side) - TRIM_RECESS), 0.002)
+    Xs, Ys, Zs = SX.to_skin(X, Y, Z)
+    d = np.maximum(d, B.r_door(Xs, Ys, Zs, side) + TRIM_RECESS)
+    d = smax(d, -(B.r_door_glass(Xs, Ys, Zs, side) - TRIM_RECESS), 0.002)
     d = np.maximum(d, 0.345 - Z)
     split = 0.875
     d = np.maximum(d, (split - Z) if upper else (Z - split))
@@ -344,7 +345,8 @@ def body_trim(X, Y, Z):
     d = np.maximum(s + 0.004, -(s + 0.028))
     d = np.maximum(d, np.maximum(CAB_X0 - X, X - 0.86))
     d = np.maximum(d, 0.62 - Z)
-    rd = np.minimum(B.r_door(X, Y, Z, 1), B.r_door(X, Y, Z, -1))
+    Xs, Ys, Zs = SX.to_skin(X, Y, Z)
+    rd = np.minimum(B.r_door(Xs, Ys, Zs, 1), B.r_door(Xs, Ys, Zs, -1))
     d = np.maximum(d, -(rd - TRIM_RECESS))
     d = smax(d, -(B.r_windshield(X, Y, Z) - 0.010), 0.004)
     return d

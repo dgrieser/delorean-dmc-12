@@ -1,14 +1,19 @@
 # Environment maps
 
-Photographic HDRIs from [Poly Haven](https://polyhaven.com), all CC0 (public domain):
+Day and night are photographic HDRIs from [Poly Haven](https://polyhaven.com), CC0 (public domain):
 
 | scene | source | files |
 |-------|--------|-------|
-| studio | [Cyclorama Hard Light](https://polyhaven.com/a/cyclorama_hard_light) (Dimitrios Savva) | `studio.hdr` |
 | day | [Driving School](https://polyhaven.com/a/driving_school) (Dimitrios Savva, Jarod Guest) | `day.hdr`, `day_bg.jpg` |
 | night | [Hansaplatz](https://polyhaven.com/a/hansaplatz) (Sergej Majboroda) | `night.hdr`, `night_bg.jpg` |
 
-`tools/tex/prep_hdri.py` turns the 4k (studio: 2k) downloads into what the viewer loads:
+The studio is generated: `tools/tex/studio_env.py` writes `studio.hdr`, a car-photography studio
+(one large overhead softbox, two strip boxes, dark ceiling, white cyc wall band, and a floor that
+reads dark close to the car) that gives brushed steel the light-over-dark flank gradient of the
+studio reference photos (`ref/studio`). The camera sees a separate white cyclorama set
+(`makeCyc` in `web/js/env.js`).
+
+`tools/tex/prep_hdri.py` turns the 4k day/night downloads into what the viewer loads:
 
 - The over-bright key light (sun, lamp or softbox core) is clamped out of the map. Its energy and
   mean direction are measured and stored in `env.json` (`keyDir`, `keyIrradiance`), and
@@ -20,14 +25,15 @@ Photographic HDRIs from [Poly Haven](https://polyhaven.com), all CC0 (public dom
   material colour, so it renders at the HDR's real radiance under the same exposure.
 
 Direction convention: three.js equirect lookup (`u = atan2(z, x) / 2π + 0.5`, top row = +Y);
-car front = +X. `env.js` rotates each map (`environmentRotation` / `backgroundRotation`) so the
-key light sits where the preset wants it.
+car front = +X. A preset with `keyAzimuth` turns its map (`environmentRotation` /
+`backgroundRotation`) so the key light sits where the preset wants it; the generated studio is
+already laid out around the car.
 
 Re-create (after downloading the HDRIs into `<src>`):
 
 ```bash
-python3 tools/tex/prep_hdri.py <src> web/assets/env \
-  studio=cyclorama_hard_light_2k.hdr:60:- day=driving_school_4k.hdr:40:0.32 night=hansaplatz_4k.hdr:25:1.6
+python3 tools/tex/prep_hdri.py <src> web/assets/env day=driving_school_4k.hdr:40:0.32 night=hansaplatz_4k.hdr:25:1.6
+python3 tools/tex/studio_env.py
 ```
 
 # Textures (`../tex/`)

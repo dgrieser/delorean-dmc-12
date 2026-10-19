@@ -592,12 +592,7 @@ def preview(path):
     rear.location = (0, 0, 0)
 
 
-def main():
-    argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-    clear_scene()
-    M = mats()
-    build_assembly('F', M)
-    build_assembly('R', M)
+def triangulate_all():
     for ob in bpy.data.objects:
         if ob.type == 'MESH':
             bm = bmesh.new()
@@ -605,6 +600,9 @@ def main():
             bmesh.ops.triangulate(bm, faces=bm.faces, quad_method='BEAUTY', ngon_method='BEAUTY')
             bm.to_mesh(ob.data)
             bm.free()
+
+
+def export(path):
     total = 0
     for ob in bpy.data.objects:
         if ob.type == 'MESH':
@@ -612,16 +610,27 @@ def main():
             total += n
             print(f'  {ob.name:12s} {n:7d} tris  parent={ob.parent.name if ob.parent else None}')
     print('TOTAL TRIS', total)
-    os.makedirs(OUT_DIR, exist_ok=True)
-    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT_DIR, 'wheels.glb'), export_format='GLB',
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    bpy.ops.export_scene.gltf(filepath=path, export_format='GLB',
                               export_apply=True, export_normals=True, export_tangents=True,
                               export_texcoords=True, export_materials='EXPORT', export_yup=True,
                               export_extras=False)
-    print('EXPORTED', os.path.getsize(os.path.join(OUT_DIR, 'wheels.glb')))
+    print('EXPORTED', os.path.getsize(path))
+
+
+def main():
+    argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
+    clear_scene()
+    M = mats()
+    build_assembly('F', M)
+    build_assembly('R', M)
+    triangulate_all()
+    export(os.path.join(OUT_DIR, 'wheels.glb'))
     if '--preview' in argv:
         preview(os.path.join(OUT_DIR, 'wheels_preview.png'))
     if '--blend' in argv:
         bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT_DIR, 'wheels.blend'))
 
 
-main()
+if __name__ == '__main__':
+    main()

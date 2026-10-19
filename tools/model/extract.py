@@ -72,6 +72,53 @@ def keep_faces(V, F, mask_fn):
     return V[used], remap[F]
 
 
+def clip_level(V, F, level_fn):
+    """Keep the part of the mesh where level_fn >= 0, splitting triangles exactly on the zero line.
+
+    Deleting whole triangles (keep_faces) leaves a sawtooth edge one triangle deep; this cuts
+    along the iso-line instead (new vertices are shared between neighbours, so the cut stays
+    watertight along its length)."""
+    f = level_fn(V[:, 0], V[:, 1], V[:, 2]).astype(np.float64)
+    pos = f >= 0
+    k = pos[F].sum(1)
+    out = [F[k == 3]]
+    newV = []
+    cache = {}
+
+    def cut(i, j):
+        if f[i] == 0:               # a vertex already on the cut line: reuse it
+            return i
+        if f[j] == 0:
+            return j
+        key = (min(i, j), max(i, j))
+        if key not in cache:
+            t = f[i] / (f[i] - f[j])
+            cache[key] = len(V) + len(newV)
+            newV.append(V[i] + t * (V[j] - V[i]))
+        return cache[key]
+
+    for tri, kk in zip(F[(k == 1) | (k == 2)], k[(k == 1) | (k == 2)]):
+        a, b, c = tri
+        # rotate so the odd vertex (the lone inside one for kk == 1, the lone outside one for kk == 2) is first
+        for _ in range(3):
+            if (pos[a] if kk == 1 else not pos[a]) and (pos[b] != pos[a]) and (pos[c] != pos[a]):
+                break
+            a, b, c = b, c, a
+        ab, ac = cut(a, b), cut(a, c)
+        if kk == 1:
+            out.append(np.array([[a, ab, ac]]))
+        else:
+            out.append(np.array([[ab, b, c], [ab, c, ac]]))
+    if newV:
+        V = np.concatenate([V, np.array(newV)])
+    F = np.concatenate(out)
+    F = F[(F[:, 0] != F[:, 1]) & (F[:, 1] != F[:, 2]) & (F[:, 2] != F[:, 0])]
+    used = np.unique(F)
+    remap = -np.ones(len(V), np.int64)
+    remap[used] = np.arange(len(used))
+    return V[used], remap[F]
+
+
 def decimate(V, F, reduction=0.85, agg=7):
     import fast_simplification
     V2, F2 = fast_simplification.simplify(V.astype(np.float32), F.astype(np.int32),
