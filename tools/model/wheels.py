@@ -14,7 +14,7 @@ import os
 import sys
 from mathutils import Vector, Matrix
 
-OUT_DIR = '/home/user/delorean-dmc-12/tools/out'
+OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out')
 TAU = 2 * math.pi
 
 

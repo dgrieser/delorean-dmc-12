@@ -146,7 +146,6 @@ export function bindUI(ctx) {
       case 'KeyP': A.panel('doorR'); break;
       case 'KeyH': A.panel('hood'); break;
       case 'KeyT': A.panel('lid'); break;
-      case 'KeyY': A.panel('fuel'); break;
       case 'BracketLeft': A.toll('L'); break;
       case 'BracketRight': A.toll('R'); break;
       case 'KeyK':

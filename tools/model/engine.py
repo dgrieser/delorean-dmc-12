@@ -163,10 +163,11 @@ def frunk_tub(X, Y, Z):
     wall = np.maximum(wall, 0.40 - Z)
     wall = np.maximum(wall, Z - 0.80)
     wall = np.maximum(wall, -(poly2d(X, Y, B.HOOD_POLY) - 0.05))
-    floor = rbox3(X, Y, Z, (1.45, 0, 0.40), (0.58, 0.62, 0.012), 0.01)
+    # floor and side walls stay inboard of the wheel-well liners (inner wall at |y| 0.53)
+    floor = rbox3(X, Y, Z, (1.45, 0, 0.40), (0.58, 0.52, 0.012), 0.01)
     floor = smax(floor, -B.arch_cyl(X, Y, Z, 0.03), 0.01)
     rear = rbox3(X, Y, Z, (0.90, 0, 0.60), (0.012, 0.70, 0.20), 0.01)
-    side = np.maximum(np.abs(yy - 0.60) - 0.01, np.maximum(np.maximum(0.88 - X, X - 1.62), np.maximum(0.39 - Z, Z - 0.78)))
+    side = np.maximum(np.abs(yy - 0.515) - 0.01, np.maximum(np.maximum(0.88 - X, X - 1.62), np.maximum(0.39 - Z, Z - 0.78)))
     return np.minimum(np.minimum(wall, floor), np.minimum(rear, side))
 
 

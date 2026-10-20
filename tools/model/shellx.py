@@ -11,7 +11,7 @@ import numpy as np
 from scipy import ndimage
 import body as B
 
-OUT = os.environ.get('OUT', '/home/user/delorean-dmc-12/tools/out')
+OUT = os.environ.get('OUT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out'))
 CACHE = os.path.join(OUT, 'shell_edt.npz')
 H = 0.006
 LO = np.array([-2.04, -0.98, 0.20])

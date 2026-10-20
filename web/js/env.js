@@ -14,7 +14,7 @@ import { GroundedSkybox } from 'three/addons/objects/GroundedSkybox.js';
 // (tools/tex/studio_env.py: overhead softbox, strip boxes, shaded floor) lights the car while a
 // white cyclorama set is what the camera sees, as in the studio reference photos.
 export const PRESETS = {
-  studio: { hdr: 'studio.hdr', exposure: 0.62, envIntensity: 1.0, keyScale: 1.0, shadowRadius: 14, cyc: true,
+  studio: { hdr: 'studio.hdr', exposure: 0.62, envIntensity: 1.0, keyScale: 1.0, shadowRadius: 14, cyc: true, followCamera: true,
             ground: { kind: 'studio', color: [0.60, 0.60, 0.60], rough: 0.55, refl: 0.10, env: 1.0 }, bg: { color: [0.45, 0.45, 0.46] }, bloom: 0.12 },
   day: { hdr: 'day.hdr', exposure: 1.0, envIntensity: 1.0, keyScale: 1.0, shadowRadius: 2,
          backdrop: { jpg: 'day_bg.jpg', height: 1.65, radius: 140 },
@@ -208,6 +208,15 @@ export class Environment {
   }
 
   setDriving(on) { this.driving = on; if (this.preset) this.applyGround(); }
+
+  // The studio rig is authored relative to the camera (+X of the map = towards the camera), as
+  // on a turntable shoot: turn the reflections with the camera's azimuth round the car.
+  follow(camera, target) {
+    if (!this.preset?.followCamera || this.driving) return;
+    const dx = camera.position.x - target.x, dz = camera.position.z - target.z;
+    if (dx * dx + dz * dz < 1e-6) return;
+    this.scene.environmentRotation.y = Math.atan2(-dz, dx);
+  }
 
   applyGround() {
     const P = this.preset, scene = this.scene;

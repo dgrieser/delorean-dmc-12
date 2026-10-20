@@ -9,7 +9,7 @@ H = float(os.environ.get('H', '0.006'))
 GAP = 0.0045
 ROLL = 0.004
 DEPTH = 0.012
-OUT = os.environ.get('OUT', '/home/user/delorean-dmc-12/tools/out')
+OUT = os.environ.get('OUT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out'))
 os.makedirs(OUT, exist_ok=True)
 
 
@@ -22,7 +22,7 @@ def door_R(X, Y, Z):
 
 
 def hood(X, Y, Z):
-    return np.maximum(B.r_hood(X, Y, Z), -B.r_fuel(X, Y, Z))
+    return B.r_hood(X, Y, Z)
 
 
 def cut_all(X, Y, Z):
@@ -57,7 +57,6 @@ PARTS = {
     'door_L': (panel(door_L), (-0.76, 0.09, 0.23), (0.70, 0.95, 1.16), True),
     'door_R': (panel(door_R), (-0.76, -0.95, 0.23), (0.70, -0.09, 1.16), True),
     'hood': (panel(hood), (0.62, -0.90, 0.60), (2.07, 0.90, 0.87), True),
-    'fuel_flap': (panel(B.r_fuel), (0.85, 0.08, 0.80), (1.06, 0.29, 0.87), True),
     'lid_skin': (panel(B.r_lid), (-1.95, -0.80, 0.82), (-0.70, 0.80, 1.14), True),
     'bumper_f': (B.front_bumper, B.FBUMP_BMIN, B.FBUMP_BMAX, False),
     'bumper_r': (B.rear_bumper, B.RBUMP_BMIN, B.RBUMP_BMAX, False),
@@ -68,11 +67,11 @@ PARTS = {
 
 
 BUDGET = {'body': 260000, 'hood': 40000, 'bumper_f': 40000, 'bumper_r': 42000, 'rocker': 10000, 'lid_skin': 1000,
-          'door_L': 45000, 'door_R': 45000, 'fuel_flap': 2500, 'airdam': 24000, 'rvalance': 6000}
+          'door_L': 45000, 'door_R': 45000, 'airdam': 24000, 'rvalance': 6000}
 
 
 # stainless panels: split long slivers (baked AO smears along them); dark/flat parts are left as is
-SPLIT = {'body', 'door_L', 'door_R', 'hood', 'fuel_flap'}
+SPLIT = {'body', 'door_L', 'door_R', 'hood'}
 
 
 def build(name, reduction=0.86):

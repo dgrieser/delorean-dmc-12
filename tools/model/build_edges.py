@@ -12,7 +12,7 @@ import interior as I
 import shellx as SX
 import build_shell as S
 
-OUT = os.environ.get('OUT', '/home/user/delorean-dmc-12/tools/out')
+OUT = os.environ.get('OUT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out'))
 GAP = S.GAP
 LIFT = 0.005      # edge flanges sit this much behind the trim surface, so the trim always wins
 BAND = 0.009      # flange width measured from the panel edge (trims stop at I.TRIM_RECESS)
@@ -36,6 +36,13 @@ def door_solid(side):
         reg_s = np.maximum(B.r_door(Xs, Ys, Zs, side), -B.r_door_glass(Xs, Ys, Zs, side))
         band = np.minimum(-(reg_s + BAND), Z - 0.35)
         d = smax(d, band, 0.0015)
+        # below the card only out at the sill: further in, the body's bottom skin lies within reach
+        # of the outline, which would hang a slab under the whole cabin floor on the door
+        d = np.maximum(d, np.minimum(0.35 - Z, 0.72 - side * Y))
+        # the door outline is extruded across the car: keep the solid off the inside of the
+        # windscreen, which the A-pillar corner of that outline reaches (skin points on the glass
+        # sit 12 mm outside the door region, r_door's windscreen clearance)
+        d = np.maximum(d, reg_s - 0.008)
         return smax(d, 0.285 - Z, 0.0015)
     return f
 

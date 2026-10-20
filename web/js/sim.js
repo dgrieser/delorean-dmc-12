@@ -5,7 +5,7 @@
 
 const GEARS = { R: -3.1818, N: 0, 1: 3.364, 2: 2.059, 3: 1.381, 4: 1.057, 5: 0.8205 };
 const FINAL = 3.44;
-const R_TYRE = 0.322;           // rear rolling radius (235/60 R15 loaded)
+const R_TYRE = 0.299;           // rear rolling radius (low-profile tyres on the stock 15 in. rims, as on the reference car)
 const MASS = 1290 + 80;         // kerb + driver
 const CDA = 0.338 * 1.80;       // drag area (m^2): Cd 0.338
 const CRR = 0.013;

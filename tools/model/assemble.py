@@ -3,8 +3,8 @@ import bpy, bmesh, json, os, sys, time
 import numpy as np
 
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-OUTDIR = os.environ.get('OUT', '/home/user/delorean-dmc-12/tools/out')
-GLB = argv[0] if argv else '/home/user/delorean-dmc-12/web/assets/dmc12_raw.glb'
+OUTDIR = os.environ.get('OUT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out'))
+GLB = argv[0] if argv else os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'web', 'assets', 'dmc12_raw.glb')
 DO_AO = '--ao' in argv
 man = json.load(open(f'{OUTDIR}/manifest.json'))
 
@@ -92,7 +92,8 @@ def make_mesh(name, V, F, N, mat, parent, local=False, uvmode='box'):
         print('  cleaned', name)
     nf = len(me.polygons)
     me.polygons.foreach_set('use_smooth', np.ones(nf, bool))
-    me.use_auto_smooth = True
+    if hasattr(me, 'use_auto_smooth'):          # Blender < 4.1; later versions keep custom normals as is
+        me.use_auto_smooth = True
     me.normals_split_custom_set_from_vertices(N.astype(np.float32))
     if uvmode in ('brush', 'lens'):
         uv = me.uv_layers.new(name='UVMap')
@@ -222,7 +223,12 @@ car.location.z = -man.get('stance', 0.0)
 bpy.context.view_layer.update()
 
 # external GLB assets (wheels) are merged by the app; nothing else here.
-bpy.ops.export_scene.gltf(filepath=GLB, export_format='GLB', export_normals=True, export_tangents=True,
-                          export_apply=True, export_yup=True, export_extras=True, export_attributes=True,
-                          export_materials='EXPORT', export_colors=False if hasattr(bpy.types, 'x') else False)
+opts = dict(filepath=GLB, export_format='GLB', export_normals=True, export_tangents=True, export_apply=True,
+            export_yup=True, export_extras=True, export_attributes=True, export_materials='EXPORT')
+props = bpy.ops.export_scene.gltf.get_rna_type().properties
+if 'export_colors' in props:                  # Blender < 4.2
+    opts['export_colors'] = False
+elif 'export_vertex_color' in props:
+    opts['export_vertex_color'] = 'NONE'
+bpy.ops.export_scene.gltf(**opts)
 print('exported', GLB, time.time() - t0)

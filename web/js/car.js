@@ -68,6 +68,46 @@ export class HingedPanel {
 }
 
 // ---------------------------------------------------------------------------------------------
+// The reference car (ref/studio) runs low-profile tyres on the stock 14/15 in. rims: its wheel
+// centres stand 0.271 / 0.298 m above the floor. The tyre model is a 60-series pair (0.293 /
+// 0.330 m), so its sidewalls are squashed radially, keeping the bead seated on the rim.
+const TYRE_R = { F: 0.272, R: 0.299 };
+const BEAD_R = { F: 0.178, R: 0.191 };
+
+function lowProfile(obj, R, bead) {
+  obj?.traverse(o => {
+    if (!o.isMesh || o.geometry.userData.lowProfile) return;
+    const g = o.geometry, P = g.attributes.position, n = P.count;
+    g.computeBoundingBox();
+    const s = g.boundingBox.getSize(new THREE.Vector3()), c = g.boundingBox.getCenter(new THREE.Vector3());
+    const ax = s.x < s.y && s.x < s.z ? 0 : s.y < s.z ? 1 : 2;        // axle = the thin dimension
+    const [i, j] = [0, 1, 2].filter(a => a !== ax);
+    const v = [0, 0, 0];
+    let rmax = 0;
+    for (let q = 0; q < n; q++) rmax = Math.max(rmax, Math.hypot(P.getComponent(q, i) - c.getComponent(i), P.getComponent(q, j) - c.getComponent(j)));
+    const k = (R - bead) / (rmax - bead);
+    const N = g.attributes.normal;
+    for (let q = 0; q < n; q++) {
+      for (let a = 0; a < 3; a++) v[a] = P.getComponent(q, a);
+      const du = v[i] - c.getComponent(i), dv = v[j] - c.getComponent(j), r = Math.hypot(du, dv);
+      if (r <= bead) continue;
+      const f = (bead + (r - bead) * k) / r;
+      P.setComponent(q, i, c.getComponent(i) + du * f);
+      P.setComponent(q, j, c.getComponent(j) + dv * f);
+      if (!N) continue;
+      // normals take the inverse transpose of the map: radial stretch k, tangential stretch f
+      const ur = du / r, vr = dv / r, ni = N.getComponent(q, i), nj = N.getComponent(q, j), na = N.getComponent(q, ax);
+      const nr = (ni * ur + nj * vr) / k, nt = (-ni * vr + nj * ur) / f;
+      const mi = nr * ur - nt * vr, mj = nr * vr + nt * ur, l = Math.hypot(mi, mj, na) || 1;
+      N.setComponent(q, i, mi / l); N.setComponent(q, j, mj / l); N.setComponent(q, ax, na / l);
+    }
+    P.needsUpdate = true;
+    if (N) N.needsUpdate = true;
+    g.computeBoundingSphere();
+    g.userData.lowProfile = true;
+  });
+}
+
 export class Car {
   constructor(root, wheels, manifest, lib) {
     this.root = root;
@@ -77,7 +117,7 @@ export class Car {
     this.bodyBase = { p: this.body.position.clone(), q: this.body.quaternion.clone() };
     this.nodes = {
       doorL: get('Door_L_Pivot'), doorR: get('Door_R_Pivot'), hood: get('Hood_Pivot'),
-      lid: get('EngineLid_Pivot'), fuel: get('FuelFlap_Pivot'), wheel: get('SteeringWheel_Pivot'),
+      lid: get('EngineLid_Pivot'), wheel: get('SteeringWheel_Pivot'),
       shifter: get('Shifter_Pivot'), handbrake: get('Handbrake_Pivot'),
       clutch: get('Pedal_Clutch_Pivot'), brake: get('Pedal_Brake_Pivot'), gas: get('Pedal_Gas_Pivot'),
       gauge: get('GaugeFace_Pivot'), clock: get('ClockFace_Pivot'), radio: get('RadioFace_Pivot'),
@@ -99,13 +139,12 @@ export class Car {
     // louvred engine cover on gas struts
     this.lid = new HingedPanel(this.nodes.lid, Z, -1, { max: 52 * DEG, I: 3.6, mgr: 54, phase: 8 * DEG,
       spring: th => 58 * smooth(0.0, 0.3, th) + 10, damp: 16, handTorque: 110 });
-    this.fuel = new HingedPanel(this.nodes.fuel, Z, -1, { max: 95 * DEG, I: 0.004, mgr: 0.15, phase: 0,
-      spring: th => 0.28, damp: 0.02, handTorque: 0.5 });
-    this.panels = { doorL: this.doorL, doorR: this.doorR, hood: this.hood, lid: this.lid, fuel: this.fuel };
+    this.panels = { doorL: this.doorL, doorR: this.doorR, hood: this.hood, lid: this.lid };
 
     // --- wheels
     this.wheels = {};
     const asmF = wheels.getObjectByName('WheelAsm_F'), asmR = wheels.getObjectByName('WheelAsm_R');
+    for (const [k, R] of Object.entries(TYRE_R)) lowProfile(wheels.getObjectByName('Tyre_' + k), R, BEAD_R[k]);
     for (const [k, asm] of [['FL', asmF], ['FR', asmF], ['RL', asmR], ['RR', asmR]]) {
       const pos = get('WheelPos_' + k);
       const steer = new THREE.Group();
@@ -124,7 +163,7 @@ export class Car {
       }
       steer.add(w);
       const spin = w.getObjectByName(k[0] === 'F' ? 'Wheel_F' : 'Wheel_R');
-      this.wheels[k] = { pos, steer, spin, dir: right ? -1 : 1, radius: k[0] === 'F' ? 0.292 : 0.322, angle: 0 };
+      this.wheels[k] = { pos, steer, spin, dir: right ? -1 : 1, radius: TYRE_R[k[0]], angle: 0 };
     }
     this.track = 1.59; this.wheelbase = 2.413;
 

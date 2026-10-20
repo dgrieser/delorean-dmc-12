@@ -5,7 +5,7 @@ from extract import extract, finish4
 import interior as I
 import body as B
 
-OUT = os.environ.get('OUT', '/home/user/delorean-dmc-12/tools/out')
+OUT = os.environ.get('OUT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out'))
 H = float(os.environ.get('HI', '0.004'))
 
 
@@ -41,9 +41,9 @@ PARTS = [
     P('parcel', I.parcel_shelf, (-0.79, -0.80, 0.64), (-0.65, 0.80, 0.68), 0.004, 3000),
     P('rear_window', I.rear_window, (-0.79, -0.65, 0.67), (-0.78, 0.65, 1.08), 0.002, 2000),
     P('bulkhead', I.bulkhead_upper, (-0.81, -0.85, 0.64), (-0.77, 0.85, 1.12), 0.004, 8000),
-    P('rear_mirror', I.rear_mirror, (0.30, -0.14, 0.99), (0.39, 0.14, 1.12), 0.0015, 4000),
-    P('visor_L', lambda X, Y, Z: I.sun_visor(X, Y, Z, 1), (0.08, 0.10, 0.98), (0.28, 0.56, 1.12), 0.002, 4000),
-    P('visor_R', lambda X, Y, Z: I.sun_visor(X, Y, Z, -1), (0.08, -0.56, 0.98), (0.28, -0.10, 1.12), 0.002, 4000),
+    P('rear_mirror', I.rear_mirror, (-0.10, -0.14, 0.98), (0.02, 0.14, 1.12), 0.0015, 4000),
+    P('visor_L', lambda X, Y, Z: I.sun_visor(X, Y, Z, 1), (-0.24, 0.10, 1.02), (-0.02, 0.56, 1.13), 0.002, 4000),
+    P('visor_R', lambda X, Y, Z: I.sun_visor(X, Y, Z, -1), (-0.24, -0.56, 1.02), (-0.02, -0.10, 1.13), 0.002, 4000),
     P('buckles', I.seatbelt_buckles, (-0.37, -0.18, 0.35), (-0.27, 0.18, 0.45), 0.0015, 3000),
     P('belt_buttons', I.belt_buttons, (-0.34, -0.17, 0.43), (-0.30, 0.17, 0.45), 0.001, 1000),
     P('door_strap_L', lambda X, Y, Z: I.door_strap(X, Y, Z, 1), (0.02, 0.70, 0.69), (0.08, 0.90, 0.90), 0.0012, 1500),

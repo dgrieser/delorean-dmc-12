@@ -56,7 +56,8 @@ world.add(carRoot);
 const road = makeRoad();
 road.visible = false;
 
-const state = { env: 'studio', trim: 'grey', drive: false, sound: false, cameraMode: 'orbit' };
+// black hide, as on the reference car (ref/studio)
+const state = { env: 'studio', trim: 'black', drive: false, sound: false, cameraMode: 'orbit' };
 let car, lamps, cluster, displays, rig, ui;
 const sim = new VehicleSim();
 const audio = new CarAudio();
@@ -75,7 +76,7 @@ async function init() {
   setLoad(0.82, 'Loading wheels…');
   const wheels = await loadPacked('assets/wheels', make, p => setLoad(0.82 + p * 0.1));
   carRoot.add(body);
-  const manifest = { windshield: { bx: 0.815, bz: 0.848, nx: 0.4643282668237359, nz: 0.8856631756082364, wrap: 0.22 } };
+  const manifest = { windshield: { bx: 0.700, bz: 0.858, nx: 0.35754824, nz: 0.93389467, wrap: 0.15 } };  // tools/model/body.py WS_*
   car = new Car(body, wheels, manifest, lib);
   car.wipers = new Wipers(car.body, manifest.windshield, lib);
   const INTERIOR = /^(seat|dash|stack|end_vents|console|column|door_card|door_liner|body_trim|carpet|sills|sill_plates|parcel|bulkhead|rear_mirror|visor|buckles|belt|door_strap|steering|pedal|shift|handbrake|rear_window)/;
@@ -98,20 +99,23 @@ async function init() {
     uv.needsUpdate = true;
   }
   // brushed stainless: U and the tangent follow the car's length (DMC panels are brushed
-  // front-to-back), V wraps over the section without seams.
+  // front-to-back), V wraps over the section without seams. Faces that look forward or back
+  // (nose, tail, lamp surrounds) are brushed across the car instead.
   body.updateMatrixWorld(true);
   body.traverse(o => {
     if (!o.isMesh || !['Stainless', 'BadgeAlu'].includes(o.material.name)) return;
     const g = o.geometry, P = g.attributes.position, N = g.attributes.normal, n = P.count;
     const M = o.matrixWorld, Mi = new THREE.Matrix4().copy(M).invert();
-    const ax = new THREE.Vector3(1, 0, 0).transformDirection(Mi);
+    const ax = new THREE.Vector3(1, 0, 0).transformDirection(Mi), az = new THREE.Vector3(0, 0, 1).transformDirection(Mi);
     const uv = new Float32Array(n * 2), tan = new Float32Array(n * 4);
-    const p = new THREE.Vector3(), nn = new THREE.Vector3(), t = new THREE.Vector3();
+    const p = new THREE.Vector3(), nn = new THREE.Vector3(), nw = new THREE.Vector3(), t = new THREE.Vector3();
     for (let i = 0; i < n; i++) {
       p.fromBufferAttribute(P, i).applyMatrix4(M);
-      uv[i * 2] = p.x; uv[i * 2 + 1] = p.y + p.z;
       nn.fromBufferAttribute(N, i);
-      t.copy(ax).addScaledVector(nn, -nn.dot(ax));
+      nw.copy(nn).transformDirection(M);
+      const across = Math.abs(nw.x) > 0.72;
+      uv[i * 2] = across ? p.z : p.x; uv[i * 2 + 1] = across ? p.y : p.y + p.z;
+      t.copy(across ? az : ax).addScaledVector(nn, -nn.dot(across ? az : ax));
       if (t.lengthSq() < 1e-6) t.set(0, 1, 0).addScaledVector(nn, -nn.y);
       t.normalize();
       tan[i * 4] = t.x; tan[i * 4 + 1] = t.y; tan[i * 4 + 2] = t.z; tan[i * 4 + 3] = 1;
@@ -140,6 +144,7 @@ async function init() {
     const t = setTimeout(r, 15000);
     if (!M.itemsTotal || M.itemsTotal <= M.itemsLoaded) { clearTimeout(t); r(); } else M.onLoad = () => { clearTimeout(t); r(); };
   });
+  setTrimColor(state.trim);
   ui = bindUI({ car, sim, lamps, audio, rig, env, state, setEnv, setTrimColor, setDrive, toggleSound });
   applyEnvPreset();
   env.contact.update(scene, carRoot);
@@ -234,6 +239,7 @@ function frame() {
   for (let i = 0; i < n - 1; i++) update(total / n);
   update.skipRender = false;
   update(total / n);
+  env.follow(camera, carRoot.position);
   composer.render();
 }
 

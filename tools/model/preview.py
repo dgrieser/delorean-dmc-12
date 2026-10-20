@@ -1,5 +1,5 @@
 import glob, os, sys, numpy as np, trimesh
-OUT = os.environ.get('OUT', '/home/user/delorean-dmc-12/tools/out')
+OUT = os.environ.get('OUT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out'))
 def col(n):
     if n.startswith(('turn_front', 'marker_front', 'tl_turn')): return [255, 120, 10, 255]
     if n.startswith(('tl_tail', 'marker_rear')): return [200, 10, 10, 255]
@@ -21,5 +21,5 @@ for f in sorted(glob.glob(f'{OUT}/*.npz')):
     m = trimesh.Trimesh(Vg, F, vertex_normals=Ng, process=False)
     m.visual = trimesh.visual.ColorVisuals(m, vertex_colors=np.tile(col(n), (len(Vg), 1)))
     scene.add_geometry(m, node_name=n, geom_name=n)
-scene.export('/home/user/delorean-dmc-12/tools/wgltest/body.glb')
+scene.export(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'wgltest', 'body.glb'))
 print('exported')

@@ -5,7 +5,7 @@ import base64, os, shutil, sys
 SRC = os.path.join(os.path.dirname(__file__), '..', 'web')
 DST = sys.argv[1]
 CHUNK = 9_000_000          # characters per chunk (well under the 16 MB text limit)
-SKIP = {'dmc12_raw.glb', 'dmc12.glb', 'brushed_r.png', 'glass_dirt.png', 'tyre_tread_n.png', 'NOTES.md'}
+SKIP = {'dmc12_raw.glb', 'dmc12.glb', 'glass_dirt.png', 'tyre_tread_n.png', 'NOTES.md'}
 if os.path.exists(DST):
     shutil.rmtree(DST)
 out = []

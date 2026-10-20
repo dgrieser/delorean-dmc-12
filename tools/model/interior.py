@@ -405,17 +405,22 @@ def bulkhead_upper(X, Y, Z):
     return smax(d, -hole, 0.01)
 
 
+# the windscreen header (top edge of the glass) runs across at x ~ 0 (body.WS_T)
+HEADER_X = float(B.WS_T[0])
+
+
 def rear_mirror(X, Y, Z):
-    m = rbox3(X, Y, Z, (0.36, 0.0, 1.035), (0.012, 0.115, 0.032), 0.012)
-    stem = cap_x(X, Y, Z, (0.37, 0, 1.055), (0.32, 0, 1.105), 0.008)
+    m = rbox3(X, Y, Z, (HEADER_X - 0.035, 0.0, 1.030), (0.012, 0.115, 0.032), 0.012)
+    stem = cap_x(X, Y, Z, (HEADER_X - 0.025, 0, 1.050), (HEADER_X - 0.045, 0, 1.100), 0.008)
     return smin(m, stem, 0.01)
 
 
 def sun_visor(X, Y, Z, side=1):
     yy = Y * side
     # hinged along the windshield header; flat padded board lying against the headliner
-    zx = 1.072 + (X - 0.20) * 0.06
-    v = rbox3(X, yy, Z, (0.20, 0.30, 1.0), (0.075, 0.19, 0.5), 0.03)
+    xc = HEADER_X - 0.13
+    zx = 1.086 + (X - xc) * 0.03
+    v = rbox3(X, yy, Z, (xc, 0.30, 1.0), (0.075, 0.19, 0.5), 0.03)
     v = np.maximum(v, np.abs(Z - zx) - 0.009)
     return v
 

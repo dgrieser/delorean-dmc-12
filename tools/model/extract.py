@@ -290,12 +290,12 @@ def finish3(f, V, F, target, refine_iters=3, max_angle=8.0, min_len=0.0008):
 def decimate_mo(V, F, N, ratio, err=0.0005):
     """Attribute-aware simplification (meshoptimizer via gltfpack -sv). Returns V, F, N."""
     import subprocess, tempfile, os, trimesh, sys
-    sys.path.insert(0, '/home/user/delorean-dmc-12/tools')
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
     from pack import read_glb, accessor
     d = tempfile.mkdtemp()
     a, b = os.path.join(d, 'a.glb'), os.path.join(d, 'b.glb')
     trimesh.Trimesh(V, F, vertex_normals=N, process=False).export(a)
-    subprocess.run(['/home/user/delorean-dmc-12/tools/node_modules/.bin/gltfpack', '-i', a, '-o', b, '-noq',
+    subprocess.run([os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'node_modules', '.bin', 'gltfpack'), '-i', a, '-o', b, '-noq',
                     '-si', f'{ratio:.4f}', '-se', f'{err}', '-sv', '-kn', '-km'], check=True, capture_output=True)
     js, binc = read_glb(b)
     pr = js['meshes'][0]['primitives'][0]

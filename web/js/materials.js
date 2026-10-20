@@ -218,7 +218,9 @@ export function triplanar(mat, opts) { return enhance(mat, { scale: 6, normalSca
 
 export const TRIM = {
   grey: { leather: [0.165, 0.170, 0.178], vinyl: [0.150, 0.155, 0.162], carpet: [0.105, 0.108, 0.112], head: [0.30, 0.30, 0.29] },
-  black: { leather: [0.020, 0.020, 0.021], vinyl: [0.024, 0.024, 0.026], carpet: [0.016, 0.016, 0.018], head: [0.20, 0.20, 0.20] },
+  // as on the reference car (ref/studio 03, 04, 09-12): charcoal hide, near-black carpet, light grey
+  // cloth on the headliner and the upper door panels
+  black: { leather: [0.040, 0.041, 0.044], vinyl: [0.036, 0.037, 0.040], carpet: [0.018, 0.018, 0.020], head: [0.26, 0.26, 0.255] },
 };
 export function setTrim(lib, name) {
   const t = TRIM[name];
@@ -230,10 +232,11 @@ export function setTrim(lib, name) {
 
 export function createLibrary(opts = {}) {
   const T = 'assets/tex/';
-  const brushedN = tex(T + 'brushed_n.png', { repeat: 1.6 });
-  brushedN.repeat.set(1.2, 7.0);
-  const brushedR = tex(T + 'brushed_r_soft.png', { repeat: 1.6 });
-  brushedR.repeat.set(0.9, 5.0);
+  // brushed stainless: a CC0 scan (ambientCG Metal009, tools/tex/import_cc0.py), one tile per
+  // 0.5 m; the UVs are metres with U along the car (web/js/main.js), the grain runs along U
+  const steelC = tex(T + 'stainless_c.jpg', { srgb: true, repeat: 2 });
+  const steelN = tex(T + 'stainless_n.jpg', { repeat: 2 });
+  const steelR = tex(T + 'stainless_r.jpg', { repeat: 2 });
   const grainN = tex(T + 'plastic_grain_n.png', { repeat: 6 });
   const flute = fluteNormal();
   const prism = prismNormal();
@@ -243,23 +246,23 @@ export function createLibrary(opts = {}) {
     // brushed grain lives in the normal / roughness maps; the lobe itself is isotropic: three.js's
     // anisotropic IBL bends the lookup normal along the grain, which smears away the light-over-dark
     // flank gradient the reference photos show
-    name: 'Stainless', color: lin(0.60, 0.60, 0.61), metalness: 1, roughness: 0.30,
-    roughnessMap: brushedR, normalMap: brushedN, normalScale: new THREE.Vector2(0.08, 0.08),
+    // the maps are centred on 0.5: colour and roughness here are twice the mean values
+    name: 'Stainless', color: lin(1.24, 1.21, 1.17), metalness: 1, roughness: 0.76,
+    map: steelC, roughnessMap: steelR, normalMap: steelN, normalScale: new THREE.Vector2(0.35, 0.35),
     side: THREE.DoubleSide, envMapIntensity: 1.0,
   });
   lib.Urethane = new THREE.MeshPhysicalMaterial({
     // satin charcoal urethane: picks up soft reflections that show the bumper's shape
-    name: 'Urethane', color: lin(0.062, 0.064, 0.068), metalness: 0, roughness: 0.5,
+    name: 'Urethane', color: lin(0.044, 0.046, 0.050), metalness: 0, roughness: 0.5,
     normalMap: grainN, normalScale: new THREE.Vector2(0.2, 0.2), clearcoat: 0.3, clearcoatRoughness: 0.32,
   });
   lib.Rubber = new THREE.MeshStandardMaterial({ name: 'Rubber', color: lin(0.010, 0.010, 0.011), roughness: 0.78 });
   lib.PlasticBlack = new THREE.MeshPhysicalMaterial({ name: 'PlasticBlack', color: lin(0.012, 0.012, 0.013), roughness: 0.42, clearcoat: 0.15, clearcoatRoughness: 0.4, side: THREE.DoubleSide });
-  lib.PlasticMatte = new THREE.MeshStandardMaterial({ name: 'PlasticMatte', color: lin(0.016, 0.016, 0.017), roughness: 0.9, side: THREE.DoubleSide });
+  lib.PlasticMatte = new THREE.MeshStandardMaterial({ name: 'PlasticMatte', color: lin(0.024, 0.024, 0.026), roughness: 0.8, side: THREE.DoubleSide });
   lib.Glass = new THREE.MeshPhysicalMaterial({
     name: 'Glass', color: lin(0.86, 0.90, 0.88), metalness: 0, roughness: 0.0, transmission: 1, thickness: 0.0,
     ior: 1.52, specularIntensity: 1, side: THREE.DoubleSide, envMapIntensity: 1.2,
   });
-  lib.GlassDark = new THREE.MeshPhysicalMaterial({ name: 'GlassDark', color: lin(0.006, 0.006, 0.007), roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.03 });
   lib.Chrome = new THREE.MeshStandardMaterial({ name: 'Chrome', color: lin(0.92, 0.92, 0.92), metalness: 1, roughness: 0.06, side: THREE.DoubleSide });
   lib.MirrorGlass = new THREE.MeshStandardMaterial({ name: 'MirrorGlass', color: lin(0.88, 0.89, 0.9), metalness: 1, roughness: 0.0 });
   lib.BadgeAlu = new THREE.MeshPhysicalMaterial({ name: 'BadgeAlu', color: lin(0.80, 0.80, 0.82), metalness: 1, roughness: 0.26, clearcoat: 0.4 });
@@ -277,12 +280,12 @@ export function createLibrary(opts = {}) {
   });
   lib.Lamp_Bulb_Hi = new THREE.MeshStandardMaterial({ name: 'Lamp_Bulb_Hi', color: lin(0.8, 0.8, 0.78), roughness: 0.3, emissive: lin(1.0, 0.92, 0.80), emissiveIntensity: 0 });
   lib.Lamp_Bulb_Lo = lib.Lamp_Bulb_Hi.clone(); lib.Lamp_Bulb_Lo.name = 'Lamp_Bulb_Lo';
-  lib.Lamp_TurnFront = lens('Lamp_TurnFront', [0.95, 0.42, 0.03], [1.0, 0.45, 0.02]);
-  lib.Lamp_MarkerFront = lens('Lamp_MarkerFront', [0.95, 0.42, 0.03], [1.0, 0.45, 0.02]);
-  lib.Lamp_TurnRear = lens('Lamp_TurnRear', [0.95, 0.42, 0.03], [1.0, 0.45, 0.02]);
-  lib.Lamp_Tail = lens('Lamp_Tail', [0.60, 0.012, 0.010], [1.0, 0.02, 0.01]);
-  lib.Lamp_MarkerRear = lens('Lamp_MarkerRear', [0.60, 0.012, 0.010], [1.0, 0.02, 0.01]);
-  lib.Lamp_Reverse = lens('Lamp_Reverse', [0.92, 0.92, 0.92], [1.0, 0.97, 0.92], { attenuationDistance: 1 });
+  lib.Lamp_TurnFront = lens('Lamp_TurnFront', [0.62, 0.17, 0.008], [1.0, 0.45, 0.02]);
+  lib.Lamp_MarkerFront = lens('Lamp_MarkerFront', [0.62, 0.17, 0.008], [1.0, 0.45, 0.02]);
+  lib.Lamp_TurnRear = lens('Lamp_TurnRear', [0.55, 0.15, 0.008], [1.0, 0.45, 0.02]);
+  lib.Lamp_Tail = lens('Lamp_Tail', [0.16, 0.006, 0.005], [1.0, 0.02, 0.01]);
+  lib.Lamp_MarkerRear = lens('Lamp_MarkerRear', [0.16, 0.006, 0.005], [1.0, 0.02, 0.01]);
+  lib.Lamp_Reverse = lens('Lamp_Reverse', [0.42, 0.42, 0.42], [1.0, 0.97, 0.92], { attenuationDistance: 1 });
 
   // wheels (names from tools/model/wheels.py)
   lib.Tyre_Rubber = new THREE.MeshPhysicalMaterial({ name: 'Tyre_Rubber', color: lin(0.018, 0.018, 0.019), roughness: 0.86, sheen: 0.15, sheenRoughness: 0.8, sheenColor: lin(0.2, 0.2, 0.2) });
@@ -306,9 +309,10 @@ export function createLibrary(opts = {}) {
   lib.Lug_Chrome = lib.Chrome;
 
   // interior (no UVs -> triplanar)
-  const leatherN = tex(T + 'leather_n.png'), leatherR = tex(T + 'leather_r.png');
-  const carpetC = tex(T + 'carpet_c.png', { srgb: true }), carpetN = tex(T + 'carpet_n.png');
-  lib.Leather = triplanar(new THREE.MeshPhysicalMaterial({ name: 'Leather', color: lin(0.165, 0.17, 0.178), roughness: 0.62, sheen: 0.25, sheenRoughness: 0.6, sheenColor: lin(0.25, 0.25, 0.25), clearcoat: 0.12, clearcoatRoughness: 0.45 }),
+  // CC0 scans (ambientCG Leather026, Carpet012; tools/tex/import_cc0.py)
+  const leatherN = tex(T + 'leather_n.jpg'), leatherR = tex(T + 'leather_r.jpg');
+  const carpetC = tex(T + 'carpet_c.jpg', { srgb: true }), carpetN = tex(T + 'carpet_n.jpg');
+  lib.Leather = triplanar(new THREE.MeshPhysicalMaterial({ name: 'Leather', color: lin(0.165, 0.17, 0.178), roughness: 0.48, sheen: 0.3, sheenRoughness: 0.5, sheenColor: lin(0.25, 0.25, 0.25), clearcoat: 0.25, clearcoatRoughness: 0.38 }),
     { normal: leatherN, rough: leatherR, scale: 6.5, normalScale: 0.75 });
   lib.LeatherBlack = triplanar(new THREE.MeshPhysicalMaterial({ name: 'LeatherBlack', color: lin(0.018, 0.018, 0.019), roughness: 0.55, sheen: 0.2, sheenRoughness: 0.5, sheenColor: lin(0.2, 0.2, 0.2), clearcoat: 0.15, clearcoatRoughness: 0.4 }),
     { normal: leatherN, rough: leatherR, scale: 9, normalScale: 0.7 });
@@ -339,7 +343,9 @@ export function createLibrary(opts = {}) {
 
   lib._fallback = new THREE.MeshStandardMaterial({ name: 'fallback', color: 0xff00ff, roughness: 0.5 });
   // thin transparent shells instead of the (expensive) transmission pass
-  thinGlass(lib.Glass, 0.16); lib.Glass.color = lin(0.30, 0.34, 0.33); lib.Glass.side = THREE.FrontSide;
+  // tinted: the panes cut ~30 % of the light passing through and scatter very little themselves,
+  // so the dark cabin reads through them as in the reference photos
+  thinGlass(lib.Glass, 0.30); lib.Glass.color = lin(0.035, 0.032, 0.026); lib.Glass.side = THREE.FrontSide;
   thinGlass(lib.Lamp_HeadLens, 0.10); lib.Lamp_HeadLens.side = THREE.FrontSide;
   for (const k of ['Lamp_TurnFront', 'Lamp_MarkerFront', 'Lamp_TurnRear', 'Lamp_Tail', 'Lamp_MarkerRear', 'Lamp_Reverse', 'Lamp_Courtesy']) thinGlass(lib[k], 0.82);
   // AO strength per material (open steel panels bake to ~1, so this mostly darkens gaps, arches and the strip's shadow)

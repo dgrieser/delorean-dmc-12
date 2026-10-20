@@ -1,4 +1,4 @@
-import time, sys, numpy as np, trimesh
+import os, time, sys, numpy as np, trimesh
 from extract import extract, decimate, sdf_normals, orient_faces, project_to_surface
 import body
 h = float(sys.argv[1]) if len(sys.argv) > 1 else 0.008
@@ -19,4 +19,4 @@ for name, f, a, b, col in parts:
     m.visual = trimesh.visual.ColorVisuals(m, vertex_colors=np.tile(col, (len(Vg), 1)))
     scene.add_geometry(m, node_name=name, geom_name=name)
     print(name, len(V), round(time.time() - t, 1))
-scene.export('/home/user/delorean-dmc-12/tools/wgltest/body.glb')
+scene.export(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'wgltest', 'body.glb'))

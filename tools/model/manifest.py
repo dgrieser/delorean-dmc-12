@@ -14,7 +14,6 @@ MATERIALS = {
     'PlasticBlack':     ((0.015, 0.015, 0.016), 0.0, 0.45, {}),
     'PlasticMatte':     ((0.020, 0.020, 0.021), 0.0, 0.85, {}),
     'Glass':            ((0.80, 0.84, 0.82), 0.0, 0.02, {'alpha': 0.25}),
-    'GlassDark':        ((0.02, 0.02, 0.025), 0.0, 0.03, {'alpha': 0.85}),
     'Chrome':           ((0.90, 0.90, 0.90), 1.0, 0.06, {}),
     'MirrorGlass':      ((0.85, 0.86, 0.88), 1.0, 0.02, {}),
     'BadgeAlu':         ((0.75, 0.76, 0.78), 1.0, 0.22, {}),
@@ -53,7 +52,6 @@ PARTS = {
     'door_L': ('Stainless', 'Door_L', 'brush'),
     'door_R': ('Stainless', 'Door_R', 'brush'),
     'hood': ('Stainless', 'Hood', 'brush'),
-    'fuel_flap': ('Stainless', 'FuelFlap', 'brush'),
     'bumper_f': ('Urethane', 'Body', 'box'),
     'bumper_r': ('Urethane', 'Body', 'box'),
     'rocker': ('PlasticMatte', 'Body', 'box'),
@@ -72,8 +70,8 @@ PARTS = {
     'toll_frame_L': ('Rubber', 'Door_L', 'box'),
     'toll_frame_R': ('Rubber', 'Door_R', 'box'),
     'gasket_door_R': ('Rubber', 'Door_R', 'box'),
-    'glass_quarter_L': ('GlassDark', 'Body', 'box'),
-    'glass_quarter_R': ('GlassDark', 'Body', 'box'),
+    'glass_quarter_L': ('Glass', 'Body', 'box'),
+    'glass_quarter_R': ('Glass', 'Body', 'box'),
     'gasket_quarter_L': ('Rubber', 'Body', 'box'),
     'gasket_quarter_R': ('Rubber', 'Body', 'box'),
     'strip_fender_L': ('Rubber', 'Body', 'box'),
@@ -94,18 +92,20 @@ PARTS = {
     'hl_bulb_Lo': ('Lamp_Bulb_Lo', 'Body', 'box'),
     'hl_bezel_Hi': ('PlasticBlack', 'Body', 'box'),
     'hl_bezel_Lo': ('PlasticBlack', 'Body', 'box'),
+    'hl_rim_Hi': ('Chrome', 'Body', 'box'),
+    'hl_rim_Lo': ('Chrome', 'Body', 'box'),
     'grille': ('PlasticBlack', 'Body', 'box'),
-    'badge_plate': ('PlasticBlack', 'Body', 'box'),
     'badge_dmc': ('BadgeAlu', 'Body', 'box'),
     'turn_front': ('Lamp_TurnFront', 'Body', 'lens'),
+    'turn_housing': ('PlasticBlack', 'Body', 'box'),
     'marker_front': ('Lamp_MarkerFront', 'Body', 'lens'),
     'marker_rear': ('Lamp_MarkerRear', 'Body', 'lens'),
     'tl_turn': ('Lamp_TurnRear', 'Body', 'lens'),
     'tl_tail': ('Lamp_Tail', 'Body', 'lens'),
     'tl_rev': ('Lamp_Reverse', 'Body', 'lens'),
     'tl_housing': ('PlasticBlack', 'Body', 'box'),
-    'lid_frame': ('PlasticBlack', 'EngineLid', 'box'),
-    'lid_slats': ('PlasticBlack', 'EngineLid', 'box'),
+    'lid_frame': ('PlasticMatte', 'EngineLid', 'box'),
+    'lid_slats': ('PlasticMatte', 'EngineLid', 'box'),
     'lid_under': ('PlasticMatte', 'EngineLid', 'box'),
     'bpillar_vent': ('PlasticBlack', 'Body', 'box'),
     'mirror_L': ('PlasticBlack', 'Door_L', 'box'),
@@ -116,6 +116,8 @@ PARTS = {
     'liner_r': ('PlasticMatte', 'Body', 'box'),
     'underbody': ('PlasticMatte', 'Body', 'box'),
     'exhaust': ('Exhaust', 'Body', 'box'),
+    'antenna': ('Chrome', 'Body', 'box'),
+    'antenna_base': ('PlasticBlack', 'Body', 'box'),
 }
 
 INTERIOR = {
@@ -126,7 +128,8 @@ INTERIOR = {
     'column': ('PlasticBlack', 'Body'),
     'door_card_L': ('Leather', 'Door_L'), 'door_card_R': ('Leather', 'Door_R'),
     'door_liner_L': ('Headliner', 'Door_L'), 'door_liner_R': ('Headliner', 'Door_R'),
-    'door_edge_L': ('DoorEdge', 'Door_L'), 'door_edge_R': ('DoorEdge', 'Door_R'),
+    # the door's inner frame is bare stainless on the reference car (the aperture seals stay black)
+    'door_edge_L': ('Stainless', 'Door_L'), 'door_edge_R': ('Stainless', 'Door_R'),
     'jamb_L': ('DoorEdge', 'Body'), 'jamb_R': ('DoorEdge', 'Body'),
     'body_trim': ('Headliner', 'Body'), 'carpet': ('Carpet', 'Body'), 'sills': ('Carpet', 'Body'),
     'sill_plates': ('Rubber', 'Body'), 'parcel': ('Carpet', 'Body'), 'rear_window': ('Glass', 'Body'),
@@ -169,7 +172,6 @@ PIVOTS = {
     'Door_R': ((0.0, -(B.SPINE_Y - 0.012), 1.118), 'Body'),
     'Hood': ((0.79, 0.0, 0.842), 'Body'),
     'EngineLid': ((D.LID_HINGE[0], 0.0, D.LID_HINGE[1]), 'Body'),
-    'FuelFlap': ((B.FUEL_FLAP[1] - 0.004, 0.5 * (B.FUEL_FLAP[2] + B.FUEL_FLAP[3]), 0.842), 'Hood'),
     'Body': ((0.0, 0.0, 0.0), 'Car'),
     'SteeringWheel': (tuple(I.SW_CENTER), 'Body', _rot((s25, 0, c25), (0, 1, 0), (-c25, 0, s25))),
     'Pedal_Clutch': ((I.PEDAL_PIVOT_X, I.PEDALS['Clutch'][0], I.PEDAL_PIVOT_Z), 'Body'),
@@ -185,12 +187,12 @@ PIVOTS = {
 
 # empties marking light sources (for the app): name -> location
 MARKERS = {
-    'LP_HeadLo_L': (2.03, 0.570, 0.608), 'LP_HeadLo_R': (2.03, -0.570, 0.608),
-    'LP_HeadHi_L': (2.03, 0.385, 0.608), 'LP_HeadHi_R': (2.03, -0.385, 0.608),
-    'LP_TurnF_L': (2.11, 0.585, B.TURN_Z), 'LP_TurnF_R': (2.11, -0.585, B.TURN_Z),
-    'LP_TurnR_L': (-1.97, 0.745, 0.725), 'LP_TurnR_R': (-1.97, -0.745, 0.725),
-    'LP_Tail_L': (-1.97, 0.53, 0.725), 'LP_Tail_R': (-1.97, -0.53, 0.725),
-    'LP_Rev_L': (-1.97, 0.33, 0.725), 'LP_Rev_R': (-1.97, -0.33, 0.725),
+    'LP_HeadLo_L': (1.97, 0.626, 0.607), 'LP_HeadLo_R': (1.97, -0.626, 0.607),
+    'LP_HeadHi_L': (1.97, 0.444, 0.607), 'LP_HeadHi_R': (1.97, -0.444, 0.607),
+    'LP_TurnF_L': (2.09, B.TURN_Y, B.TURN_Z), 'LP_TurnF_R': (2.09, -B.TURN_Y, B.TURN_Z),
+    'LP_TurnR_L': (-2.04, 0.665, 0.727), 'LP_TurnR_R': (-2.04, -0.665, 0.727),
+    'LP_Tail_L': (-2.04, 0.475, 0.727), 'LP_Tail_R': (-2.04, -0.475, 0.727),
+    'LP_Rev_L': (-2.04, 0.31, 0.727), 'LP_Rev_R': (-2.04, -0.31, 0.727),
     'WheelPos_FL': (B.X_FA, B.TRACK_F / 2, B.R_F), 'WheelPos_FR': (B.X_FA, -B.TRACK_F / 2, B.R_F),
     'WheelPos_RL': (B.X_RA, B.TRACK_R / 2, B.R_R), 'WheelPos_RR': (B.X_RA, -B.TRACK_R / 2, B.R_R),
 }
@@ -198,7 +200,7 @@ MARKERS = {
 
 if __name__ == '__main__':
     import json, os
-    out = os.environ.get('OUT', '/home/user/delorean-dmc-12/tools/out')
+    out = os.environ.get('OUT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out'))
     data = {'windshield': {'bx': float(B.WS_B[0]), 'bz': float(B.WS_B[1]), 'nx': float(B.WS_N[0]), 'nz': float(B.WS_N[1]), 'wrap': B.WS_WRAP},
             'materials': {k: {'rgb': v[0], 'metallic': v[1], 'roughness': v[2], **v[3]} for k, v in MATERIALS.items()},
             'parts': {k: {'material': v[0], 'parent': v[1], 'uv': v[2]} for k, v in PARTS.items()},

@@ -4,7 +4,7 @@ import numpy as np
 import body as B
 from patch import patch, region_outline, offset_poly
 
-OUT = os.environ.get('OUT', '/home/user/delorean-dmc-12/tools/out')
+OUT = os.environ.get('OUT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out'))
 os.makedirs(OUT, exist_ok=True)
 shell = B.shell
 
@@ -32,7 +32,7 @@ def windshield():
     return out
 
 
-TOLL = np.array([(-0.06, 0.886), (0.27, 0.886), (0.27, 0.962), (-0.06, 0.962)])
+TOLL = np.array([(-0.12, 0.856), (0.20, 0.856), (0.20, 0.930), (-0.12, 0.930)])
 
 
 def door_glass():

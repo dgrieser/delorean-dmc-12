@@ -2,12 +2,20 @@
 
 Frame: X forward, Y left, Z up, metres. Ground z=0, X=0 at mid wheelbase.
 Published figures used: length 4216 mm (166 in), wheelbase 2413 mm (95 in),
-height 1140 mm, width 1857 mm, track 1590/1588 mm, tyres 195/60 HR14 front, 235/60 HR15 rear.
+height 1140 mm, width 1857 mm, track 1590/1588 mm.
 
-Stance: the studio reference car (ref/studio) sits STANCE lower over its wheels than a stock US
-car. The body is modelled in its stock frame; the wheel centres (and the arches around them)
-sit STANCE higher in that frame, and assemble.py lowers the whole car by STANCE so the tyres
-stand on z = 0.
+Lines and proportions are measured from the studio reference set (ref/studio): the eight photos
+were calibrated together (a bundle adjustment on the wheel centres plus ~25 body landmarks such as
+lamp corners, markers, the antenna base and the windscreen corners), and the profiles below were
+read off the calibrated side view and back-projected from the three-quarter views. Notable
+results: the windscreen is raked at ~21 degrees with its top corners at mid-wheelbase, the
+beltline sits at ~0.81 m, the nose is a short wedge behind a deep bumper, and the flanks taper
+in plan towards both ends.
+
+Stance: the reference car sits lower than a stock US car, on low-profile tyres (wheel centres
+0.271 / 0.298 m above the ground). The body is modelled in its stock frame; the wheel centres
+(and the arches around them) sit at R_F / R_R in that frame, and assemble.py lowers the whole
+car by STANCE so the tyres stand on z = 0.
 """
 import numpy as np
 from sdf import smin, smax, interp, cubic_interp, cyl_y, poly2d, box
@@ -15,25 +23,39 @@ from sdf import smin, smax, interp, cubic_interp, cyl_y, poly2d, box
 DEG = np.pi / 180
 X_FA, X_RA = 1.2065, -1.2065
 STANCE = 0.06
-R_F, R_R = 0.292 + STANCE, 0.322 + STANCE    # wheel-centre heights in the body frame (loaded radius + stance)
-ARCH_F, ARCH_R = 0.315, 0.350                # ~2 cm clear of the tyres, as on the reference car
+R_F, R_R = 0.271 + STANCE, 0.298 + STANCE    # wheel-centre heights in the body frame (photo hubs + stance)
+ARCH_F, ARCH_R = 0.300, 0.335                # the tyres nearly fill the arches on the reference car
 TRACK_F, TRACK_R = 1.590, 1.588
 
 
 # ---- longitudinal control functions -------------------------------------------------
 def z_crease(X):
-    return interp(X, [-2.2, -1.2, 0.0, 1.2, 2.2], [0.610, 0.606, 0.596, 0.582, 0.568])
+    return interp(X, [-2.2, -1.2, 0.0, 0.9, 1.5, 2.2], [0.575, 0.580, 0.572, 0.560, 0.545, 0.530])
+
+
+# half-width at the crease: widest over the rear wheels, tapering in plan towards both ends
+# (side markers sit at |y| 0.86-0.90 just ahead of / behind the arches)
+_WC_X = [-2.16, -2.02, -1.88, -1.70, -1.55, -1.40, -1.20, -0.90, 0.00, 0.90, 1.25, 1.50, 1.62, 1.80, 1.95, 2.12]
+_WC_W = [0.700, 0.790, 0.830, 0.862, 0.893, 0.918, 0.930, 0.925, 0.920, 0.916, 0.912, 0.902, 0.893, 0.862, 0.822, 0.760]
 
 
 def w_crease(X):
-    return interp(X, [-2.2, -1.6, -1.2, 0.0, 1.2, 2.2], [0.921, 0.926, 0.928, 0.921, 0.914, 0.906])
+    return cubic_interp(X, _WC_X, _WC_W)
 
 
-LEAN_UP = 21 * DEG
 TUCK = 9 * DEG
+LEAN_UP = 21 * DEG          # nominal tumblehome above the crease (see lean_up for the measured run)
+CONVEX = 0.25               # the upper flank rolls in towards the beltline (m^-1)
 
-_TOP_X = [-2.10, -1.95, -1.5, -1.0, -0.75, 0.0, 0.5, 0.80, 1.2, 1.6, 2.06, 2.2]
-_TOP_Z = [0.874, 0.878, 0.880, 0.872, 0.858, 0.850, 0.850, 0.838, 0.790, 0.745, 0.697, 0.685]
+
+def lean_up(X):
+    """Upper-flank lean: ~17.5 deg on the doors (beltline at 0.81 m), more on the wings."""
+    return interp(X, [-2.1, -1.0, -0.72, 0.62, 1.2, 2.1], [24.0, 22.0, 17.5, 17.5, 23.0, 25.0]) * DEG
+
+
+# lower-body top: rear deck, cowl and bonnet (centreline; crown() drops it towards the sides)
+_TOP_X = [-2.10, -2.06, -2.03, -1.99, -1.94, -1.88, -1.50, -1.00, -0.75, 0.0, 0.50, 0.70, 0.80, 0.97, 1.16, 1.39, 1.63, 1.80, 1.87, 1.93, 2.00]
+_TOP_Z = [0.700, 0.770, 0.815, 0.850, 0.872, 0.884, 0.886, 0.876, 0.862, 0.855, 0.857, 0.858, 0.840, 0.821, 0.802, 0.775, 0.747, 0.725, 0.713, 0.697, 0.672]
 
 
 def z_top_c(X):
@@ -45,56 +67,44 @@ def crown(X, yy):
     return k * (yy / 0.85) ** 2
 
 
+NOSE_SLOPE = 0.55           # the wedge nose leans back 29 deg from the bonnet edge to the lamp bottoms
+
+
 def x_nose(Z):
-    return 2.040 - (Z - 0.55) * 0.20
+    return 1.930 + (0.685 - np.maximum(Z, 0.552)) * NOSE_SLOPE
 
 
 def x_tail(Z):
-    return -1.955 - (0.875 - Z) * 0.06
+    return -2.022 - (0.80 - Z) * 0.05
 
 
-# ---- lower body ------------------------------------------------------------------------
-def lower_body(X, Y, Z):
-    yy = np.abs(Y)
-    zc = z_crease(X)
-    wc = w_crease(X)
-    d_su = (yy - wc) * np.cos(LEAN_UP) + (Z - zc) * np.sin(LEAN_UP)
-    d_sl = (yy - wc) * np.cos(TUCK) - (Z - zc) * np.sin(TUCK)
-    side = smax(d_su, d_sl, 0.005)
-    d_top = (Z - (z_top_c(X) - crown(X, yy))) * 0.994
-    d_bot = 0.272 - Z
-    d_nose = (X - x_nose(Z)) * 0.98
-    d_fc = (X - 2.030) * 0.740 + (yy - 0.745) * 0.673
-    d_tail = (x_tail(Z) - X) * 0.998
-    d_rc = (X + 1.950) * (-0.672) + (yy - 0.790) * 0.741
-    d = smax(side, d_top, 0.009)
-    d = smax(d, d_nose, 0.008)
-    d = smax(d, d_fc, 0.030)
-    d = smax(d, d_tail, 0.010)
-    d = smax(d, d_rc, 0.035)
-    d = smax(d, d_bot, 0.015)
-    return d
+def z_bot(X):
+    """Lower edge of the stainless skin: the sills, rising under the nose and behind the rear wheels."""
+    return interp(X, [-2.12, -1.87, -1.56, 1.50, 1.70, 1.86, 2.12], [0.345, 0.350, 0.250, 0.272, 0.330, 0.400, 0.400])
 
 
 # ---- greenhouse ------------------------------------------------------------------------
-WS_B = np.array([0.815, 0.848])
-WS_T = np.array([0.300, 1.118])
+WS_B = np.array([0.700, 0.858])            # windscreen base on the centreline
+WS_T = np.array([0.000, 1.126])            # top edge reaches the roof at mid-wheelbase (~21 deg rake)
 _ws_dir = WS_T - WS_B
 WS_N = np.array([_ws_dir[1], -_ws_dir[0]])
 if WS_N[1] < 0:
     WS_N = -WS_N
 WS_N = WS_N / np.linalg.norm(WS_N)          # (+x, +z) outward
-WS_WRAP = 0.22
-GS_Y0, GS_Z0 = 0.805, 0.850
+WS_WRAP = 0.15
+GS_Y0, GS_Z0 = 0.790, 0.850
 GS_LEAN = 50 * DEG
-FB_R1 = np.array([-0.64, 1.118])
-FB_R2 = np.array([-1.935, 0.885])
-_fb_dir = FB_R2 - FB_R1
-FB_N = np.array([_fb_dir[1], -_fb_dir[0]])
-if FB_N[1] < 0:
-    FB_N = -FB_N
-FB_N = FB_N / np.linalg.norm(FB_N)
-ROOF_Z, ROOF_K = 1.132, 0.11
+ROOF_Z, ROOF_K = 1.135, 0.11
+
+# fastback / engine-cover centreline (from the side photo), meeting the roof behind the doors
+FB_X = [-0.50, -0.62, -0.72, -0.84, -0.94, -1.13, -1.32, -1.46, -1.60, -1.70, -1.84, -1.96]
+FB_ZS = [1.135, 1.133, 1.127, 1.114, 1.098, 1.062, 1.027, 0.998, 0.967, 0.946, 0.906, 0.872]
+FB_R1 = np.array([FB_X[0], FB_ZS[0]])
+FB_R2 = np.array([FB_X[-1], FB_ZS[-1]])
+
+
+def z_fb(X):
+    return cubic_interp(X, FB_X[::-1], FB_ZS[::-1])
 
 
 def d_windshield(X, yy, Z):
@@ -111,22 +121,22 @@ def d_glass_side(X, yy, Z):
 
 
 def d_fastback(X, yy, Z):
-    return (X - FB_R1[0]) * FB_N[0] + (Z - FB_R1[1]) * FB_N[1]
+    return (Z - z_fb(X)) * 0.97
+
+
+def cabin_top(X, Y, Z):
+    """Roof, windscreen and fastback (unbounded below; the flanks trim it)."""
+    yy = np.abs(Y)
+    d = smax(d_roof(X, yy, Z), d_windshield(X, yy, Z), 0.05)
+    d = smax(d, d_fastback(X, yy, Z), 0.03)
+    return smax(d, -1.93 - X, 0.04)          # the engine cover ends at the tail lip; the deck rounds over
 
 
 def greenhouse(X, Y, Z):
     yy = np.abs(Y)
-    ws = d_windshield(X, yy, Z)
-    rf = d_roof(X, yy, Z)
-    gs = d_glass_side(X, yy, Z)
-    fb = d_fastback(X, yy, Z)
-    d = smax(rf, ws, 0.05)
-    d = smax(d, fb, 0.030)
-    d = smax(d, gs, 0.020)
-    d = smax(d, 0.80 - Z, 0.01)
-    d = smax(d, (x_tail(Z) - X), 0.010)
-    d = smax(d, (X + 1.950) * (-0.672) + (yy - 0.790) * 0.741, 0.02)
-    return d
+    d = smax(cabin_top(X, Y, Z), d_glass_side(X, yy, Z), 0.02)
+    d = smax(d, 0.78 - Z, 0.01)
+    return smax(d, x_tail(Z) - X, 0.01)
 
 
 def pillar_x(Z):
@@ -138,9 +148,39 @@ def pillar_x(Z):
 
 def cpillar_edge(X):
     """(yy, z) of the fastback ∩ side-glass edge at X."""
-    z = FB_R1[1] + (X - FB_R1[0]) * (-FB_N[0] / FB_N[1])
+    z = z_fb(X)
     yy = GS_Y0 - (z - GS_Z0) * np.tan(GS_LEAN)
     return yy, z
+
+
+# ---- body ------------------------------------------------------------------------------
+def flanks(X, Y, Z):
+    """Crease line, tumblehome above it, tuck-under below it, and the side-glass plane on top."""
+    yy = np.abs(Y)
+    zc, wc, a = z_crease(X), w_crease(X), lean_up(X)
+    t = np.maximum(Z - zc, 0.0)
+    d_su = (yy - (wc - t * np.tan(a) - CONVEX * t * t)) * np.cos(a)
+    d_sl = (yy - wc) * np.cos(TUCK) - (Z - zc) * np.sin(TUCK)
+    d = smax(d_su, d_sl, 0.005)
+    return smax(d, d_glass_side(X, yy, Z), 0.010)          # beltline
+
+
+def lower_body(X, Y, Z):
+    """Kept for the parts that clip against the old lower body: flanks + deck/bonnet top + ends."""
+    yy = np.abs(Y)
+    d = smax(flanks(X, Y, Z), (X - x_nose(Z)) * 0.876, 0.05)
+    d = smax(d, (x_tail(Z) - X) * 0.999, 0.06)
+    d = smax(d, (Z - (z_top_c(X) - crown(X, yy))) * 0.994, 0.009)
+    return smax(d, z_bot(X) - Z, 0.015)
+
+
+def body_solid(X, Y, Z):
+    yy = np.abs(Y)
+    plan = smax(flanks(X, Y, Z), (X - x_nose(Z)) * 0.876, 0.05)
+    plan = smax(plan, (x_tail(Z) - X) * 0.999, 0.06)
+    top = smin((Z - (z_top_c(X) - crown(X, yy))) * 0.994, cabin_top(X, Y, Z), 0.012)
+    d = smax(plan, top, 0.009)
+    return smax(d, z_bot(X) - Z, 0.015)
 
 
 # ---- arches ------------------------------------------------------------------------------
@@ -150,11 +190,19 @@ def arch_cyl(X, Y, Z, grow=0.0):
 
 
 # ---- recessed features in the shell -----------------------------------------------------
-HL_Z = (0.548, 0.668)
-HL_Y = [(0.300, 0.470), (0.485, 0.655)]
-GRILLE_Y = 0.285
-TL_Z = (0.632, 0.818)
-TL_Y = 0.795
+# quad 4x6 in. sealed beams and the grille share one black band in the nose (lens rims at
+# |y| 0.365-0.523 and 0.547-0.705, 0.558-0.656 m high; the pockets are 6 mm larger)
+HL_Z = (0.552, 0.662)
+HL_Y = [(0.359, 0.529), (0.541, 0.711)]
+GRILLE_Y = 0.351
+TL_Z = (0.648, 0.806)          # black tail panel band (lens grid 0.658-0.796)
+TL_Y = 0.742                   # its half-width at the bottom; the outer ends lean in towards the top
+TL_Y_TOP = 0.688
+
+
+def x_lamp(Z, yy=0.0):
+    """Face of the lamp/grille band: near-vertical, behind the sloped nose skin."""
+    return 1.966 - 0.02 * (yy / 0.7) ** 2 - (Z - 0.607) * 0.15
 
 
 def _rbox2(u, v, hu, hv, r):
@@ -164,31 +212,38 @@ def _rbox2(u, v, hu, hv, r):
 
 
 def nose_recesses(X, Y, Z):
-    """Pockets for headlights and grille in the nose panel (negative inside the pocket)."""
+    """One pocket for the lamps and grille in the nose (negative inside the pocket)."""
     yy = np.abs(Y)
     zc = 0.5 * (HL_Z[0] + HL_Z[1])
     hz = 0.5 * (HL_Z[1] - HL_Z[0])
-    d = np.full(np.shape(X), 1.0)
-    for a, b in HL_Y:
-        d = np.minimum(d, _rbox2(yy - 0.5 * (a + b), Z - zc, 0.5 * (b - a), hz, 0.006))
-    d = np.minimum(d, _rbox2(Y, Z - zc, GRILLE_Y, hz, 0.006))
-    depth = X - (x_nose(Z) - 0.035)
+    d = _rbox2(Y, Z - zc, HL_Y[1][1], hz, 0.008)
+    depth = X - (x_lamp(Z, yy) - 0.03)
     return np.maximum(d, -depth)
 
 
-def tail_recess(X, Y, Z):
+def tail_band(Y, Z, grow=0.0):
+    """2D outline of the black tail panel (lamps + plate) in the y-z plane of the tail face."""
     zc = 0.5 * (TL_Z[0] + TL_Z[1])
     hz = 0.5 * (TL_Z[1] - TL_Z[0])
-    r = _rbox2(Y, Z - zc, TL_Y, hz, 0.02)
+    s = (Z - TL_Z[0]) / (TL_Z[1] - TL_Z[0])
+    half = TL_Y + (TL_Y_TOP - TL_Y) * np.clip(s, 0, 1)
+    return _rbox2(Y, Z - zc, half + grow, hz + grow, 0.018 + grow)
+
+
+def tail_recess(X, Y, Z):
+    r = tail_band(Y, Z)
     depth = (x_tail(Z) + 0.03) - X
     return np.maximum(r, -depth)
+
+
+BV_X, BV_Z, BV_HZ, BV_HU = -0.836, 0.943, 0.129, 0.036
 
 
 def bpillar_vents(X, Y, Z):
     """Vertical intake slot behind each door on the rear-quarter sail."""
     yy = np.abs(Y)
-    u = X + 0.800 + (Z - 0.94) * 0.12
-    slot = _rbox2(u, Z - 0.945, 0.017, 0.100, 0.014)
+    u = X - BV_X + (Z - BV_Z) * 0.124
+    slot = _rbox2(u, Z - BV_Z, BV_HU, BV_HZ, 0.022)
     depth = d_glass_side(X, yy, Z) + 0.03
     return np.maximum(slot, -depth)
 
@@ -201,7 +256,7 @@ def rear_slots(X, Y, Z):
 
 
 def shell(X, Y, Z):
-    d = smin(lower_body(X, Y, Z), greenhouse(X, Y, Z), 0.010)
+    d = body_solid(X, Y, Z)
     d = smax(d, -arch_cyl(X, Y, Z), 0.006)
     d = smax(d, -nose_recesses(X, Y, Z), 0.004)
     d = smax(d, -tail_recess(X, Y, Z), 0.005)
@@ -210,18 +265,22 @@ def shell(X, Y, Z):
     return d
 
 
-BODY_BMIN = (-2.00, -0.95, 0.24)
-BODY_BMAX = (2.08, 0.95, 1.16)
+BODY_BMIN = (-2.08, -0.95, 0.24)
+BODY_BMAX = (2.04, 0.95, 1.16)
 
 
 # ---- panel regions (negative inside) ----------------------------------------------------
+HEADER_DOOR_X = float(WS_T[0]) - 0.045
+
+
 def _door_poly():
-    pts = [(0.475, 0.24), (0.652, 0.845)]
-    for z in [0.90, 0.96, 1.02, 1.07]:
+    pts = [(0.405, 0.24), (0.470, 0.38), (0.557, 0.52), (0.618, 0.70), (0.640, 0.80)]
+    for z in [0.86, 0.92, 0.98, 1.04]:
         x, _ = pillar_x(z)
         pts.append((float(x) - 0.028, z))
-    pts += [(0.272, 1.105), (0.272, 1.25), (-0.700, 1.25), (-0.702, 1.06),
-            (-0.735, 0.93), (-0.732, 0.80), (-0.705, 0.70), (-0.668, 0.625), (-0.400, 0.24)]
+    # the roof keeps a ~5 cm header strip behind the windscreen's top edge
+    pts += [(HEADER_DOOR_X, 1.085), (HEADER_DOOR_X, 1.25), (-0.712, 1.25), (-0.715, 1.06),
+            (-0.745, 0.93), (-0.745, 0.80), (-0.715, 0.70), (-0.675, 0.625), (-0.400, 0.24)]
     return np.array(pts)
 
 
@@ -236,10 +295,20 @@ def r_door(X, Y, Z, side=1):
     return np.maximum(d, d_windshield(X, np.abs(Y), Z) + 0.012)
 
 
+HOOD_Y = 0.735
+
+
 def _hood_poly():
-    ys = np.linspace(-0.795, 0.795, 21)
+    """Bonnet: from the cowl to the bend over the nose, between the shoulder seams."""
+    xf, r = 1.925, 0.06
+    front = []
+    for a in np.linspace(0, np.pi / 2, 7):
+        front.append((xf - r + r * np.sin(a), -(HOOD_Y - r) - r * np.cos(a)))
+    for a in np.linspace(np.pi / 2, np.pi, 7):
+        front.append((xf - r + r * np.sin(a), (HOOD_Y - r) - r * np.cos(a)))
+    ys = np.linspace(HOOD_Y, -HOOD_Y, 21)
     rear = [(0.80 - WS_WRAP * y * y - 0.005, y) for y in ys]
-    return np.array([(2.026, -0.846), (2.026, 0.846)] + rear[::-1])
+    return np.array(front + rear)
 
 
 HOOD_POLY = _hood_poly()
@@ -247,20 +316,11 @@ HOOD_POLY = _hood_poly()
 
 def r_hood(X, Y, Z):
     d = poly2d(X, Y, HOOD_POLY)
-    return np.maximum(d, 0.62 - Z)
-
-
-FUEL_FLAP = (0.875, 1.035, 0.105, 0.265)
-
-
-def r_fuel(X, Y, Z):
-    x0, x1, y0, y1 = FUEL_FLAP
-    r = _rbox2(X - 0.5 * (x0 + x1), Y - 0.5 * (y0 + y1), 0.5 * (x1 - x0), 0.5 * (y1 - y0), 0.012)
-    return np.maximum(r, 0.62 - Z)
+    return np.maximum(d, 0.65 - Z)          # clear of the front wheel-arch tops (0.631)
 
 
 def _lid_poly():
-    xs = np.linspace(-0.748, -1.925, 12)
+    xs = np.linspace(-0.86, -1.885, 12)
     side = [(x, float(cpillar_edge(x)[0]) - 0.045) for x in xs]
     return np.array(side + [(x, -y) for x, y in side[::-1]])
 
@@ -273,21 +333,31 @@ def r_lid(X, Y, Z):
     return np.maximum(d, 0.82 - Z)
 
 
+_WS_G = (WS_T - WS_B) / np.linalg.norm(WS_T - WS_B)         # up the glass, in the (X, Z) plane
+
+
 def r_windshield(X, Y, Z):
-    """Windshield glass opening: inset from pillar/roof/cowl edges."""
+    """Windshield glass opening: inset from pillar/roof/cowl edges.
+
+    The top and bottom limits are measured along the glass (3 cm under the roof line, above the
+    cowl at 0.872 m), so off the glass they stand square to it: cuts made with them through the
+    layers just under the glass (trims, the skin's own edge walls) stay clean."""
     yy = np.abs(Y)
     ws = d_windshield(X, yy, Z)
-    m = np.maximum(d_roof(X, yy, Z) + 0.03, d_glass_side(X, yy, Z) + 0.035)
-    m = np.maximum(m, 0.872 - Z)
+    s = (X + WS_WRAP * yy ** 2 - WS_B[0]) * _WS_G[0] + (Z - WS_B[1]) * _WS_G[1]
+    s_top = (ROOF_Z - ROOF_K * yy ** 2 - 0.03 - WS_B[1]) / _WS_G[1]
+    s_bot = (0.872 - WS_B[1]) / _WS_G[1]
+    m = np.maximum(np.maximum(s - s_top, s_bot - s), d_glass_side(X, yy, Z) + 0.035)
     return np.maximum(m, -ws - 0.05)
 
 
 def _door_glass_poly():
-    pts = []
-    for z in [0.875, 0.93, 0.99, 1.04]:
+    pts = [(0.57, 0.824)]                    # 4 cm inside the door's front seam
+    for z in [0.90, 0.97, 1.04]:
         x, _ = pillar_x(z)
         pts.append((float(x) - 0.075, z))
-    pts += [(0.22, 1.058), (-0.50, 1.062), (-0.585, 1.045), (-0.625, 0.99), (-0.628, 0.90), (-0.60, 0.875)]
+    x, _ = pillar_x(1.075)
+    pts += [(float(x) - 0.10, 1.068), (-0.50, 1.068), (-0.585, 1.052), (-0.628, 0.99), (-0.635, 0.87), (-0.61, 0.824)]
     return np.array(pts)
 
 
@@ -296,13 +366,13 @@ DOOR_GLASS_POLY = _door_glass_poly()
 
 def r_door_glass(X, Y, Z, side=1):
     d = poly2d(X, Z, DOOR_GLASS_POLY)
-    return np.maximum(d, np.maximum(0.3 - side * Y, 0.82 - Z))
+    return np.maximum(d, np.maximum(0.3 - side * Y, 0.80 - Z))
 
 
 def _quarter_poly():
-    xs = np.linspace(-0.905, -1.70, 9)
+    xs = np.linspace(-0.925, -1.70, 9)
     top = [(x, float(cpillar_edge(x)[1]) - 0.032) for x in xs]
-    return np.array(top + [(-1.73, 0.888), (-1.60, 0.872), (-0.90, 0.872)])
+    return np.array(top + [(-1.765, 0.835), (-1.70, 0.812), (-0.93, 0.812)])
 
 
 QUARTER_POLY = _quarter_poly()
@@ -314,15 +384,19 @@ def r_quarter(X, Y, Z):
 
 
 # ---- bumpers (grey urethane) -------------------------------------------------------------
-# Slim bands as on the reference car: the stainless nose / tail panels come down to them, they
-# wrap only ~0.2 m round the corners, and a stainless line separates them from the black
-# valances below.
-FB_Z = (0.420, 0.535)          # front bumper bottom / top (top rises 15 mm toward the corners)
-FB_X_SIDE = 1.80               # rear end of the front bumper along the flanks
-RB_Z = (0.440, 0.600)
-RB_X_SIDE = -1.84
-RB_SLOT_Z = 0.420              # centre of the slotted stainless strip under the rear bumper
-TURN_Z = 0.5 * (FB_Z[0] + FB_Z[1])
+# Deep rounded bands: their rolled top and bottom edges catch the studio light as the bright
+# lines the photos show above and below them. The front one stands proud of a recessed black
+# air dam; the rear one sits low on the tail over a slotted stainless strip.
+FB_Z = (0.405, 0.538)          # front bumper bottom / top
+FB_X_SIDE = 1.83               # rear end of the front bumper along the flanks
+FB_X0 = 2.110
+RB_Z = (0.390, 0.575)
+RB_X_SIDE = -1.87
+RB_X0 = -2.092
+RB_SLOT_Z = 0.368              # centre of the slotted stainless strip under the rear bumper
+TURN_Z = 0.457
+TURN_Y, TURN_HY, TURN_HZ = 0.517, 0.070, 0.022
+TURN_RIM = 0.011               # black housing round the lens
 
 
 def _wrap(yy, y0, y1):
@@ -330,65 +404,73 @@ def _wrap(yy, y0, y1):
     return t * t * (3 - 2 * t)
 
 
+def x_fbump(yy):
+    return FB_X0 - 0.10 * (yy / 0.85) ** 2
+
+
 def front_bumper(X, Y, Z):
     yy = np.abs(Y)
     wc = w_crease(X)
     zc = z_crease(X)
-    xb = 2.117 - 0.055 * (yy / 0.8) ** 2 - np.maximum(0.0, FB_Z[0] + 0.03 - Z) ** 2 * 3.0
+    xb = x_fbump(yy)
     d_front = X - xb
     d_side = (yy - (wc + 0.010)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
-    d_top = Z - (FB_Z[1] + 0.015 * _wrap(yy, 0.62, 0.90))
+    d_top = Z - FB_Z[1]
     d_bot = FB_Z[0] - Z
     d_back = FB_X_SIDE - X
-    d = smax(d_front, d_side, 0.13)
-    d = smax(d, d_top, 0.008)
-    d = smax(d, d_bot, 0.010)
+    d = smax(d_front, d_side, 0.12)
+    d = smax(d, d_top, 0.030)
+    d = smax(d, d_bot, 0.038)
     d = smax(d, d_back, 0.012)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_FA, R_F, ARCH_F), 0.55 - yy), 0.006)
     # turn-signal pockets
-    ts = _rbox2(yy - 0.585, Z - TURN_Z, 0.085, 0.030, 0.004)
-    pocket = np.maximum(ts, -(X - (xb - 0.012)))
+    ts = _rbox2(yy - TURN_Y, Z - TURN_Z, TURN_HY + TURN_RIM, TURN_HZ + TURN_RIM, 0.008)
+    pocket = np.maximum(ts, -(X - (xb - 0.022)))
     d = smax(d, -pocket, 0.003)
     return d
+
+
+def x_rbump(yy):
+    return RB_X0 + 0.04 * (yy / 0.85) ** 2
 
 
 def rear_bumper(X, Y, Z):
     yy = np.abs(Y)
     wc = w_crease(X)
     zc = z_crease(X)
-    xb = -2.097 + 0.05 * (yy / 0.85) ** 2 + np.maximum(0.0, RB_Z[0] + 0.03 - Z) * 0.30
+    xb = x_rbump(yy)
     d_rear = xb - X
     d_side = (yy - (wc + 0.010)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
-    d_top = Z - (RB_Z[1] + 0.012 * _wrap(yy, 0.70, 0.90))
+    d_top = Z - RB_Z[1]
     d_front = X - RB_X_SIDE
     d_bot = RB_Z[0] - Z
-    d = smax(d_rear, d_side, 0.11)
-    d = smax(d, d_top, 0.008)
-    d = smax(d, d_bot, 0.010)
+    d = smax(d_rear, d_side, 0.10)
+    d = smax(d, d_top, 0.030)
+    d = smax(d, d_bot, 0.035)
     d = smax(d, d_front, 0.012)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_RA, R_R, ARCH_R), 0.55 - yy), 0.006)
     return d
 
 
-FBUMP_BMIN = (1.70, -0.96, 0.38)
+FBUMP_BMIN = (1.78, -0.96, 0.37)
 FBUMP_BMAX = (2.14, 0.96, 0.58)
-RBUMP_BMIN = (-2.12, -0.97, 0.40)
-RBUMP_BMAX = (-1.78, 0.97, 0.64)
+RBUMP_BMIN = (-2.12, -0.97, 0.35)
+RBUMP_BMAX = (-1.82, 0.97, 0.62)
 
 
 def rear_valance(X, Y, Z):
     """Black lower valance across the tail, under the slotted strip, with exhaust cut-outs."""
     yy = np.abs(Y)
     xt = x_tail(Z)
-    d = np.maximum((xt - 0.006) - X, X - (xt + 0.10))
-    d = smax(d, yy - 0.80, 0.03)
-    d = smax(d, np.maximum(Z - (RB_SLOT_Z - 0.022), 0.262 - Z), 0.008)
+    d = np.maximum((xt + 0.025) - X, X - (xt + 0.16))
+    d = smax(d, yy - 0.64, 0.03)
+    d = smax(d, np.maximum(Z - (RB_SLOT_Z - 0.018), 0.305 - Z), 0.008)
     tip = np.sqrt((yy - 0.540) ** 2 + (Z - 0.300) ** 2) - 0.034
     return smax(d, -tip, 0.003)
 
 
-RVAL_BMIN = (-2.08, -0.86, 0.24)
-RVAL_BMAX = (-1.82, 0.86, 0.42)
+RVAL_BMIN = (-2.08, -0.86, 0.22)
+RVAL_BMAX = (-1.86, 0.86, 0.38)
 
 
 def rocker(X, Y, Z):
@@ -398,31 +480,41 @@ def rocker(X, Y, Z):
     wc = w_crease(X)
     w = wc - (zc - Z) * np.tan(TUCK) - 0.004
     d = np.maximum(yy - w, 0.62 - yy)
-    d = smax(d, np.maximum(Z - 0.285, 0.205 - Z), 0.008)
-    d = smax(d, np.maximum(X - 0.84, -1.59 - X), 0.0)
+    d = smax(d, np.maximum(Z - 0.285, 0.180 - Z), 0.008)
+    d = smax(d, np.maximum(X - 0.86, -1.59 - X), 0.0)
     d = smax(d, -arch_cyl(X, Y, Z, 0.0), 0.004)
     return d
 
 
-ROCKER_BMIN = (-1.62, -0.95, 0.19)
+ROCKER_BMIN = (-1.62, -0.95, 0.16)
 ROCKER_BMAX = (0.86, 0.95, 0.30)
+
+AD_Z = (0.232, 0.405)          # air dam bottom lip / top (under the bumper)
+AD_SLOT = (0.300, 0.052, 0.490)  # intake centre z, half height, half width (measured, front photo)
+
+
+def x_airdam(yy, Z):
+    """Air-dam face: well behind the bumper, its lower lip leaning forward."""
+    return 1.865 - 0.06 * (yy / 0.8) ** 2 + np.maximum(0.0, 0.39 - Z) * 0.30
 
 
 def airdam(X, Y, Z):
     """Black lower valance / spoiler under the front bumper with the full-width intake slot."""
     yy = np.abs(Y)
-    xb = 2.117 - 0.055 * (yy / 0.8) ** 2 - 0.028 - np.maximum(0.0, 0.34 - Z) * 0.35
+    xb = x_airdam(yy, Z)
     d = X - xb
-    d = smax(d, (yy - (w_crease(X) - 0.03)), 0.10)
-    d = smax(d, np.maximum(Z - (FB_Z[0] - 0.020), 0.262 - Z), 0.012)
-    d = smax(d, 1.72 - X, 0.0)
+    d = smax(d, (yy - (w_crease(X) - 0.02)), 0.08)
+    d = smax(d, np.maximum(Z - AD_Z[1], AD_Z[0] - Z), 0.012)
+    d = smax(d, 1.60 - X, 0.0)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_FA, R_F, ARCH_F + 0.01), 0.55 - yy), 0.01)
-    slot = _rbox2(Y, Z - 0.335, 0.56, 0.038, 0.012)
+    zc, hz, hy = AD_SLOT
+    slot = _rbox2(Y, Z - zc, hy, hz, 0.012)
     d = smax(d, -np.maximum(slot, -(X - (xb - 0.05))), 0.004)
-    # vanes inside the slot
-    v = np.maximum(np.abs(np.mod(Z - 0.335 + 0.009, 0.018) - 0.009) - 0.0022, np.maximum(slot - 0.002, np.abs(X - (xb - 0.03)) - 0.012))
+    # radiator mesh behind the slot: fine horizontal vanes
+    v = np.maximum(np.abs(np.mod(Z - zc + 0.006, 0.012) - 0.006) - 0.0016,
+                   np.maximum(slot - 0.002, np.abs(X - (xb - 0.035)) - 0.008))
     return np.minimum(d, v)
 
 
-AIRDAM_BMIN = (1.70, -0.93, 0.24)
-AIRDAM_BMAX = (2.10, 0.93, 0.42)
+AIRDAM_BMIN = (1.58, -0.93, 0.22)
+AIRDAM_BMAX = (1.98, 0.93, 0.43)

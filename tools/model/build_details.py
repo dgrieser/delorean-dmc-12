@@ -5,7 +5,7 @@ from extract import extract, finish4
 import body as B
 import details as D
 
-OUT = os.environ.get('OUT', '/home/user/delorean-dmc-12/tools/out')
+OUT = os.environ.get('OUT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out'))
 os.makedirs(OUT, exist_ok=True)
 
 
@@ -22,15 +22,17 @@ HLs = []
 for i, (a, b) in enumerate(B.HL_Y):
     yc, hw = 0.5 * (a + b), 0.5 * (b - a)
     tag = 'Hi' if i == 0 else 'Lo'      # inner pair = high beams, outer = low beams
-    bb = ((1.96, yc - hw - 0.01, B.HL_Z[0] - 0.01), (2.06, yc + hw + 0.01, B.HL_Z[1] + 0.01))
+    bb = ((1.90, yc - hw - 0.012, B.HL_Z[0] - 0.012), (2.00, yc + hw + 0.012, B.HL_Z[1] + 0.012))
+    bbz = ((1.90, yc - hw - 0.012, B.HL_Z[0] - 0.012), (2.05, yc + hw + 0.012, B.HL_Z[1] + 0.012))
     HLs += [
         P(f'hl_lens_{tag}', (lambda yc, hw: lambda X, Y, Z: D.headlight_lens(X, Y, Z, yc, hw))(yc, hw), *bb, 0.0018, 0.5, True),
         P(f'hl_refl_{tag}', (lambda yc, hw: lambda X, Y, Z: D.headlight_reflector(X, Y, Z, yc, hw))(yc, hw), *bb, 0.0018, 0.5, True),
         P(f'hl_bulb_{tag}', (lambda yc, hw: lambda X, Y, Z: D.headlight_bulb(X, Y, Z, yc, hw))(yc, hw), *bb, 0.0015, 0.3, True),
-        P(f'hl_bezel_{tag}', (lambda yc, hw: lambda X, Y, Z: D.headlight_bezel(X, Y, Z, yc, hw))(yc, hw), *bb, 0.0018, 0.6, True),
+        P(f'hl_bezel_{tag}', (lambda yc, hw: lambda X, Y, Z: D.headlight_bezel(X, Y, Z, yc, hw))(yc, hw), *bbz, 0.0018, 0.6, True),
+        P(f'hl_rim_{tag}', (lambda yc, hw: lambda X, Y, Z: D.headlight_rim(X, Y, Z, yc, hw))(yc, hw), *bb, 0.0012, 0.5, True),
     ]
 
-BUDGET = {'badge_dmc': 6000, 'badge_plate': 800, 'hl_bulb_Hi': 1200, 'hl_bulb_Lo': 1200, 'door_handle_L': 2000, 'door_handle_R': 2000,
+BUDGET = {'badge_dmc': 6000, 'antenna': 3000, 'antenna_base': 1500, 'hl_rim_Hi': 6000, 'hl_rim_Lo': 6000, 'hl_bulb_Hi': 1200, 'hl_bulb_Lo': 1200, 'door_handle_L': 2000, 'door_handle_R': 2000,
           'bumper_letters': 9000, 'grille': 30000, 'lid_slats': 26000, 'underbody': 12000, 'liner_f': 14000, 'liner_r': 14000,
           'tl_housing': 22000, 'lid_frame': 16000, 'hl_bezel_Hi': 10000, 'hl_bezel_Lo': 10000, 'exhaust': 9000,
           'hl_refl_Hi': 12000, 'hl_refl_Lo': 12000, 'tl_tail': 26000, 'mirror_L': 9000, 'mirror_R': 9000,
@@ -38,31 +40,33 @@ BUDGET = {'badge_dmc': 6000, 'badge_plate': 800, 'hl_bulb_Hi': 1200, 'hl_bulb_Lo
           'marker_front': 4000, 'marker_rear': 4000, 'tl_turn': 10000, 'tl_rev': 10000, 'hl_lens_Hi': 10000, 'hl_lens_Lo': 10000}
 
 PARTS = HLs + [
-    P('grille', D.grille_slats, (1.98, -0.30, 0.54), (2.06, 0.30, 0.68), 0.0016, 0.6),
-    P('badge_plate', D.grille_badge_plate, (2.02, -0.09, 0.58), (2.06, 0.09, 0.64), 0.0012, 0.5),
-    P('badge_dmc', D.grille_badge_letters, (2.008, -0.08, 0.59), (2.035, 0.08, 0.63), 0.0006, 0.5, False, 1),
-    P('turn_front', D.front_turn_lens, (2.05, 0.49, 0.44), (2.13, 0.68, 0.515), 0.0018, 0.5, True),
-    P('marker_front', D.side_marker_front, (1.57, 0.88, 0.555), (1.77, 0.94, 0.595), 0.0015, 0.5, True),
-    P('marker_rear', D.side_marker_rear, (-1.83, 0.88, 0.59), (-1.64, 0.95, 0.63), 0.0015, 0.5, True),
-    P('tl_turn', lambda X, Y, Z: D.tail_cells(X, Y, Z, 'Turn'), (-1.985, 0.70, 0.635), (-1.94, 0.79, 0.82), 0.0016, 0.5, True),
-    P('tl_tail', lambda X, Y, Z: D.tail_cells(X, Y, Z, 'Tail'), (-1.985, 0.36, 0.635), (-1.94, 0.71, 0.82), 0.0018, 0.7, True, 1),
-    P('tl_rev', lambda X, Y, Z: D.tail_cells(X, Y, Z, 'Reverse'), (-1.985, 0.29, 0.635), (-1.94, 0.37, 0.82), 0.0016, 0.5, True),
-    P('tl_housing', D.tail_housing, (-1.99, -0.80, 0.625), (-1.93, 0.80, 0.825), 0.002, 0.8, False, 1),
-    P('lid_frame', D.lid_frame, (-1.94, -0.75, 0.84), (-0.73, 0.75, 1.12), 0.003, 0.8, False, 1),
-    P('lid_slats', D.lid_slats, (-1.90, -0.72, 0.84), (-0.75, 0.72, 1.12), 0.0025, 0.85, False, 1),
-    P('lid_under', D.lid_under, (-1.92, -0.72, 0.78), (-0.74, 0.72, 1.07), 0.004, 0.95, False, 0),
-    P('bpillar_vent', D.bpillar_insert, (-0.86, 0.50, 0.82), (-0.74, 0.82, 1.07), 0.0018, 0.6, True),
-    P('mirror_L', lambda X, Y, Z: D.mirror_housing(X, Y, Z, 1), (0.40, 0.76, 0.83), (0.60, 1.01, 1.01), 0.003, 0.7),
-    P('mirror_glass_L', lambda X, Y, Z: D.mirror_glass(X, Y, Z, 1), (0.46, 0.85, 0.88), (0.49, 1.00, 0.99), 0.0015, 0.5),
-    P('mirror_R', lambda X, Y, Z: D.mirror_housing(X, Y, Z, -1), (0.40, -1.01, 0.83), (0.60, -0.76, 1.01), 0.003, 0.7),
-    P('mirror_glass_R', lambda X, Y, Z: D.mirror_glass(X, Y, Z, -1), (0.46, -1.00, 0.88), (0.49, -0.85, 0.99), 0.0015, 0.5),
+    P('grille', D.grille_slats, (1.90, -0.36, 0.54), (2.01, 0.36, 0.675), 0.0016, 0.6),
+    P('badge_dmc', D.grille_badge_letters, (1.94, -0.09, 0.57), (1.99, 0.09, 0.62), 0.0006, 0.5, False, 1),
+    P('turn_housing', D.front_turn_housing, (1.98, 0.42, 0.41), (2.11, 0.62, 0.50), 0.0016, 0.6, True),
+    P('turn_front', D.front_turn_lens, (2.0, 0.43, 0.42), (2.11, 0.61, 0.495), 0.0018, 0.5, True),
+    P('marker_front', D.side_marker_front, (1.57, 0.80, 0.51), (1.80, 0.93, 0.57), 0.0015, 0.5, True),
+    P('marker_rear', D.side_marker_rear, (-1.89, 0.79, 0.55), (-1.66, 0.92, 0.61), 0.0015, 0.5, True),
+    P('tl_turn', lambda X, Y, Z: D.tail_cells(X, Y, Z, 'Turn'), (-2.04, 0.60, 0.65), (-1.98, 0.75, 0.81), 0.0016, 0.5, True),
+    P('tl_tail', lambda X, Y, Z: D.tail_cells(X, Y, Z, 'Tail'), (-2.04, 0.33, 0.65), (-1.98, 0.62, 0.81), 0.0018, 0.7, True, 1),
+    P('tl_rev', lambda X, Y, Z: D.tail_cells(X, Y, Z, 'Reverse'), (-2.04, 0.27, 0.65), (-1.98, 0.35, 0.81), 0.0016, 0.5, True),
+    P('tl_housing', D.tail_housing, (-2.04, -0.76, 0.64), (-1.98, 0.76, 0.815), 0.002, 0.8, False, 1),
+    P('lid_frame', D.lid_frame, (-1.92, -0.75, 0.84), (-0.82, 0.75, 1.15), 0.003, 0.8, False, 1),
+    P('lid_slats', D.lid_slats, (-1.90, -0.72, 0.84), (-0.84, 0.72, 1.15), 0.0025, 0.85, False, 1),
+    P('lid_under', D.lid_under, (-1.90, -0.72, 0.78), (-0.83, 0.72, 1.10), 0.004, 0.95, False, 0),
+    P('bpillar_vent', D.bpillar_insert, (-0.94, 0.48, 0.80), (-0.76, 0.86, 1.09), 0.0018, 0.6, True),
+    P('mirror_L', lambda X, Y, Z: D.mirror_housing(X, Y, Z, 1), (0.20, 0.78, 0.77), (0.45, 1.00, 0.89), 0.003, 0.7),
+    P('mirror_glass_L', lambda X, Y, Z: D.mirror_glass(X, Y, Z, 1), (0.22, 0.84, 0.79), (0.33, 0.99, 0.88), 0.0015, 0.5),
+    P('mirror_R', lambda X, Y, Z: D.mirror_housing(X, Y, Z, -1), (0.20, -1.00, 0.77), (0.45, -0.78, 0.89), 0.003, 0.7),
+    P('mirror_glass_R', lambda X, Y, Z: D.mirror_glass(X, Y, Z, -1), (0.22, -0.99, 0.79), (0.33, -0.84, 0.88), 0.0015, 0.5),
     P('liner_f', lambda X, Y, Z: D.well_liner(X, Y, Z, True), (0.82, 0.50, 0.22), (1.60, 0.93, 0.70), 0.004, 0.8, True),
     P('liner_r', lambda X, Y, Z: D.well_liner(X, Y, Z, False), (-1.62, 0.50, 0.24), (-0.79, 0.94, 0.77), 0.004, 0.8, True),
     P('underbody', D.underbody, (-2.0, -0.9, 0.19), (2.04, 0.9, 0.29), 0.006, 0.9),
-    P('exhaust', D.exhaust, (-2.12, -0.62, 0.22), (-1.66, 0.62, 0.38), 0.003, 0.8),
-    P('door_handle_L', lambda X, Y, Z: D.door_handle(X, Y, Z, 1), (-0.62, 0.86, 0.53), (-0.42, 0.95, 0.62), 0.0012, 0.6),
-    P('door_handle_R', lambda X, Y, Z: D.door_handle(X, Y, Z, -1), (-0.62, -0.95, 0.53), (-0.42, -0.86, 0.62), 0.0012, 0.6),
-    P('bumper_letters', D.bumper_letters, (-2.11, 0.15, 0.48), (-2.07, 0.62, 0.565), 0.0008, 0.6),
+    P('antenna', D.antenna_mast, (0.64, -0.87, 0.78), (0.78, -0.78, 1.61), 0.0007, 0.6, False, 1),
+    P('antenna_base', D.antenna_base, (0.74, -0.82, 0.79), (0.79, -0.77, 0.85), 0.0008, 0.6),
+    P('exhaust', D.exhaust, (-2.10, -0.42, 0.22), (-1.40, 0.42, 0.40), 0.003, 0.8),
+    P('door_handle_L', lambda X, Y, Z: D.door_handle(X, Y, Z, 1), (-0.62, 0.86, 0.49), (-0.42, 0.95, 0.57), 0.0012, 0.6),
+    P('door_handle_R', lambda X, Y, Z: D.door_handle(X, Y, Z, -1), (-0.62, -0.95, 0.49), (-0.42, -0.86, 0.57), 0.0012, 0.6),
+    P('bumper_letters', D.bumper_letters, (-2.11, 0.24, 0.45), (-2.06, 0.76, 0.53), 0.0008, 0.6),
 ]
 
 
