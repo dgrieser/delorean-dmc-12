@@ -42,27 +42,29 @@ def seat(X, Y, Z, side=1):
     # stitch grooves on cushion (two longitudinal)
     gro = np.sqrt((at - 0.085) ** 2 + (Z - ztop) ** 2) - 0.004
     cush = smax(cush, -np.maximum(gro, np.abs(u - 0.5) - 0.42), 0.003)
-    # --- backrest (local frame along the recline)
+    # --- backrest (local frame along the recline): Recaro sports seats on the reference car, with
+    # full-height side bolsters and a separate headrest on two posts
     xo, zo = SEAT_X_REAR + 0.02, SEAT_ZB - 0.02
     sa, ca = np.sin(RECLINE), np.cos(RECLINE)
     a = -(X - xo) * sa + (Z - zo) * ca                 # up the backrest
     n = (X - xo) * ca + (Z - zo) * sa                  # forward
-    w = 0.255 - 0.035 * smoothstep(0.1, 0.55, a)
-    nf = 0.0 + 0.055 * smoothstep(0.11, 0.22, at) * (1 - smoothstep(0.35, 0.55, a)) \
+    w = 0.262 - 0.020 * smoothstep(0.40, 0.60, a)
+    nf = 0.070 * smoothstep(0.12, 0.21, at) * (1 - smoothstep(0.46, 0.60, a)) \
         + 0.018 * np.exp(-((a - 0.16) / 0.08) ** 2)
-    back = rbox3(a, t, n, (0.29, 0.0, -0.075), (0.29, 0.26, 0.085), 0.05)
+    back = rbox3(a, t, n, (0.30, 0.0, -0.075), (0.30, 0.27, 0.085), 0.05)
     back = np.maximum(back, at - w)
     back = smax(back, n - nf, 0.03)
-    # grooves on backrest: two vertical + one horizontal (lumbar seam)
-    gv = np.sqrt((at - 0.085) ** 2 + (n - nf) ** 2) - 0.004
-    gv = np.maximum(gv, np.abs(a - 0.30) - 0.24)
-    gh = np.sqrt((a - 0.30) ** 2 + (n - nf) ** 2) - 0.0035
-    gh = np.maximum(gh, at - 0.085)
+    # stitched seams: the centre panel between the bolsters, and a lumbar seam across it
+    gv = np.sqrt((at - 0.115) ** 2 + (n - nf) ** 2) - 0.0045
+    gv = np.maximum(gv, np.abs(a - 0.30) - 0.26)
+    gh = np.sqrt((a - 0.27) ** 2 + (n - nf) ** 2) - 0.0035
+    gh = np.maximum(gh, at - 0.115)
     back = smax(back, -np.minimum(gv, gh), 0.003)
-    # --- headrest (integrated, with a neck)
-    head = rbox3(a, t, n, (0.70, 0.0, -0.055), (0.095, 0.135, 0.055), 0.05)
-    neck = rbox3(a, t, n, (0.58, 0.0, -0.07), (0.06, 0.10, 0.045), 0.03)
-    back = smin(back, smin(head, neck, 0.03), 0.04)
+    # headrest: a padded block on two posts above the backrest
+    head = rbox3(a, t, n, (0.690, 0.0, -0.062), (0.098, 0.128, 0.052), 0.045)
+    posts = np.minimum(cap_x(a, t, n, (0.56, 0.075, -0.075), (0.62, 0.075, -0.07), 0.007),
+                       cap_x(a, t, n, (0.56, -0.075, -0.075), (0.62, -0.075, -0.07), 0.007))
+    back = np.minimum(back, np.minimum(head, posts))
     d = smin(cush, back, 0.03)
     return d
 
@@ -305,6 +307,12 @@ def layer(X, Y, Z, t_out, t_in):
 TRIM_RECESS = 0.0075
 
 
+def front_end(X):
+    """Extra width of the door's stainless inner frame at its front end (the end you see when the
+    door is up: bare steel with the lamp and latch on the reference car), where the trims stop."""
+    return 0.035 * smoothstep(0.35, 0.55, X)
+
+
 def door_t(Z):
     return 0.085 - 0.050 * smoothstep(0.62, 0.86, Z) - 0.012 * smoothstep(0.95, 1.05, Z)
 
@@ -316,12 +324,15 @@ def door_trim(X, Y, Z, side=1, upper=False):
     # stop just short of the door's edge walls (build_edges.py), whose dark flange band runs under
     # the trim's end, so the two never share a surface (that z-fights into a sawtooth)
     Xs, Ys, Zs = SX.to_skin(X, Y, Z)
-    d = np.maximum(d, B.r_door(Xs, Ys, Zs, side) + TRIM_RECESS)
+    d = np.maximum(d, B.r_door(Xs, Ys, Zs, side) + TRIM_RECESS + front_end(X))
     d = smax(d, -(B.r_door_glass(Xs, Ys, Zs, side) - TRIM_RECESS), 0.002)
     d = np.maximum(d, 0.345 - Z)
     split = 0.875
     d = np.maximum(d, (split - Z) if upper else (Z - split))
     if not upper:
+        # the card lines the door side only: the shell distance also reaches the body's floor
+        # skin, which would leave a plate across the cabin floor that swings out with the door
+        d = np.maximum(d, -(B.flanks(X, Y, Z) + 0.13))
         # armrest / pull pocket bolster
         yy = Y * side
         inner = B.w_crease(X) - 0.085

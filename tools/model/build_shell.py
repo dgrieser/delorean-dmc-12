@@ -80,7 +80,9 @@ def build(name, reduction=0.86):
     V, F = extract(f, a, b, H, verbose=False)
     if skin:
         # skin down to DEPTH (the rolled edge walls) and nothing under the floor line, cut exactly
-        V, F = clip_level(V, F, lambda x, y, z: np.minimum(B.shell(x, y, z) + DEPTH, z - 0.285))
+        # stop at the sill line and turn only ARCH_LIP into the wheel arches (black liners beyond)
+        V, F = clip_level(V, F, lambda x, y, z: np.minimum(np.minimum(B.shell(x, y, z) + DEPTH, z - B.SILL_Z),
+                                                           np.maximum(B.flanks(x, y, z) + B.ARCH_LIP, B.arch_cyl(x, y, z, 0.01))))
     V, F, N = finish4(f, V, F, BUDGET.get(name, 30000), int(os.environ.get('REFINE', '3')), max_edge=0.05 if name in SPLIT else None)
     np.savez_compressed(f'{OUT}/{name}.npz', V=V.astype(np.float32), F=F.astype(np.int32), N=N.astype(np.float32))
     print(f'{name}: {len(V)} verts {len(F)} faces {time.time() - t:.1f}s', flush=True)

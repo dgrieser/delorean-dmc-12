@@ -248,6 +248,15 @@ def tail_housing(X, Y, Z):
     return np.minimum(np.minimum(back, web), np.minimum(plate, boss))
 
 
+PLATE_W, PLATE_H, PLATE_ZC = 0.305, 0.152, 0.745       # US 12 x 6 in. plate on the tail panel
+
+
+def licence_plate(X, Y, Z):
+    face = B.x_tail(Z)
+    d = _rbox2(Y, Z - PLATE_ZC, 0.5 * PLATE_W, 0.5 * PLATE_H, 0.008)
+    return np.maximum(d, np.maximum(face + 0.010 - X, X - (face + 0.016)))
+
+
 # ======================================================================================
 # Engine cover: black frame + stepped louvre blades following the fastback + centre rib
 LID_GAP = 0.004
@@ -257,14 +266,16 @@ def _fb_z(X):
     return B.z_fb(X)
 
 
-LID_SLATS = 5
+# four stepped blades and a rear panel with two slatted grilles (top view of the reference car)
+LID_BLADES = [-0.925, -1.105, -1.300, -1.484, -1.670]      # blade front/rear edges (x)
+LID_GRILLE = (-1.690, -1.850, 0.035, 0.400)                  # grille x range, |y| range
 
 
 def lid_frame(X, Y, Z):
     yy = np.abs(Y)
     fb = B.d_fastback(X, yy, Z)
     reg = poly2d(X, Y, B.LID_POLY) + LID_GAP / 2
-    inner = poly2d(X, Y, B.LID_POLY) + 0.040
+    inner = poly2d(X, Y, B.LID_POLY) + 0.035
     d = smax(reg, -inner, 0.003)
     d = smax(d, np.maximum(fb + 0.0005, -fb - 0.030), 0.003)
     return d
@@ -272,19 +283,25 @@ def lid_frame(X, Y, Z):
 
 def lid_slats(X, Y, Z):
     yy = np.abs(Y)
-    x0, x1 = -0.88, -1.86
-    pitch = (x0 - x1) / LID_SLATS
-    k = np.clip(np.floor((x0 - X) / pitch), 0, LID_SLATS - 1)
-    xr = x0 - (k + 1) * pitch + 0.018         # rear edge of slat k
-    xf = x0 - k * pitch + 0.030                # front edge (tucks under the previous slat)
-    ztop = _fb_z(xr) - 0.002
-    s = np.maximum(Z - ztop, (ztop - 0.007) - Z)
-    s = np.maximum(s, np.maximum(xr - X, X - xf))
     inner = poly2d(X, Y, B.LID_POLY) + 0.030
-    s = smax(s, inner, 0.002)
-    rib = np.maximum(np.abs(Y) - 0.012, np.maximum(B.d_fastback(X, yy, Z) + 0.001, -B.d_fastback(X, yy, Z) - 0.05))
-    rib = np.maximum(rib, inner)
-    return np.minimum(s, rib)
+    e = np.array(LID_BLADES)
+    k = np.clip(np.searchsorted(-e, -X) - 1, 0, len(e) - 2)
+    xf, xr = e[k] + 0.030, e[k + 1]                # each blade's front edge tucks under the one ahead
+    ztop = _fb_z(xr) - 0.002 + (X - xr) * 0.05      # nearly level: steps down the fastback
+    s = np.maximum(Z - ztop, (ztop - 0.008) - Z)
+    s = np.maximum(s, np.maximum(xr - X, X - xf))
+    s = np.maximum(s, X - (LID_BLADES[0] + 0.01))
+    blades = smax(s, inner, 0.002)
+    # rear panel on the fastback with two slatted grilles either side of a centre bar
+    fb = B.d_fastback(X, yy, Z)
+    panel = np.maximum(np.maximum(fb + 0.003, -fb - 0.011), np.maximum(X - (LID_BLADES[-1] + 0.02), -1.92 - X))
+    panel = smax(panel, inner, 0.002)
+    gx0, gx1, gy0, gy1 = LID_GRILLE
+    hole = _rbox2(X - 0.5 * (gx0 + gx1), yy - 0.5 * (gy0 + gy1), 0.5 * (gx0 - gx1), 0.5 * (gy1 - gy0), 0.006)
+    panel = smax(panel, -np.maximum(hole, np.abs(fb + 0.004) - 0.03), 0.0015)
+    bars = np.maximum(hole, np.abs(np.mod(X + 0.0075, 0.015) - 0.0075) - 0.0022)
+    bars = np.maximum(bars, np.maximum(fb + 0.005, -fb - 0.030))
+    return np.minimum(np.minimum(blades, panel), bars)
 
 
 def lid_under(X, Y, Z):
@@ -296,7 +313,7 @@ def lid_under(X, Y, Z):
     return d
 
 
-LID_HINGE = (-0.84, float(_fb_z(-0.84)) - 0.012)
+LID_HINGE = (B.LID_X0 + 0.02, float(_fb_z(B.LID_X0 + 0.02)) - 0.012)
 
 
 # ======================================================================================
@@ -315,43 +332,47 @@ def bpillar_insert(X, Y, Z):
 # ======================================================================================
 # Mirrors: black wedge housings on the door's front-top corner, just behind the A-pillar base
 # (outer-top corner measured at x 0.29, |y| 0.98, z 0.87)
-MIRROR_C = np.array([0.315, 0.915, 0.833])
+MIRROR_C = np.array([0.300, 0.890, 0.818])
+MIRROR_H = (0.090, 0.052)          # head half-width / half-height: ~18 x 10 cm (front view)
+
+
+def _mirror_frame(X, Ys):
+    c = MIRROR_C
+    t = np.clip((Ys - c[1]) / MIRROR_H[0], -1, 1)
+    return X - 0.040 * t, 0.034 + 0.008 * t          # swept back outboard, deeper at the outer end
 
 
 def mirror_housing(X, Y, Z, side=1):
     Ys = Y * side
     c = MIRROR_C
-    # head: rounded box, glass faces rearward (-X), deeper at the outer end, swept back outboard
-    t = np.clip((Ys - c[1]) / 0.065, -1, 1)
-    xs = X - 0.035 * t
-    hx = 0.034 + 0.008 * t
-    head = rbox3(xs, Ys, Z, (c[0], c[1], c[2]), (1.0, 0.066, 0.040), 0.016)
+    hw, hh = MIRROR_H
+    xs, hx = _mirror_frame(X, Ys)
+    head = rbox3(xs, Ys, Z, (c[0], c[1], c[2]), (1.0, hw, hh), 0.018)
     head = np.maximum(head, np.abs(xs - c[0]) - hx)
-    cavity = rbox3(xs, Ys, Z, (c[0] - hx - 0.004, c[1], c[2]), (0.010, 0.058, 0.032), 0.008)
+    cavity = rbox3(xs, Ys, Z, (c[0] - hx - 0.004, c[1], c[2]), (0.010, hw - 0.008, hh - 0.008), 0.008)
     head = smax(head, -cavity, 0.002)
-    # tapered stalk down to a triangular foot on the door skin at the window's front corner
-    stalk = cap_x(X, Ys, Z, (c[0] + 0.035, 0.835, 0.815), (c[0] + 0.012, c[1] - 0.045, c[2] - 0.006), 0.014)
-    foot = rbox3(X, Ys, Z, (c[0] + 0.075, 0.822, 0.808), (0.060, 0.014, 0.026), 0.010)
-    d = smin(smin(head, stalk, 0.015), foot, 0.015)
-    return d
+    # short stalk to a triangular foot on the door skin at the window's front corner
+    stalk = cap_x(X, Ys, Z, (c[0] + 0.040, 0.828, 0.808), (c[0] + 0.015, c[1] - 0.05, c[2] - 0.004), 0.015)
+    foot = rbox3(X, Ys, Z, (c[0] + 0.080, 0.818, 0.804), (0.060, 0.014, 0.026), 0.010)
+    return smin(smin(head, stalk, 0.015), foot, 0.015)
 
 
 def mirror_glass(X, Y, Z, side=1):
     Ys = Y * side
     c = MIRROR_C
-    t = np.clip((Ys - c[1]) / 0.065, -1, 1)
-    xs = X - 0.035 * t
-    hx = 0.034 + 0.008 * t
-    return rbox3(xs, Ys, Z, (c[0] - hx + 0.004, c[1], c[2]), (0.0022, 0.0575, 0.0315), 0.007)
+    hw, hh = MIRROR_H
+    xs, hx = _mirror_frame(X, Ys)
+    return rbox3(xs, Ys, Z, (c[0] - hx + 0.004, c[1], c[2]), (0.0022, hw - 0.0085, hh - 0.0085), 0.007)
 
 
 # ======================================================================================
 # Wheel-well liners and underbody
 def well_liner(X, Y, Z, front=True):
     yy = np.abs(Y)
-    cx, cz, r = (B.X_FA, B.R_F, B.ARCH_F) if front else (B.X_RA, B.R_R, B.ARCH_R)
+    cx, cz, r = (B.X_FA, B.ARCH_ZF, B.ARCH_F) if front else (B.X_RA, B.ARCH_ZR, B.ARCH_R)
     d = np.abs(np.sqrt((X - cx) ** 2 + (Z - cz) ** 2) - (r + 0.010)) - 0.003
-    d = np.maximum(d, np.maximum(yy - (B.w_crease(X) - 0.012), 0.52 - yy))
+    # out to just inside the stainless lip (the flanks tuck under, so follow them, not the crease)
+    d = np.maximum(d, np.maximum(B.flanks(X, Y, Z) + 0.008, 0.52 - yy))
     d = np.maximum(d, (cz - 0.12) - Z)
     inner_wall = np.maximum(np.abs(yy - 0.53) - 0.003, np.sqrt((X - cx) ** 2 + (Z - cz) ** 2) - (r + 0.012))
     inner_wall = np.maximum(inner_wall, (cz - 0.12) - Z)
@@ -361,17 +382,53 @@ def well_liner(X, Y, Z, front=True):
 def underbody(X, Y, Z):
     yy = np.abs(Y)
     # kept inside the tucked-in lower flanks so no edge shows past the sills or bumpers
-    pan = np.maximum(np.abs(Z - 0.215) - 0.006, np.maximum(yy - 0.76, np.maximum(X - 1.80, -1.90 - X)))
+    # the floor pan stops at the engine: from behind and below the engine, rear frame and running
+    # gear show, as on the reference car
+    pan = np.maximum(np.abs(Z - 0.215) - 0.006, np.maximum(yy - 0.76, np.maximum(X - 1.80, -0.90 - X)))
     pan = smax(pan, -B.arch_cyl(X, Y, Z, 0.02), 0.002)
     # backbone tunnel
     bb = rbox3(X, Y, Z, (0.1, 0, 0.24), (1.5, 0.11, 0.03), 0.02)
     return np.minimum(pan, bb)
 
 
+def rear_frame(X, Y, Z):
+    """Black rear frame under the engine: the backbone's Y-arms, a cross member, the trailing arms
+    out to the hubs (body frame, hub at R_R)."""
+    yy = np.abs(Y)
+    rails = rbox3(X, yy, Z, (-1.42, 0.33, 0.30), (0.50, 0.035, 0.045), 0.012)
+    cross = rbox3(X, yy, Z, (-1.80, 0.0, 0.31), (0.035, 0.40, 0.04), 0.012)
+    arm = cap_x(X, yy, Z, (-0.62, 0.66, 0.31), (B.X_RA + 0.04, 0.70, B.R_R - 0.02), 0.035)
+    upr = rbox3(X, yy, Z, (B.X_RA, 0.68, B.R_R), (0.07, 0.03, 0.09), 0.02)
+    return np.minimum(np.minimum(rails, cross), np.minimum(arm, upr))
+
+
+def driveshafts(X, Y, Z):
+    yy = np.abs(Y)
+    shaft = cap_x(X, yy, Z, (B.X_RA, 0.18, B.R_R - 0.01), (B.X_RA, 0.66, B.R_R), 0.022)
+    boot = np.sqrt((X - B.X_RA) ** 2 + (Z - B.R_R + 0.005) ** 2) - 0.045
+    boot = np.maximum(boot, np.abs(yy - 0.22) - 0.05)
+    return np.minimum(shaft, boot)
+
+
+# ======================================================================================
+# Cowl vent: black slatted grille across the car between the bonnet and the windscreen (fore-aft
+# slots, as on the reference car's top view)
+def cowl_vent(X, Y, Z):
+    yy = np.abs(Y)
+    xe = X + B.WS_WRAP * yy ** 2
+    sh = B.shell(X, Y, Z)
+    xc, hx, hy, _ = B.COWL
+    plate = _rbox2(xe - xc, yy, hx - 0.004, hy - 0.004, 0.01)
+    d = np.maximum(plate, np.abs(sh - 0.0015) - 0.0025)
+    u = np.mod(yy + 0.007, 0.014) - 0.007
+    slot = np.maximum(np.abs(u) - 0.0038, np.abs(xe - xc) - (hx - 0.012))
+    return smax(d, -np.maximum(slot, -(sh - 0.0005)), 0.0008)
+
+
 # ======================================================================================
 # Power antenna on the right front wing beside the windscreen (base and tip measured from the
 # reference photos: it rakes back and out)
-ANT_BASE = np.array([0.765, -0.795, 0.818])
+ANT_BASE = np.array([0.765, -0.795, 0.800])
 ANT_TIP = np.array([0.660, -0.850, 1.60])
 
 

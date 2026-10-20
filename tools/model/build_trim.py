@@ -79,8 +79,8 @@ def strips():
     def arch_span(cx, cz, r, z):
         h = np.sqrt(max(r * r - (z - cz) ** 2, 0.0))
         return cx - h, cx + h
-    fa0, fa1 = arch_span(B.X_FA, B.R_F, B.ARCH_F, float(B.z_crease(np.array(B.X_FA))))
-    ra0, ra1 = arch_span(B.X_RA, B.R_R, B.ARCH_R, float(B.z_crease(np.array(B.X_RA))))
+    fa0, fa1 = arch_span(B.X_FA, B.ARCH_ZF, B.ARCH_F, float(B.z_crease(np.array(B.X_FA))))
+    ra0, ra1 = arch_span(B.X_RA, B.ARCH_ZR, B.ARCH_R, float(B.z_crease(np.array(B.X_RA))))
     segs = {'fender': (xd1 + 0.008, fa0 - 0.012), 'nose': (fa1 + 0.012, 1.575), 'door': (xd0, xd1),
             'quarter': (ra1 + 0.012, xd0 - 0.008), 'rearcorner': (-1.650, ra0 - 0.012)}
     for side, tag in [(1, 'L'), (-1, 'R')]:

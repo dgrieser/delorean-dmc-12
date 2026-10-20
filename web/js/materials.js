@@ -107,10 +107,23 @@ function decalJump() {
   });
 }
 
+// rear licence plate: a generic US-style plate (white, blue lettering) like the reference car's
+function decalPlate() {
+  return decalCanvas(1024, 512, (g, w, h) => {
+    g.fillStyle = '#f4f3ee'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#1d3f8f'; g.lineWidth = 10; g.strokeRect(14, 14, w - 28, h - 28);
+    g.fillStyle = '#1d3f8f'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `600 ${h * 0.12}px ${DFONT}`; g.fillText('DE LOREAN', w / 2, h * 0.16);
+    g.font = `700 ${h * 0.50}px ${DFONT}`; g.fillText('DMC 12', w / 2, h * 0.56);
+    g.font = `500 ${h * 0.08}px ${DFONT}`; g.fillText('BELFAST · 1981', w / 2, h * 0.88);
+    for (const x of [w * 0.2, w * 0.8]) { g.fillStyle = '#9a9a9a'; g.beginPath(); g.arc(x, h * 0.16, 12, 0, Math.PI * 2); g.fill(); }
+  });
+}
+
 const lin = (r, g, b) => new THREE.Color().setRGB(r, g, b, THREE.LinearSRGBColorSpace);
 
 // Shared uniforms for baked AO: blend between the doors-closed and doors-open bakes.
-export const AO = { open: { value: 0 }, strength: { value: 1 }, direct: { value: 0 } };
+export const AO = { open: { value: 0 }, strength: { value: 1 }, direct: { value: 0 }, pow: { value: 1 } };
 
 // One onBeforeCompile per material: optional triplanar texturing (object space, for meshes
 // without UVs) + baked per-vertex ambient occlusion (attributes `ao`, `ao2`).
@@ -121,12 +134,15 @@ export function enhance(mat, tri = null) {
     sh.uniforms.uAOOpen = AO.open;
     sh.uniforms.uAOStr = mat.userData.aoStr || AO.strength;
     sh.uniforms.uAODirect = mat.userData.aoDirect || AO.direct;
+    sh.uniforms.uAOPow = mat.userData.aoPow || AO.pow;
     let v = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float ao; attribute float ao2; varying float vAO; uniform float uAOOpen;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAO = mix(ao, ao2, uAOOpen);');
-    let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAO; uniform float uAOStr; uniform float uAODirect;')
+    let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAO; uniform float uAOStr; uniform float uAODirect; uniform float uAOPow;')
       .replace('#include <aomap_fragment>', `#include <aomap_fragment>
       {
-        float ambientOcclusion = mix(1.0, clamp(vAO * 1.06, 0.0, 1.0), uAOStr);
+        // cabin trims: the roof hides most of the studio's lights from them, which the baked AO
+        // (60 cm reach) only partly captures, so it bites harder there
+        float ambientOcclusion = pow(mix(1.0, clamp(vAO * 1.06, 0.0, 1.0), uAOStr), uAOPow);
         reflectedLight.indirectDiffuse *= ambientOcclusion;
         // micro-shadowing: the shadow map can't resolve a 4 mm panel gap, so the baked AO dims
         // direct light on the rolled edges that face into it (open panel areas sit at ~1)
@@ -220,7 +236,7 @@ export const TRIM = {
   grey: { leather: [0.165, 0.170, 0.178], vinyl: [0.150, 0.155, 0.162], carpet: [0.105, 0.108, 0.112], head: [0.30, 0.30, 0.29] },
   // as on the reference car (ref/studio 03, 04, 09-12): charcoal hide, near-black carpet, light grey
   // cloth on the headliner and the upper door panels
-  black: { leather: [0.040, 0.041, 0.044], vinyl: [0.036, 0.037, 0.040], carpet: [0.018, 0.018, 0.020], head: [0.26, 0.26, 0.255] },
+  black: { leather: [0.014, 0.014, 0.015], vinyl: [0.016, 0.016, 0.017], carpet: [0.010, 0.010, 0.011], head: [0.26, 0.26, 0.255] },
 };
 export function setTrim(lib, name) {
   const t = TRIM[name];
@@ -253,8 +269,8 @@ export function createLibrary(opts = {}) {
   });
   lib.Urethane = new THREE.MeshPhysicalMaterial({
     // satin charcoal urethane: picks up soft reflections that show the bumper's shape
-    name: 'Urethane', color: lin(0.044, 0.046, 0.050), metalness: 0, roughness: 0.5,
-    normalMap: grainN, normalScale: new THREE.Vector2(0.2, 0.2), clearcoat: 0.3, clearcoatRoughness: 0.32,
+    name: 'Urethane', color: lin(0.040, 0.041, 0.045), metalness: 0, roughness: 0.5,
+    normalMap: grainN, normalScale: new THREE.Vector2(0.2, 0.2), clearcoat: 0.7, clearcoatRoughness: 0.25,
   });
   lib.Rubber = new THREE.MeshStandardMaterial({ name: 'Rubber', color: lin(0.010, 0.010, 0.011), roughness: 0.78 });
   lib.PlasticBlack = new THREE.MeshPhysicalMaterial({ name: 'PlasticBlack', color: lin(0.012, 0.012, 0.013), roughness: 0.42, clearcoat: 0.15, clearcoatRoughness: 0.4, side: THREE.DoubleSide });
@@ -280,10 +296,11 @@ export function createLibrary(opts = {}) {
   });
   lib.Lamp_Bulb_Hi = new THREE.MeshStandardMaterial({ name: 'Lamp_Bulb_Hi', color: lin(0.8, 0.8, 0.78), roughness: 0.3, emissive: lin(1.0, 0.92, 0.80), emissiveIntensity: 0 });
   lib.Lamp_Bulb_Lo = lib.Lamp_Bulb_Hi.clone(); lib.Lamp_Bulb_Lo.name = 'Lamp_Bulb_Lo';
-  lib.Lamp_TurnFront = lens('Lamp_TurnFront', [0.62, 0.17, 0.008], [1.0, 0.45, 0.02]);
-  lib.Lamp_MarkerFront = lens('Lamp_MarkerFront', [0.62, 0.17, 0.008], [1.0, 0.45, 0.02]);
-  lib.Lamp_TurnRear = lens('Lamp_TurnRear', [0.55, 0.15, 0.008], [1.0, 0.45, 0.02]);
-  lib.Lamp_Tail = lens('Lamp_Tail', [0.16, 0.006, 0.005], [1.0, 0.02, 0.01]);
+  // deep amber, as the unlit lenses read on the reference car
+  lib.Lamp_TurnFront = lens('Lamp_TurnFront', [0.42, 0.10, 0.005], [1.0, 0.45, 0.02]);
+  lib.Lamp_MarkerFront = lens('Lamp_MarkerFront', [0.42, 0.10, 0.005], [1.0, 0.45, 0.02]);
+  lib.Lamp_TurnRear = lens('Lamp_TurnRear', [0.50, 0.13, 0.006], [1.0, 0.45, 0.02]);
+  lib.Lamp_Tail = lens('Lamp_Tail', [0.22, 0.006, 0.005], [1.0, 0.02, 0.01]);
   lib.Lamp_MarkerRear = lens('Lamp_MarkerRear', [0.16, 0.006, 0.005], [1.0, 0.02, 0.01]);
   lib.Lamp_Reverse = lens('Lamp_Reverse', [0.42, 0.42, 0.42], [1.0, 0.97, 0.92], { attenuationDistance: 1 });
 
@@ -302,8 +319,11 @@ export function createLibrary(opts = {}) {
   lib.Tyre_PD_F = pdMat('Tyre_PD_F', 'tyre_f', { metalness: 0, sheen: 0.12, sheenRoughness: 0.8, sheenColor: lin(0.2, 0.2, 0.2) });
   lib.Tyre_PD_R = pdMat('Tyre_PD_R', 'tyre_r', { metalness: 0, sheen: 0.12, sheenRoughness: 0.8, sheenColor: lin(0.2, 0.2, 0.2) });
   // the source albedo is a dull grey; the turbine faces on the reference car read bright silver
-  lib.Wheel_PD = pdMat('Wheel_PD', 'wheel', { aoMapIntensity: 0.74, roughness: 0.75, clearcoat: 0.35, clearcoatRoughness: 0.2 });
-  lib.Wheel_PD.color.setScalar(1.5);
+  // (rim brightness matched to the side view: satin silver faces, dark slots)
+  lib.Wheel_PD = pdMat('Wheel_PD', 'wheel', { aoMapIntensity: 0.8, roughness: 0.42, clearcoat: 0.6, clearcoatRoughness: 0.2, envMapIntensity: 1.25 });
+  lib.Wheel_PD.color.setScalar(3.2);
+  // the sidewall lettering reads dark-on-black on the reference car's tyres
+  lib.Tyre_PD_F.color.setScalar(0.6); lib.Tyre_PD_R.color.setScalar(0.6);
   lib.Brake_Disc = new THREE.MeshStandardMaterial({ name: 'Brake_Disc', color: lin(0.42, 0.40, 0.38), metalness: 1, roughness: 0.48 });
   lib.Brake_Caliper = new THREE.MeshStandardMaterial({ name: 'Brake_Caliper', color: lin(0.03, 0.03, 0.03), roughness: 0.5 });
   lib.Lug_Chrome = lib.Chrome;
@@ -312,7 +332,7 @@ export function createLibrary(opts = {}) {
   // CC0 scans (ambientCG Leather026, Carpet012; tools/tex/import_cc0.py)
   const leatherN = tex(T + 'leather_n.jpg'), leatherR = tex(T + 'leather_r.jpg');
   const carpetC = tex(T + 'carpet_c.jpg', { srgb: true }), carpetN = tex(T + 'carpet_n.jpg');
-  lib.Leather = triplanar(new THREE.MeshPhysicalMaterial({ name: 'Leather', color: lin(0.165, 0.17, 0.178), roughness: 0.48, sheen: 0.3, sheenRoughness: 0.5, sheenColor: lin(0.25, 0.25, 0.25), clearcoat: 0.25, clearcoatRoughness: 0.38 }),
+  lib.Leather = triplanar(new THREE.MeshPhysicalMaterial({ name: 'Leather', color: lin(0.165, 0.17, 0.178), roughness: 0.48, sheen: 0.15, sheenRoughness: 0.5, sheenColor: lin(0.2, 0.2, 0.2), clearcoat: 0.25, clearcoatRoughness: 0.38 }),
     { normal: leatherN, rough: leatherR, scale: 6.5, normalScale: 0.75 });
   lib.LeatherBlack = triplanar(new THREE.MeshPhysicalMaterial({ name: 'LeatherBlack', color: lin(0.018, 0.018, 0.019), roughness: 0.55, sheen: 0.2, sheenRoughness: 0.5, sheenColor: lin(0.2, 0.2, 0.2), clearcoat: 0.15, clearcoatRoughness: 0.4 }),
     { normal: leatherN, rough: leatherR, scale: 9, normalScale: 0.7 });
@@ -340,18 +360,20 @@ export function createLibrary(opts = {}) {
   lib.RedPaint = new THREE.MeshPhysicalMaterial({ name: 'RedPaint', color: lin(0.42, 0.015, 0.01), roughness: 0.3, clearcoat: 0.6 });
   lib.Decal_Airbox = new THREE.MeshStandardMaterial({ name: 'Decal_Airbox', map: decalAirbox(), roughness: 0.45, metalness: 0.1 });
   lib.Decal_Jump = new THREE.MeshStandardMaterial({ name: 'Decal_Jump', map: decalJump(), roughness: 0.6 });
+  lib.Decal_Plate = new THREE.MeshPhysicalMaterial({ name: 'Decal_Plate', map: decalPlate(), roughness: 0.35, clearcoat: 0.5, clearcoatRoughness: 0.3 });
 
   lib._fallback = new THREE.MeshStandardMaterial({ name: 'fallback', color: 0xff00ff, roughness: 0.5 });
   // thin transparent shells instead of the (expensive) transmission pass
   // tinted: the panes cut ~30 % of the light passing through and scatter very little themselves,
   // so the dark cabin reads through them as in the reference photos
   thinGlass(lib.Glass, 0.30); lib.Glass.color = lin(0.035, 0.032, 0.026); lib.Glass.side = THREE.FrontSide;
-  thinGlass(lib.Lamp_HeadLens, 0.10); lib.Lamp_HeadLens.side = THREE.FrontSide;
+  thinGlass(lib.Lamp_HeadLens, 0.05); lib.Lamp_HeadLens.side = THREE.FrontSide;      // clear: the chrome reflectors show
   for (const k of ['Lamp_TurnFront', 'Lamp_MarkerFront', 'Lamp_TurnRear', 'Lamp_Tail', 'Lamp_MarkerRear', 'Lamp_Reverse', 'Lamp_Courtesy']) thinGlass(lib[k], 0.82);
   // AO strength per material (open steel panels bake to ~1, so this mostly darkens gaps, arches and the strip's shadow)
   const aoStr = { Stainless: 0.6, Urethane: 0.6, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5 };
   for (const [k, v] of Object.entries(aoStr)) lib[k].userData.aoStr = { value: v };
   lib.Stainless.userData.aoDirect = { value: 0.85 };
+  for (const k of ['Leather', 'LeatherBlack', 'Vinyl', 'Carpet', 'Headliner']) lib[k].userData.aoPow = { value: 2.2 };
   for (const [k, m] of Object.entries(lib)) if (m && m.isMaterial && !m.userData.tri) enhance(m);
   return lib;
 }

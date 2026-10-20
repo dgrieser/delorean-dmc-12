@@ -4,7 +4,8 @@ A 1981-style DMC-12 (stainless, black interior), photographed on a white cyclora
 from above, supplied by the repository owner as reference for proportions, panel lines,
 lamps, wheels, interior and the open gull-wing doors. The photographed car is modified
 (Recaro seats, a boost gauge and a twin-turbo engine), so the engine bay and console shots
-are for detail only; the model keeps the stock PRV V6.
+are for detail only; the model keeps the stock PRV V6 (it does take the Recaro seat shape).
+`tools/ref/calibrate.py` calibrates the eight exterior photos (cameras in `tools/ref/cameras.json`).
 
 | file | view |
 |------|------|

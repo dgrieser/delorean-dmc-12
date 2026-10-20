@@ -130,7 +130,7 @@ export class Car {
     const X = new THREE.Vector3(1, 0, 0), Z = new THREE.Vector3(0, 0, 1);
     // gull-wing: cryogenically treated torsion bar (preloaded, falls with angle) + gas strut
     const doorSpring = th => 121 * (1 - 0.36 * th) + 46 * smooth(0.35, 0.9, th);
-    const doorP = { max: 1.26, I: 6.5, mgr: 108, phase: 40 * DEG, spring: doorSpring, damp: 58, handTorque: 95 };
+    const doorP = { max: 69 * DEG, I: 6.5, mgr: 108, phase: 40 * DEG, spring: doorSpring, damp: 58, handTorque: 95 };
     this.doorL = new HingedPanel(this.nodes.doorL, X, +1, doorP);
     this.doorR = new HingedPanel(this.nodes.doorR, X, -1, doorP);
     // front-hinged bonnet on gas struts

@@ -85,8 +85,11 @@ Everything else is measured from the studio set in `ref/studio/` (see its README
 `tools/ref/calibrate.py` calibrates the eight photos against each other (a bundle adjustment on
 the wheel centres and ~25 body landmarks such as lamp corners, markers, the antenna base and the
 windscreen corners, with the wheelbase setting the scale), and the body's profiles, plan taper,
-windscreen rake, beltline, lamp layout and bumper bands were read off the calibrated views and
-back-projected into the car frame. To check the model against the photos:
+windscreen rake, beltline, sail twist, wheel-arch shapes and flares, lamp layout, louvre panel
+and bumper bands were read off the calibrated views (the top view gives the plan) and
+back-projected into the car frame. The open-door angle was fitted to the door silhouettes, and
+the studio lighting (`tools/tex/studio_env.py`) to the stainless panel tones. To check the model
+against the photos:
 
 ```bash
 python3 -m http.server 8123 &                        # from the repo root
@@ -96,7 +99,8 @@ python3 tools/ref/compare.py /tmp/shots /tmp/cmp     # photo/render stacks and o
 
 The reference car sits lower than a stock US car on low-profile tyres (wheel centres 271 / 298 mm
 above the floor); the model follows it (`STANCE` and `R_F` / `R_R` in `tools/model/body.py`, the
-tyre squash in `web/js/car.js`). It has the later bonnet without a fuel flap.
+tyre squash in `web/js/car.js`). It has the later bonnet without a fuel flap and Recaro seats; the
+model keeps the stock PRV V6 under its engine cover (the photographed car is turbocharged).
 
 ## Credits
 

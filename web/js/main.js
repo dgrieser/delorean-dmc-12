@@ -89,10 +89,16 @@ async function init() {
     }
   });
   // decals: normalise their (metre) box UVs into 0..1
-  for (const nm of ['eng_decal', 'bay_panel']) {
+  for (const nm of ['eng_decal', 'bay_panel', 'plate']) {
     let mesh = null; body.traverse(o => { if (o.isMesh && o.name === nm) mesh = o; });
     const uv = mesh?.geometry.attributes.uv;
     if (!uv) continue;
+    if (nm === 'plate') {
+      // the plate's box UVs mix in its thin edge faces: project it straight from behind instead
+      // (glTF frame: z = car right, y = up; reads left to right seen from behind)
+      const P = mesh.geometry.attributes.position;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, P.getZ(i), P.getY(i));
+    }
     let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
     for (let i = 0; i < uv.count; i++) { u0 = Math.min(u0, uv.getX(i)); u1 = Math.max(u1, uv.getX(i)); v0 = Math.min(v0, uv.getY(i)); v1 = Math.max(v1, uv.getY(i)); }
     for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) - u0) / (u1 - u0), (uv.getY(i) - v0) / (v1 - v0));

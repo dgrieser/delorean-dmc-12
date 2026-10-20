@@ -215,7 +215,7 @@ def NOAO(o):
 
 if DO_AO:
     bake_ao('_AO', door_angle=0.0)
-    bake_ao('_AO2', door_angle=72.0)
+    bake_ao('_AO2', door_angle=69.0)          # web/js/car.js doorP.max
 
 # the body is modelled in its stock frame; lower the whole car (wheel pivots included, which sit
 # STANCE higher in that frame) so the tyres stand on the ground

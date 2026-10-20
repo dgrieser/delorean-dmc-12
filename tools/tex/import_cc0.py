@@ -36,6 +36,13 @@ def centre(im, mean, grey=False):
     return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
 
 
+def highpass(a, sigma):
+    """Remove the scan's large blotches (they read as stains on a whole bonnet), keep the grain."""
+    from scipy import ndimage
+    lo = ndimage.gaussian_filter(a, sigma, mode='wrap')
+    return a - lo + a.mean()
+
+
 def lin(c):
     c = c / 255.0
     return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
@@ -47,11 +54,12 @@ def srgb(c):
 
 
 # brushed stainless: albedo variation centred on linear 0.5 (materials.js doubles the colour)
-c = lin(np.asarray(load('Metal009', 'Color').convert('L')).astype(np.float64))
+c = highpass(lin(np.asarray(load('Metal009', 'Color').convert('L')).astype(np.float64)), 24)
 c = srgb(c * (0.5 / c.mean()))
 save(Image.fromarray(c.astype(np.uint8)).convert('RGB'), 'stainless_c.jpg', 1024)
 save(load('Metal009', 'NormalGL'), 'stainless_n.jpg', 1024)
-save(centre(load('Metal009', 'Roughness'), 128, grey=True), 'stainless_r.jpg', 1024)
+r = highpass(np.asarray(load('Metal009', 'Roughness').convert('L')).astype(np.float64), 24)
+save(centre(Image.fromarray(np.clip(r, 0, 255).astype(np.uint8)), 128, grey=True), 'stainless_r.jpg', 1024)
 
 save(load('Leather026', 'NormalGL'), 'leather_n.jpg', 1024)
 save(centre(load('Leather026', 'Roughness'), 128, grey=True), 'leather_r.jpg', 1024)
