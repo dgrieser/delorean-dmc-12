@@ -8,6 +8,11 @@ the engine are all simulated.
 
 ## Run it
 
+Live: <https://dgrieser.github.io/delorean-dmc-12/> (GitHub Pages, deployed from `web/` on every
+push to `main` that touches it, see `.github/workflows/pages.yml`).
+
+Locally:
+
 ```bash
 cd web
 python3 -m http.server 8000
