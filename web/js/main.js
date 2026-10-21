@@ -4,7 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { loadPacked } from './loader.js';
-import { createLibrary, materialFor, setTrim, AO } from './materials.js';
+import { createLibrary, materialFor, setTrim, AO, KEY } from './materials.js';
 import { Environment } from './env.js';
 import { Car, Wipers } from './car.js';
 import { Lamps } from './lamps.js';
@@ -105,8 +105,11 @@ async function init() {
     uv.needsUpdate = true;
   }
   // brushed stainless: U and the tangent follow the car's length (DMC panels are brushed
-  // front-to-back), V wraps over the section without seams. Faces that look forward or back
-  // (nose, tail, lamp surrounds) are brushed across the car instead.
+  // front-to-back), V runs round the body's section (the angle about a line along the car at
+  // mid height, scaled to about metres; the seam lies under the car). Its lines stay level on
+  // faces that also lean forward or back, like the sail panels, where a plain height + width
+  // coordinate tilts the grain. Faces that look forward or back (nose, tail, lamp surrounds) are
+  // brushed across the car instead.
   body.updateMatrixWorld(true);
   body.traverse(o => {
     if (!o.isMesh || !['Stainless', 'BadgeAlu'].includes(o.material.name)) return;
@@ -120,7 +123,7 @@ async function init() {
       nn.fromBufferAttribute(N, i);
       nw.copy(nn).transformDirection(M);
       const across = Math.abs(nw.x) > 0.72;
-      uv[i * 2] = across ? p.z : p.x; uv[i * 2 + 1] = across ? p.y : p.y + p.z;
+      uv[i * 2] = across ? p.z : p.x; uv[i * 2 + 1] = across ? p.y : 0.8 * Math.atan2(p.z, p.y - 0.55);
       t.copy(across ? az : ax).addScaledVector(nn, -nn.dot(across ? az : ax));
       if (t.lengthSq() < 1e-6) t.set(0, 1, 0).addScaledVector(nn, -nn.y);
       t.normalize();
@@ -181,6 +184,7 @@ function applyEnvPreset() {
   const P = env.preset;
   bloom.strength = P.bloom;
   bloom.threshold = state.env === 'night' ? 1.4 : 2.4;
+  KEY.spec.value = P.keySpec ?? 1;
 }
 function setTrimColor(name) { state.trim = name; setTrim(lib, name); }
 function setDrive(on) {
@@ -245,7 +249,7 @@ function frame() {
   for (let i = 0; i < n - 1; i++) update(total / n);
   update.skipRender = false;
   update(total / n);
-  env.follow(camera, carRoot.position);
+  env.follow(camera, carRoot);
   composer.render();
 }
 

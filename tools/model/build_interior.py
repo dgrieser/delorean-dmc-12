@@ -46,8 +46,8 @@ PARTS = [
     P('belt_buttons', I.belt_buttons, (-0.34, -0.17, 0.43), (-0.30, 0.17, 0.45), 0.001, 1000),
     P('door_strap_L', lambda X, Y, Z: I.door_strap(X, Y, Z, 1), (0.02, 0.70, 0.69), (0.08, 0.90, 0.90), 0.0012, 1500),
     P('door_strap_R', lambda X, Y, Z: I.door_strap(X, Y, Z, -1), (0.02, -0.90, 0.69), (0.08, -0.70, 0.90), 0.0012, 1500),
-    P('courtesy_L', lambda X, Y, Z: I.courtesy_lamp(X, Y, Z, 1), (0.06, 0.80, 0.34), (0.18, 0.90, 0.37), 0.0012, 1500),
-    P('courtesy_R', lambda X, Y, Z: I.courtesy_lamp(X, Y, Z, -1), (0.06, -0.90, 0.34), (0.18, -0.80, 0.37), 0.0012, 1500),
+    P('courtesy_L', lambda X, Y, Z: I.courtesy_lamp(X, Y, Z, 1), (0.40, 0.81, 0.27), (0.48, 0.87, 0.35), 0.0010, 1500),
+    P('courtesy_R', lambda X, Y, Z: I.courtesy_lamp(X, Y, Z, -1), (0.40, -0.87, 0.27), (0.48, -0.81, 0.35), 0.0010, 1500),
     # local-frame moving parts
     P('steering_wheel', I.steering_wheel_local, (-0.22, -0.22, -0.11), (0.22, 0.22, 0.04), 0.0015, 30000),
     P('pedal_Clutch', lambda x, y, z: I.pedal_local(x, y, z, 'Clutch'), (-0.07, -0.06, -0.34), (0.02, 0.06, 0.02), 0.0015, 4000),

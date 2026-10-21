@@ -46,6 +46,44 @@ function fluteNormal() {
   }, { repeat: [6, 6] });
 }
 
+// indicator lens: fine vertical cylindrical ribs (tangent-space normal map, one rib per 32 px)
+function ribNormal() {
+  return canvasTex(256, 16, (g, w, h) => {
+    const img = g.createImageData(w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const nx = Math.sin(((x / 32) % 1 - 0.5) * Math.PI) * 0.7;
+      const i = (y * w + x) * 4;
+      img.data[i] = (nx * 0.5 + 0.5) * 255; img.data[i + 1] = 128; img.data[i + 2] = 255; img.data[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+  }, { repeat: [20, 20] });          // UVs in metres: 8 ribs per 5 cm
+}
+
+// expanded-metal intake mesh: diamond cells, transparent between the wires (alpha-tested)
+function meshAlpha() {
+  return canvasTex(256, 128, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 9;
+    for (let k = -4; k <= 8; k++) {
+      g.beginPath(); g.moveTo(k * 64, 0); g.lineTo(k * 64 + 128, h); g.stroke();
+      g.beginPath(); g.moveTo(k * 64 + 128, 0); g.lineTo(k * 64, h); g.stroke();
+    }
+  }, { srgb: true, repeat: [20, 40] });   // one 256 x 128 tile = 5 x 2.5 cm (UVs in metres)
+}
+
+// radiator core: fine vertical fins
+function finNormal() {
+  return canvasTex(64, 8, (g, w, h) => {
+    const img = g.createImageData(w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const nx = Math.sin(((x / 8) % 1 - 0.5) * Math.PI) * 0.85;
+      const i = (y * w + x) * 4;
+      img.data[i] = (nx * 0.5 + 0.5) * 255; img.data[i + 1] = 128; img.data[i + 2] = 255; img.data[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+  }, { repeat: [60, 60] });
+}
+
 // tail-lamp lens: small pyramid prisms
 function prismNormal() {
   return canvasTex(256, 256, (g, w, h) => {
@@ -124,6 +162,10 @@ const lin = (r, g, b) => new THREE.Color().setRGB(r, g, b, THREE.LinearSRGBColor
 
 // Shared uniforms for baked AO: blend between the doors-closed and doors-open bakes.
 export const AO = { open: { value: 0 }, strength: { value: 1 }, direct: { value: 0 }, pow: { value: 1 } };
+// How much of the key light shows in the car's reflections (set per scene, web/js/main.js): the
+// studio's key stands in for the overhead softbox, which the reflection map already holds, so there
+// it only lights the set and casts the shadows; the day's sun and the night's lamps glint as well.
+export const KEY = { spec: { value: 1 } };
 
 // One onBeforeCompile per material: optional triplanar texturing (object space, for meshes
 // without UVs) + baked per-vertex ambient occlusion (attributes `ao`, `ao2`).
@@ -135,9 +177,10 @@ export function enhance(mat, tri = null) {
     sh.uniforms.uAOStr = mat.userData.aoStr || AO.strength;
     sh.uniforms.uAODirect = mat.userData.aoDirect || AO.direct;
     sh.uniforms.uAOPow = mat.userData.aoPow || AO.pow;
+    sh.uniforms.uKeySpec = KEY.spec;
     let v = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float ao; attribute float ao2; varying float vAO; uniform float uAOOpen;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAO = mix(ao, ao2, uAOOpen);');
-    let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAO; uniform float uAOStr; uniform float uAODirect; uniform float uAOPow;')
+    let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAO; uniform float uAOStr; uniform float uAODirect; uniform float uAOPow; uniform float uKeySpec;')
       .replace('#include <aomap_fragment>', `#include <aomap_fragment>
       {
         // cabin trims: the roof hides most of the studio's lights from them, which the baked AO
@@ -147,10 +190,11 @@ export function enhance(mat, tri = null) {
         // micro-shadowing: the shadow map can't resolve a 4 mm panel gap, so the baked AO dims
         // direct light on the rolled edges that face into it (open panel areas sit at ~1)
         float aoDirect = mix(1.0, smoothstep(0.5, 0.97, vAO), uAODirect);
-        reflectedLight.directSpecular *= aoDirect;
+        reflectedLight.directSpecular *= aoDirect * uKeySpec;
         reflectedLight.directDiffuse *= aoDirect;
         #if defined( USE_CLEARCOAT )
           clearcoatSpecularIndirect *= ambientOcclusion;
+          clearcoatSpecularDirect *= uKeySpec;
         #endif
         #if defined( USE_SHEEN )
           sheenSpecularIndirect *= ambientOcclusion;
@@ -234,9 +278,9 @@ export function triplanar(mat, opts) { return enhance(mat, { scale: 6, normalSca
 
 export const TRIM = {
   grey: { leather: [0.165, 0.170, 0.178], vinyl: [0.150, 0.155, 0.162], carpet: [0.105, 0.108, 0.112], head: [0.30, 0.30, 0.29] },
-  // as on the reference car (ref/studio 03, 04, 09-12): charcoal hide, near-black carpet, light grey
-  // cloth on the headliner and the upper door panels
-  black: { leather: [0.014, 0.014, 0.015], vinyl: [0.016, 0.016, 0.017], carpet: [0.010, 0.010, 0.011], head: [0.26, 0.26, 0.255] },
+  // as on the reference car (ref/studio 03, 04, 09-12): charcoal hide, near-black carpet, grey cloth
+  // on the headliner and the upper door panels
+  black: { leather: [0.014, 0.014, 0.015], vinyl: [0.016, 0.016, 0.017], carpet: [0.010, 0.010, 0.011], head: [0.12, 0.12, 0.118] },
 };
 export function setTrim(lib, name) {
   const t = TRIM[name];
@@ -263,14 +307,14 @@ export function createLibrary(opts = {}) {
     // anisotropic IBL bends the lookup normal along the grain, which smears away the light-over-dark
     // flank gradient the reference photos show
     // the maps are centred on 0.5: colour and roughness here are twice the mean values
-    name: 'Stainless', color: lin(1.24, 1.21, 1.17), metalness: 1, roughness: 0.76,
-    map: steelC, roughnessMap: steelR, normalMap: steelN, normalScale: new THREE.Vector2(0.35, 0.35),
+    name: 'Stainless', color: lin(1.24, 1.21, 1.17), metalness: 1, roughness: 0.50,
+    map: steelC, roughnessMap: steelR, normalMap: steelN, normalScale: new THREE.Vector2(0.2, 0.2),
     side: THREE.DoubleSide, envMapIntensity: 1.0,
   });
   lib.Urethane = new THREE.MeshPhysicalMaterial({
     // satin charcoal urethane: picks up soft reflections that show the bumper's shape
-    name: 'Urethane', color: lin(0.040, 0.041, 0.045), metalness: 0, roughness: 0.5,
-    normalMap: grainN, normalScale: new THREE.Vector2(0.2, 0.2), clearcoat: 0.7, clearcoatRoughness: 0.25,
+    name: 'Urethane', color: lin(0.026, 0.028, 0.034), metalness: 0, roughness: 0.55,
+    normalMap: grainN, normalScale: new THREE.Vector2(0.2, 0.2), clearcoat: 0.35, clearcoatRoughness: 0.35,
   });
   lib.Rubber = new THREE.MeshStandardMaterial({ name: 'Rubber', color: lin(0.010, 0.010, 0.011), roughness: 0.78 });
   lib.PlasticBlack = new THREE.MeshPhysicalMaterial({ name: 'PlasticBlack', color: lin(0.012, 0.012, 0.013), roughness: 0.42, clearcoat: 0.15, clearcoatRoughness: 0.4, side: THREE.DoubleSide });
@@ -279,10 +323,18 @@ export function createLibrary(opts = {}) {
     name: 'Glass', color: lin(0.86, 0.90, 0.88), metalness: 0, roughness: 0.0, transmission: 1, thickness: 0.0,
     ior: 1.52, specularIntensity: 1, side: THREE.DoubleSide, envMapIntensity: 1.2,
   });
+  // amber-coated reflector behind the front indicator lenses (the lens itself only tints what it reflects)
+  lib.Lamp_TurnRefl = new THREE.MeshStandardMaterial({ name: 'Lamp_TurnRefl', color: lin(0.80, 0.34, 0.04), metalness: 1, roughness: 0.3 });
   lib.Chrome = new THREE.MeshStandardMaterial({ name: 'Chrome', color: lin(0.92, 0.92, 0.92), metalness: 1, roughness: 0.06, side: THREE.DoubleSide });
-  lib.MirrorGlass = new THREE.MeshStandardMaterial({ name: 'MirrorGlass', color: lin(0.88, 0.89, 0.9), metalness: 1, roughness: 0.0 });
+  lib.MirrorGlass = new THREE.MeshStandardMaterial({ name: 'MirrorGlass', color: lin(0.55, 0.56, 0.58), metalness: 1, roughness: 0.0 });
   lib.BadgeAlu = new THREE.MeshPhysicalMaterial({ name: 'BadgeAlu', color: lin(0.80, 0.80, 0.82), metalness: 1, roughness: 0.26, clearcoat: 0.4 });
-  lib.Exhaust = new THREE.MeshStandardMaterial({ name: 'Exhaust', color: lin(0.5, 0.48, 0.46), metalness: 1, roughness: 0.38 });
+  // sooty steel tips (they read dark under the bumper in the photos)
+  lib.Exhaust = new THREE.MeshStandardMaterial({ name: 'Exhaust', color: lin(0.16, 0.15, 0.14), metalness: 1, roughness: 0.5 });
+  // black-painted wire mesh: only its sheen picks it out against the dark radiator (front photo)
+  lib.GrilleMesh = new THREE.MeshStandardMaterial({ name: 'GrilleMesh', color: lin(0.10, 0.10, 0.105), map: meshAlpha(), alphaTest: 0.5,
+    metalness: 0.5, roughness: 0.5, side: THREE.DoubleSide });
+  lib.Radiator = new THREE.MeshStandardMaterial({ name: 'Radiator', color: lin(0.035, 0.035, 0.037), metalness: 0.6, roughness: 0.55,
+    normalMap: finNormal(), normalScale: new THREE.Vector2(0.8, 0.8) });
 
   // lamps: emissiveIntensity is driven by the lighting system
   const lens = (name, col, emis, extra = {}) => new THREE.MeshPhysicalMaterial({
@@ -297,7 +349,7 @@ export function createLibrary(opts = {}) {
   lib.Lamp_Bulb_Hi = new THREE.MeshStandardMaterial({ name: 'Lamp_Bulb_Hi', color: lin(0.8, 0.8, 0.78), roughness: 0.3, emissive: lin(1.0, 0.92, 0.80), emissiveIntensity: 0 });
   lib.Lamp_Bulb_Lo = lib.Lamp_Bulb_Hi.clone(); lib.Lamp_Bulb_Lo.name = 'Lamp_Bulb_Lo';
   // deep amber, as the unlit lenses read on the reference car
-  lib.Lamp_TurnFront = lens('Lamp_TurnFront', [0.42, 0.10, 0.005], [1.0, 0.45, 0.02]);
+  lib.Lamp_TurnFront = lens('Lamp_TurnFront', [0.62, 0.17, 0.004], [1.0, 0.45, 0.02], { normalMap: ribNormal(), normalScale: new THREE.Vector2(0.8, 0.8) });
   lib.Lamp_MarkerFront = lens('Lamp_MarkerFront', [0.42, 0.10, 0.005], [1.0, 0.45, 0.02]);
   lib.Lamp_TurnRear = lens('Lamp_TurnRear', [0.50, 0.13, 0.006], [1.0, 0.45, 0.02]);
   lib.Lamp_Tail = lens('Lamp_Tail', [0.22, 0.006, 0.005], [1.0, 0.02, 0.01]);
@@ -347,7 +399,7 @@ export function createLibrary(opts = {}) {
     { normal: grainN, scale: 9, normalScale: 0.25 });
   lib.PedalRubber = new THREE.MeshStandardMaterial({ name: 'PedalRubber', color: lin(0.02, 0.02, 0.02), roughness: 0.82 });
   lib.MetalDark = new THREE.MeshStandardMaterial({ name: 'MetalDark', color: lin(0.07, 0.07, 0.075), metalness: 1, roughness: 0.42 });
-  lib.Lamp_Courtesy = new THREE.MeshPhysicalMaterial({ name: 'Lamp_Courtesy', color: lin(0.5, 0.03, 0.02), roughness: 0.2, transmission: 0.4, thickness: 0.004, emissive: lin(1, 0.08, 0.04), emissiveIntensity: 0 });
+  lib.Lamp_Courtesy = new THREE.MeshPhysicalMaterial({ name: 'Lamp_Courtesy', color: lin(0.62, 0.20, 0.012), roughness: 0.2, transmission: 0.4, thickness: 0.004, emissive: lin(1, 0.36, 0.03), emissiveIntensity: 0 });
   triplanar(lib.Urethane, { normal: grainN, scale: 8, normalScale: 0.35 });
   lib.Urethane.normalMap = null;
   triplanar(lib.PlasticBlack, { normal: grainN, scale: 9, normalScale: 0.3 });
@@ -369,11 +421,13 @@ export function createLibrary(opts = {}) {
   thinGlass(lib.Glass, 0.30); lib.Glass.color = lin(0.035, 0.032, 0.026); lib.Glass.side = THREE.FrontSide;
   thinGlass(lib.Lamp_HeadLens, 0.05); lib.Lamp_HeadLens.side = THREE.FrontSide;      // clear: the chrome reflectors show
   for (const k of ['Lamp_TurnFront', 'Lamp_MarkerFront', 'Lamp_TurnRear', 'Lamp_Tail', 'Lamp_MarkerRear', 'Lamp_Reverse', 'Lamp_Courtesy']) thinGlass(lib[k], 0.82);
+  lib.Lamp_TurnFront.opacity = 0.75;     // the reflector shows through the front indicators
   // AO strength per material (open steel panels bake to ~1, so this mostly darkens gaps, arches and the strip's shadow)
   const aoStr = { Stainless: 0.6, Urethane: 0.6, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5 };
   for (const [k, v] of Object.entries(aoStr)) lib[k].userData.aoStr = { value: v };
   lib.Stainless.userData.aoDirect = { value: 0.85 };
-  for (const k of ['Leather', 'LeatherBlack', 'Vinyl', 'Carpet', 'Headliner']) lib[k].userData.aoPow = { value: 2.2 };
+  // the cabin sits under a roof: far less of the studio's light reaches it than the bake captures
+  for (const k of ['Leather', 'LeatherBlack', 'Vinyl', 'Carpet', 'Headliner']) { lib[k].userData.aoPow = { value: 2.2 }; lib[k].envMapIntensity = 0.5; }
   for (const [k, m] of Object.entries(lib)) if (m && m.isMaterial && !m.userData.tri) enhance(m);
   return lib;
 }

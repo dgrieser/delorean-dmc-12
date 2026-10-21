@@ -14,7 +14,7 @@ import { GroundedSkybox } from 'three/addons/objects/GroundedSkybox.js';
 // (tools/tex/studio_env.py: overhead softbox, strip boxes, shaded floor) lights the car while a
 // white cyclorama set is what the camera sees, as in the studio reference photos.
 export const PRESETS = {
-  studio: { hdr: 'studio.hdr', exposure: 0.62, envIntensity: 1.0, keyScale: 1.0, shadowRadius: 14, cyc: true, followCamera: true,
+  studio: { hdr: 'studio.hdr', exposure: 0.62, envIntensity: 1.0, keyScale: 1.0, keySpec: 0, shadowRadius: 14, cyc: true, followCamera: true,
             ground: { kind: 'studio', color: [0.60, 0.60, 0.60], rough: 0.55, refl: 0.10, env: 1.0 }, bg: { color: [0.45, 0.45, 0.46] }, bloom: 0.12 },
   day: { hdr: 'day.hdr', exposure: 1.0, envIntensity: 1.0, keyScale: 1.0, shadowRadius: 2,
          backdrop: { jpg: 'day_bg.jpg', height: 1.65, radius: 140 },
@@ -151,10 +151,8 @@ export class Environment {
     this.driving = false;
   }
 
-  async load(name) {
-    if (this.cache[name]) return this.cache[name];
-    const P = PRESETS[name];
-    const buf = await fetchBinary('assets/env/' + P.hdr);
+  async loadHDR(file) {
+    const buf = await fetchBinary('assets/env/' + file);
     const d = new RGBELoader().setDataType(THREE.HalfFloatType).parse(buf);
     const hdr = new THREE.DataTexture(d.data, d.width, d.height, THREE.RGBAFormat, d.type);
     hdr.colorSpace = THREE.LinearSRGBColorSpace;
@@ -163,7 +161,18 @@ export class Environment {
     hdr.flipY = true;
     hdr.needsUpdate = true;
     hdr.mapping = THREE.EquirectangularReflectionMapping;
+    return hdr;
+  }
+
+  async load(name) {
+    if (this.cache[name]) return this.cache[name];
+    const P = PRESETS[name];
+    const hdr = await this.loadHDR(P.hdr);
     const env = this.pmrem.fromEquirectangular(hdr).texture;
+    // the studio's per-angle rigs (tools/tex/studio_env.py), blended by the camera's azimuth
+    let rigs = null;
+    const list = P.followCamera ? (await this.meta)?.[name]?.rigs : null;
+    if (list?.length) rigs = await Promise.all(list.map(async ([az, file]) => ({ az, tex: await this.loadHDR(file) })));
     let bg = null;
     if (P.backdrop) {
       bg = await new THREE.TextureLoader().loadAsync('assets/env/' + P.backdrop.jpg);
@@ -171,16 +180,57 @@ export class Environment {
       bg.mapping = THREE.EquirectangularReflectionMapping;
       bg.anisotropy = 8;
     }
-    this.cache[name] = { hdr, env, bg };
+    this.cache[name] = { hdr, env, bg, rigs };
     return this.cache[name];
+  }
+
+  // Blend the two rigs either side of the camera's azimuth round the car (degrees, 0 = in front)
+  // into one equirect map and prefilter it for the materials. Skipped while the blend barely moves.
+  blendRigs(az) {
+    const R = this.rigs;
+    let i = 0;
+    while (i < R.length - 2 && az > R[i + 1].az) i++;
+    const a = R[i], b = R[Math.min(i + 1, R.length - 1)];
+    const t = b === a ? 0 : THREE.MathUtils.smoothstep(az, a.az, b.az);
+    const key = i + t;
+    if (this.rigKey !== undefined && Math.abs(key - this.rigKey) < 0.015) return;
+    this.rigKey = key;
+    if (!this.rigPass) {
+      const [w, h] = this.lite ? [512, 256] : [1024, 512];
+      const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthBuffer: false, generateMipmaps: false,
+        minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+      rt.texture.mapping = THREE.EquirectangularReflectionMapping;
+      rt.texture.colorSpace = THREE.LinearSRGBColorSpace;
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { tA: { value: null }, tB: { value: null }, w: { value: 0 } },
+        vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+        fragmentShader: 'varying vec2 vUv; uniform sampler2D tA; uniform sampler2D tB; uniform float w;\n' +
+          'void main() { gl_FragColor = mix(texture2D(tA, vUv), texture2D(tB, vUv), w); }',
+        depthTest: false, depthWrite: false, toneMapped: false,
+      });
+      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
+      quad.frustumCulled = false;
+      const scene = new THREE.Scene(); scene.add(quad);
+      this.rigPass = { rt, mat, scene, cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), env: null };
+    }
+    const p = this.rigPass;
+    p.mat.uniforms.tA.value = a.tex; p.mat.uniforms.tB.value = b.tex; p.mat.uniforms.w.value = t;
+    const prev = this.renderer.getRenderTarget();
+    this.renderer.setRenderTarget(p.rt);
+    this.renderer.render(p.scene, p.cam);
+    this.renderer.setRenderTarget(prev);
+    p.env = this.pmrem.fromEquirectangular(p.rt.texture, p.env);
+    this.scene.environment = p.env.texture;
   }
 
   async set(name, extras = {}) {
     const P = PRESETS[name];
-    const [{ hdr, env, bg }, meta] = await Promise.all([this.load(name), this.meta]);
+    const [{ hdr, env, bg, rigs }, meta] = await Promise.all([this.load(name), this.meta]);
     const M = P.metaOverride || meta[name] || {};
     const scene = this.scene;
     scene.environment = env;
+    this.rigs = rigs;
+    this.rigKey = undefined;
     scene.environmentIntensity = P.envIntensity;
     this.renderer.toneMappingExposure = P.exposure * (extras.exposureScale || 1);
     // key light from the measured HDR data
@@ -210,12 +260,18 @@ export class Environment {
   setDriving(on) { this.driving = on; if (this.preset) this.applyGround(); }
 
   // The studio rig is authored relative to the camera (+X of the map = towards the camera), as
-  // on a turntable shoot: turn the reflections with the camera's azimuth round the car.
-  follow(camera, target) {
+  // on a turntable shoot: turn the reflections with the camera's azimuth round the car. Like the
+  // photographer's, the light set also changes with the angle the car is seen from (blendRigs).
+  follow(camera, car) {
     if (!this.preset?.followCamera || this.driving) return;
-    const dx = camera.position.x - target.x, dz = camera.position.z - target.z;
+    const dx = camera.position.x - car.position.x, dz = camera.position.z - car.position.z;
     if (dx * dx + dz * dz < 1e-6) return;
-    this.scene.environmentRotation.y = Math.atan2(-dz, dx);
+    const a = Math.atan2(-dz, dx);
+    this.scene.environmentRotation.y = a;
+    if (this.rigs) {
+      const rel = a - car.rotation.y;
+      this.blendRigs(Math.abs(Math.atan2(Math.sin(rel), Math.cos(rel))) * 180 / Math.PI);
+    }
   }
 
   applyGround() {

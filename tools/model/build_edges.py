@@ -34,7 +34,7 @@ def door_solid(side):
         # The band is measured on the skin so its inner wall stands square to it.
         Xs, Ys, Zs = SX.to_skin(X, Y, Z)
         reg_s = np.maximum(B.r_door(Xs, Ys, Zs, side), -B.r_door_glass(Xs, Ys, Zs, side))
-        band = np.minimum(-(reg_s + BAND + I.front_end(X)), Z - 0.35)
+        band = np.minimum(-(reg_s + I.DOOR_FRAME + 0.010 + I.front_end(X)), Z - 0.35)
         d = smax(d, band, 0.0015)
         # below the card only out at the sill: further in, the body's bottom skin lies within reach
         # of the outline, which would hang a slab under the whole cabin floor on the door

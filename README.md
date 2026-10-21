@@ -33,7 +33,7 @@ three.js 0.170 loads from jsDelivr, so the page needs internet access. Add `?env
 | **Lights** | Park, low and high beam (spot lights with a beam-pattern cookie and cut-off), flash-to-pass, indicators and hazards at 85 flashes/min with relay clicks, brake and reverse lamps, side markers, dome and door courtesy lamps. The bulbs have warm-up and cool-down time. |
 | **Wipers** | Interval, low and high, plus washer. The tandem arms follow the curved windscreen. |
 | **Driving** | Drive mode moves the car under its own power. The torque curve, 5-speed gear ratios, final drive, drag, rolling resistance, traction limit, Ackermann steering and body pitch/roll come from published DMC-12 figures. |
-| **Scenes** | Studio: a white cyclorama under a car-photography light set tuned panel by panel against the reference photos (a big softbox behind the camera, dark ceiling, lit backdrop, white floor); the set turns with the orbit camera, as on a turntable shoot. Day (sunlit open lot) and night (city square under street lamps) are photographic HDRIs with a shadow-casting key light measured from the photo. The car's own lamps light the ground. |
+| **Scenes** | Studio: a white cyclorama under a car-photography light set (a big softbox overhead and one behind the camera, dark walls, white floor). Like the photographer's, it turns with the camera and is re-set for each angle: one set per reference photo angle, blended as you orbit, each fitted to the stainless tones of the photos taken from there. Day (sunlit open lot) and night (city square under street lamps) are photographic HDRIs with a shadow-casting key light measured from the photo. The car's own lamps light the ground. |
 | **Trim** | Grey or black hide interior. |
 
 Press `?` in the app for the full keyboard map. The control panel has a latch on top: drag it
@@ -57,7 +57,8 @@ tools/model/wheels_pd.py         Blender: fits Peter_D's wheels and tyres into t
 tools/model/assemble.py          Blender: assembles all parts, pivots, bakes two AO sets
                                  (doors shut / open) into vertex attributes, exports glTF
 tools/pack.py                    quantised, delta-coded, gzip container (web/assets/*.bin)
-tools/tex/                       procedural textures, CC0 scan import; prep_hdri.py (day/night HDRIs), studio_env.py
+tools/tex/                       procedural textures, CC0 scan import; prep_hdri.py (day/night HDRIs),
+                                 studio_env.py + studio_fit.py (studio light sets fitted to the photos)
 tools/ref/                       reference-photo calibration, renders from the photo cameras, overlays
 web/js/                          viewer: materials, environment, car rig, lamps, cluster,
                                  vehicle simulation, procedural engine audio, cameras, UI
@@ -88,8 +89,10 @@ windscreen corners, with the wheelbase setting the scale), and the body's profil
 windscreen rake, beltline, sail twist, wheel-arch shapes and flares, lamp layout, louvre panel
 and bumper bands were read off the calibrated views (the top view gives the plan) and
 back-projected into the car frame. The open-door angle was fitted to the door silhouettes, and
-the studio lighting (`tools/tex/studio_env.py`) to the stainless panel tones. To check the model
-against the photos:
+the studio light sets (`tools/tex/studio_env.py`) to the photos' stainless tones by
+`tools/tex/studio_fit.py`: a parameter fit on measured panel patches, then a gain map over the
+directions the panels reflect, from every stainless pixel (`REFL=1 node tools/ref/shots.mjs`
+renders those directions). To check the model against the photos:
 
 ```bash
 python3 -m http.server 8123 &                        # from the repo root

@@ -18,7 +18,7 @@ Stance: the reference car sits lower than a stock US car, on low-profile tyres (
 car by STANCE so the tyres stand on z = 0.
 """
 import numpy as np
-from sdf import smin, smax, interp, cubic_interp, cyl_y, poly2d, box
+from sdf import smin, smax, interp, cubic_interp, cyl_y, poly2d, box, smoothstep
 
 DEG = np.pi / 180
 X_FA, X_RA = 1.2065, -1.2065
@@ -84,9 +84,18 @@ def x_tail(Z):
     return -2.022 - (0.80 - Z) * 0.05
 
 
-def z_bot(X):
-    """Lower edge of the stainless skin: the sills, rising under the nose and behind the rear wheels."""
-    return interp(X, [-2.12, -1.87, -1.56, 1.50, 1.70, 1.86, 2.12], [0.345, 0.350, 0.250, 0.272, 0.330, 0.372, 0.372])
+CORNER_R = 0.016             # the flanks meet nose and tail in crisp vertical creases
+
+
+def z_bot(X, yy=None):
+    """Lower edge of the stainless skin: the sills, rising under the nose and behind the rear wheels.
+    At the tail only the middle carries a stainless strip below the bumper; the corners end behind it
+    (the black valance wraps round them)."""
+    z = interp(X, [-2.12, -1.87, -1.56, 1.50, 1.70, 1.86, 2.12], [0.345, 0.350, 0.250, 0.272, 0.330, 0.372, 0.372])
+    if yy is None:
+        return z
+    corner = smoothstep(0.66, 0.74, yy) * smoothstep(-1.80, -1.90, X)
+    return z + (RB_Z[0] + 0.012 - z) * corner
 
 
 # ---- greenhouse ------------------------------------------------------------------------
@@ -203,19 +212,19 @@ def flanks(X, Y, Z):
 def lower_body(X, Y, Z):
     """Kept for the parts that clip against the old lower body: flanks + deck/bonnet top + ends."""
     yy = np.abs(Y)
-    d = smax(flanks(X, Y, Z), (X - x_nose(Z)) * 0.876, 0.05)
-    d = smax(d, (x_tail(Z) - X) * 0.999, 0.06)
+    d = smax(flanks(X, Y, Z), (X - x_nose(Z)) * 0.876, CORNER_R)
+    d = smax(d, (x_tail(Z) - X) * 0.999, CORNER_R)
     d = smax(d, (Z - (z_top_c(X) - crown(X, yy))) * 0.994, 0.009)
-    return smax(d, z_bot(X) - Z, 0.015)
+    return smax(d, z_bot(X, yy) - Z, 0.015)
 
 
 def body_solid(X, Y, Z):
     yy = np.abs(Y)
-    plan = smax(flanks(X, Y, Z), (X - x_nose(Z)) * 0.876, 0.05)
-    plan = smax(plan, (x_tail(Z) - X) * 0.999, 0.06)
+    plan = smax(flanks(X, Y, Z), (X - x_nose(Z)) * 0.876, CORNER_R)
+    plan = smax(plan, (x_tail(Z) - X) * 0.999, CORNER_R)
     top = smin((Z - (z_top_c(X) - crown(X, yy))) * 0.994, cabin_top(X, Y, Z), 0.012)
     d = smax(plan, top, 0.009)
-    return smax(d, z_bot(X) - Z, 0.015)
+    return smax(d, z_bot(X, yy) - Z, 0.015)
 
 
 # ---- arches ------------------------------------------------------------------------------
@@ -285,20 +294,30 @@ def bpillar_vents(X, Y, Z):
 
 def rear_slots(X, Y, Z):
     """Row of slots in the stainless strip between the rear bumper and the lower valance."""
-    u = np.mod(Y + 0.045, 0.090) - 0.045
-    slots = np.maximum(_rbox2(u, Z - RB_SLOT_Z, 0.030, 0.0055, 0.004), np.abs(Y) - 0.62)
+    yy = np.abs(Y)
+    u = np.mod(yy - 0.135 + 0.045, 0.090) - 0.045          # three slots each side of the exhaust
+    slots = np.maximum(_rbox2(u, Z - RB_SLOT_Z, 0.030, 0.0055, 0.004), np.abs(yy - 0.225) - 0.125)
     return np.maximum(slots, -((x_tail(Z) + 0.012) - X))
 
 
-COWL = (0.737, 0.040, 0.66, 0.015)    # plenum between bonnet and windscreen: x centre, half-length, half-width, depth
+COWL = (0.781, 0.66, 0.015)    # plenum between bonnet and windscreen: front edge (wrapped X), half-width, depth
+COWL_GAP = 0.017               # from the glass's bottom edge to the plenum
+
+
+def cowl_span(yy):
+    """Wrapped-X centre and half-length of the plenum at yy. Its rear edge follows the glass's
+    bottom edge, which comes forwards towards the pillars as the bonnet line drops with its crown,
+    so the plenum narrows towards its ends."""
+    rear = xe_ws_bottom(yy) + COWL_GAP
+    return (rear + COWL[0]) / 2, np.maximum((COWL[0] - rear) / 2, 0.004)
 
 
 def cowl_recess(X, Y, Z):
     """The cowl vent sits in a shallow plenum below the bonnet's rear edge (hidden from the front)."""
     yy = np.abs(Y)
-    xc, hx, hy, dz = COWL
-    r = _rbox2(X + WS_WRAP * yy ** 2 - xc, yy, hx, hy, 0.015)
-    return np.maximum(r, (z_top_c(X) - crown(X, yy) - dz) - Z)
+    xc, hx = cowl_span(yy)
+    r = _rbox2(X + WS_WRAP * yy ** 2 - xc, yy, hx, COWL[1], 0.004)
+    return np.maximum(r, (z_top_c(X) - crown(X, yy) - COWL[2]) - Z)
 
 
 def shell(X, Y, Z):
@@ -385,19 +404,28 @@ def r_lid(X, Y, Z):
 
 
 _WS_G = (WS_T - WS_B) / np.linalg.norm(WS_T - WS_B)         # up the glass, in the (X, Z) plane
+WS_BOT = 0.006                     # glass bottom edge over the bonnet line
+
+
+def xe_ws_bottom(yy):
+    """Wrapped X (X + WS_WRAP * yy^2) of the windscreen glass's bottom edge."""
+    z = z_top_c(WS_B[0]) - crown(WS_B[0], yy) + WS_BOT
+    return WS_B[0] - (z - WS_B[1]) * WS_N[1] / WS_N[0]
 
 
 def r_windshield(X, Y, Z):
     """Windshield glass opening: inset from pillar/roof/cowl edges.
 
-    The top and bottom limits are measured along the glass (3 cm under the roof line, above the
-    cowl at 0.872 m), so off the glass they stand square to it: cuts made with them through the
-    layers just under the glass (trims, the skin's own edge walls) stay clean."""
+    The top and bottom limits are measured along the glass (3 cm under the roof line; at the
+    bottom WS_BOT over the bonnet line, dropping with its crown towards the pillars, so the glass
+    runs down to the cowl plenum as in the top view), so off the glass they stand square to it:
+    cuts made with them through the layers just under the glass (trims, the skin's own edge walls)
+    stay clean."""
     yy = np.abs(Y)
     ws = d_windshield(X, yy, Z)
     s = (X + WS_WRAP * yy ** 2 - WS_B[0]) * _WS_G[0] + (Z - WS_B[1]) * _WS_G[1]
     s_top = (ROOF_Z - ROOF_K * yy ** 2 - 0.03 - WS_B[1]) / _WS_G[1]
-    s_bot = (0.872 - WS_B[1]) / _WS_G[1]
+    s_bot = (z_top_c(WS_B[0]) - crown(WS_B[0], yy) + WS_BOT - WS_B[1]) / _WS_G[1]
     m = np.maximum(np.maximum(s - s_top, s_bot - s), d_glass_side(X, yy, Z) + 0.035)
     return np.maximum(m, -ws - 0.05)
 
@@ -438,16 +466,16 @@ def r_quarter(X, Y, Z):
 # Deep rounded bands: their rolled top and bottom edges catch the studio light as the bright
 # lines the photos show above and below them. The front one stands proud of a recessed black
 # air dam; the rear one sits low on the tail over a slotted stainless strip.
-FB_Z = (0.405, 0.538)          # front bumper bottom / top
-FB_X_SIDE = 1.80               # the bumpers wrap ~20 cm round the corners
+FB_Z = (0.426, 0.546)          # front bumper bottom / top
+FB_X_SIDE = 1.86               # the front bumper wraps ~15 cm round the corners, inside the wings
 FB_X0 = 2.110
 RB_Z = (0.390, 0.575)
 RB_X_SIDE = -1.85
 RB_X0 = -2.092
 RB_SLOT_Z = 0.368              # centre of the slotted stainless strip under the rear bumper
-TURN_Z = 0.457
-TURN_Y, TURN_HY, TURN_HZ = 0.517, 0.070, 0.022
-TURN_RIM = 0.011               # black housing round the lens
+TURN_Z = 0.475
+TURN_Y, TURN_HY, TURN_HZ = 0.509, 0.060, 0.021    # amber lens (front view: 12 x 4 cm)
+TURN_HOUSE = (0.100, 0.037)    # deep black housing round it (20 x 7.4 cm)
 
 
 def _wrap(yy, y0, y1):
@@ -465,18 +493,20 @@ def front_bumper(X, Y, Z):
     zc = z_crease(X)
     xb = x_fbump(yy)
     d_front = X - xb
-    d_side = (yy - arch_flare(X, Z) - (wc + 0.018)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
+    # the sides stay just inside the wings: from the front the stainless corners show beyond the
+    # bumper's rounded ends
+    d_side = (yy - arch_flare(X, Z) - (wc - 0.012)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
     d_top = Z - FB_Z[1]
     d_bot = FB_Z[0] - Z
     d_back = FB_X_SIDE - X
-    d = smax(d_front, d_side, 0.09)
+    d = smax(d_front, d_side, 0.13)
     d = smax(d, d_top, 0.030)
     d = smax(d, d_bot, 0.038)
     d = smax(d, d_back, 0.012)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_FA, ARCH_ZF, ARCH_F), 0.55 - yy), 0.006)
     # turn-signal pockets
-    ts = _rbox2(yy - TURN_Y, Z - TURN_Z, TURN_HY + TURN_RIM, TURN_HZ + TURN_RIM, 0.008)
-    pocket = np.maximum(ts, -(X - (xb - 0.022)))
+    ts = _rbox2(yy - TURN_Y, Z - TURN_Z, TURN_HOUSE[0], TURN_HOUSE[1], 0.010)
+    pocket = np.maximum(ts, -(X - (xb - 0.040)))
     d = smax(d, -pocket, 0.003)
     return d
 
@@ -514,14 +544,16 @@ def rear_valance(X, Y, Z):
     yy = np.abs(Y)
     xt = x_tail(Z)
     d = np.maximum((xt + 0.025) - X, X - (xt + 0.16))
-    d = smax(d, yy - 0.64, 0.03)
-    d = smax(d, np.maximum(Z - (RB_SLOT_Z - 0.018), 0.305 - Z), 0.008)
+    d = smax(d, yy - (w_crease(X) - 0.03), 0.06)
+    # below the stainless strip in the middle; up behind the bumper round the corners
+    ztop = (RB_SLOT_Z - 0.018) + (RB_Z[0] + 0.02 - (RB_SLOT_Z - 0.018)) * smoothstep(0.62, 0.72, yy)
+    d = smax(d, np.maximum(Z - ztop, 0.305 - Z), 0.008)
     tip = np.sqrt((yy - 0.540) ** 2 + (Z - 0.300) ** 2) - 0.034
     return smax(d, -tip, 0.003)
 
 
-RVAL_BMIN = (-2.08, -0.86, 0.22)
-RVAL_BMAX = (-1.86, 0.86, 0.38)
+RVAL_BMIN = (-2.10, -0.90, 0.22)
+RVAL_BMAX = (-1.84, 0.90, 0.42)
 
 
 def rocker(X, Y, Z):
@@ -540,7 +572,7 @@ def rocker(X, Y, Z):
 ROCKER_BMIN = (-1.62, -0.95, 0.16)
 ROCKER_BMAX = (0.86, 0.95, 0.33)
 
-AD_Z = (0.232, 0.383)          # air dam bottom lip / top (a stainless lip shows between it and the bumper)
+AD_Z = (0.256, 0.404)          # air dam bottom lip / top (a stainless strip shows between it and the bumper)
 AD_SLOT = (0.300, 0.052, 0.490)  # intake centre z, half height, half width (measured, front photo)
 
 
@@ -555,17 +587,16 @@ def airdam(X, Y, Z):
     yy = np.abs(Y)
     xb = x_airdam(yy, Z)
     d = X - xb
-    d = smax(d, (yy - arch_flare(X, Z) - (w_crease(X) + 0.005)), 0.08)
+    d = smax(d, (yy - arch_flare(X, Z) - (w_crease(X) - 0.03)), 0.08)
     d = smax(d, np.maximum(Z - AD_Z[1], AD_Z[0] - Z), 0.012)
+    # the outer lower corners are cut away on a slant up to the wheel arches (front view)
+    d = smax(d, ((yy - 0.73) * 0.12 - (Z - AD_Z[0]) * 0.115) / 0.166, 0.02)
     d = smax(d, 1.42 - X, 0.0)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_FA, ARCH_ZF, ARCH_F + 0.01), 0.55 - yy), 0.01)
     zc, hz, hy = AD_SLOT
     slot = _rbox2(Y, Z - zc, hy, hz, 0.012)
-    d = smax(d, -np.maximum(slot, -(X - (xb - 0.05))), 0.004)
-    # radiator mesh behind the slot: fine horizontal vanes
-    v = np.maximum(np.abs(np.mod(Z - zc + 0.006, 0.012) - 0.006) - 0.0016,
-                   np.maximum(slot - 0.002, np.abs(X - (xb - 0.035)) - 0.008))
-    return np.minimum(d, v)
+    # the intake: open through (the wire mesh and the radiator behind it are details.py parts)
+    return smax(d, -np.maximum(slot, -(X - (xb - 0.12))), 0.004)
 
 
 AIRDAM_BMIN = (1.40, -0.97, 0.22)

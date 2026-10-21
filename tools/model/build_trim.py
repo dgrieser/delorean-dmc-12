@@ -29,6 +29,12 @@ def windshield():
     inner = offset_poly(out, -0.009)
     V, F, N = patch(shell, outer, ('X', 'Y'), 'Z', 1, offset=-0.0008, step=0.008, holes=[inner], thickness=0.004)
     save('gasket_windshield', V, F, N)
+    # black ceramic frit band round the glass (~4.5 cm along the pillars and header, as the top
+    # view shows), printed on the inside face
+    frit_in = region_outline(shell, lambda X, Y, Z: B.r_windshield(X, Y, Z) + 0.045, ('X', 'Y'), 'Z', 1,
+                             (0.20, -0.85), (0.90, 0.85), res=0.004)
+    V, F, N = patch(shell, glass, ('X', 'Y'), 'Z', 1, offset=-0.0042, step=0.012, holes=[frit_in])
+    save('frit_windshield', V, F, N)
     return out
 
 

@@ -305,6 +305,8 @@ def layer(X, Y, Z, t_out, t_in):
 
 # how far trims stop short of a door/aperture edge; the edge walls' flange covers that strip
 TRIM_RECESS = 0.0075
+# the door's inner frame is bare stainless round the door card and the cloth liner (reference photos)
+DOOR_FRAME = 0.040
 
 
 def front_end(X):
@@ -324,8 +326,8 @@ def door_trim(X, Y, Z, side=1, upper=False):
     # stop just short of the door's edge walls (build_edges.py), whose dark flange band runs under
     # the trim's end, so the two never share a surface (that z-fights into a sawtooth)
     Xs, Ys, Zs = SX.to_skin(X, Y, Z)
-    d = np.maximum(d, B.r_door(Xs, Ys, Zs, side) + TRIM_RECESS + front_end(X))
-    d = smax(d, -(B.r_door_glass(Xs, Ys, Zs, side) - TRIM_RECESS), 0.002)
+    d = np.maximum(d, B.r_door(Xs, Ys, Zs, side) + DOOR_FRAME + front_end(X))
+    d = smax(d, -(B.r_door_glass(Xs, Ys, Zs, side) - 0.75 * DOOR_FRAME), 0.002)
     d = np.maximum(d, 0.345 - Z)
     split = 0.875
     d = np.maximum(d, (split - Z) if upper else (Z - split))
@@ -458,6 +460,15 @@ def door_strap(X, Y, Z, side=1):
     return strap
 
 
+# the door's front end face runs up and forward from its bottom corner (DOOR_POLY's first edge)
+_DE = np.subtract(B.DOOR_POLY[1], B.DOOR_POLY[0]) / np.hypot(*np.subtract(B.DOOR_POLY[1], B.DOOR_POLY[0]))
+
+
 def courtesy_lamp(X, Y, Z, side=1):
+    """Amber lamp in the door's front end face by the latch, near its lower corner (it shows, lit,
+    at the top of the open door in the reference photos)."""
     yy = Y * side
-    return rbox3(X, yy, Z, (0.12, B.w_crease(X) - 0.050, 0.352), (0.045, 0.018, 0.006), 0.004)
+    p = B.DOOR_POLY[0] + 0.50 * np.subtract(B.DOOR_POLY[1], B.DOOR_POLY[0])
+    u = (X - p[0]) * _DE[0] + (Z - p[1]) * _DE[1]           # along the end face
+    w = (X - p[0]) * _DE[1] - (Z - p[1]) * _DE[0]           # out of it, forwards and down
+    return rbox3(u, yy, w, (0.0, 0.838, -0.0015), (0.020, 0.012, 0.0030), 0.0018)
