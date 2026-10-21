@@ -73,11 +73,15 @@ def crown(X, yy):
     return k * (yy / 0.85) ** 2
 
 
-NOSE_SLOPE = 0.55           # the wedge nose leans back 29 deg from the bonnet edge to the lamp bottoms
+# The nose panel's top carries the bonnet line on forward from the bonnet's split to a rounded
+# brow over the lamps and grille; the brow curves back towards the corners (top view and the
+# calibrated bonnet corners: X 2.000 on the centreline, 1.932 at |y| 0.736). Below it the face
+# leans out a little down to the bumper.
+NOSE_EDGE = (2.000, 0.068)
 
 
-def x_nose(Z):
-    return 1.930 + (0.685 - np.maximum(Z, 0.552)) * NOSE_SLOPE
+def x_nose(Z, yy=0.0):
+    return NOSE_EDGE[0] - NOSE_EDGE[1] * (yy / 0.736) ** 2 + (0.672 - np.maximum(Z, 0.552)) * 0.12
 
 
 def x_tail(Z):
@@ -212,7 +216,7 @@ def flanks(X, Y, Z):
 def lower_body(X, Y, Z):
     """Kept for the parts that clip against the old lower body: flanks + deck/bonnet top + ends."""
     yy = np.abs(Y)
-    d = smax(flanks(X, Y, Z), (X - x_nose(Z)) * 0.876, CORNER_R)
+    d = smax(flanks(X, Y, Z), (X - x_nose(Z, yy)) * 0.985, CORNER_R)
     d = smax(d, (x_tail(Z) - X) * 0.999, CORNER_R)
     d = smax(d, (Z - (z_top_c(X) - crown(X, yy))) * 0.994, 0.009)
     return smax(d, z_bot(X, yy) - Z, 0.015)
@@ -220,12 +224,11 @@ def lower_body(X, Y, Z):
 
 def body_solid(X, Y, Z):
     yy = np.abs(Y)
-    plan = smax(flanks(X, Y, Z), (X - x_nose(Z)) * 0.876, CORNER_R)
+    plan = smax(flanks(X, Y, Z), (X - x_nose(Z, yy)) * 0.985, CORNER_R)
     plan = smax(plan, (x_tail(Z) - X) * 0.999, CORNER_R)
     top = smin((Z - (z_top_c(X) - crown(X, yy))) * 0.994, cabin_top(X, Y, Z), 0.012)
-    # the bonnet breaks over into the nose's header strip in a crisp edge (no rolled highlight
-    # above the lamps in the photos); the shoulders keep their softer roll
-    d = smax(plan, top, 0.009 - 0.006 * smoothstep(1.84, 1.89, X))
+    # the nose panel's brow over the lamps is rolled a little rounder than the shoulders
+    d = smax(plan, top, 0.009 + 0.004 * smoothstep(1.88, 1.93, X))
     return smax(d, z_bot(X, yy) - Z, 0.015)
 
 
@@ -247,8 +250,9 @@ TL_Y_TOP = 0.688
 
 
 def x_lamp(Z, yy=0.0):
-    """Face of the lamp/grille band: near-vertical, behind the sloped nose skin."""
-    return 1.966 - 0.02 * (yy / 0.7) ** 2 - (Z - 0.607) * 0.15
+    """Face of the lamp/grille band: near-vertical, tucked under the nose panel's brow (calibrated
+    lamp corners at X 1.962 / 1.953)."""
+    return 1.978 - 0.02 * (yy / 0.7) ** 2 - (Z - 0.607) * 0.15
 
 
 def _rbox2(u, v, hu, hv, r):
@@ -366,25 +370,16 @@ def r_door(X, Y, Z, side=1):
 HOOD_Y = 0.735
 
 
-def x_nose_edge(yy):
-    """X of the bonnet's front edge, where its top breaks over into the nose face (bisection on the
-    centreline profile less the crown)."""
-    lo, hi = np.full(np.shape(yy), 1.80), np.full(np.shape(yy), 2.00)
-    for _ in range(40):
-        m = (lo + hi) / 2
-        short = m - x_nose(z_top_c(m) - crown(m, yy)) < 0
-        lo, hi = np.where(short, m, lo), np.where(short, hi, m)
-    return (lo + hi) / 2
+SPLIT = (1.865, 0.040)          # the bonnet's front edge: X on the centreline, setback at its corners
 
 
 def _hood_poly():
-    """Bonnet: from the cowl to its front edge, between the shoulder seams. It stops just behind
-    the break over the nose: the strip above the lamps and grille belongs to the nose panel, a
-    darker finish in the photos (web/js/materials.js)."""
+    """Bonnet: from the cowl to its split from the nose panel (three-quarter photos: X ~1.865 across
+    the middle), between the shoulder seams."""
     r = 0.06
 
     def xf(y):
-        return float(x_nose_edge(np.array(abs(y)))) - 0.004
+        return SPLIT[0] - SPLIT[1] * (y / HOOD_Y) ** 2
 
     xc = xf(HOOD_Y - r) - r
     front = [(xc + r * np.sin(a), -(HOOD_Y - r) - r * np.cos(a)) for a in np.linspace(0, np.pi / 2, 7)]
@@ -423,8 +418,9 @@ def r_lid(X, Y, Z):
 
 # Nose and tail panels: separate pieces of a darker grade of steel (web/js/materials.js) round the
 # lamps, wrapping round the corners to near-vertical seams on the flanks (side photo: X 1.815 at the
-# bottom to 1.837 at the top in front, -1.827 at the back). They reach up to the bonnet's front
-# edge, the wings' shoulders and the deck lip, and down behind the bumpers.
+# bottom to 1.837 at the top in front, -1.827 at the back). The nose panel takes the front of the
+# bonnet line ahead of the bonnet's split; the tail panel reaches up to the deck lip. Both run down
+# behind the bumpers.
 NOSE_SEAM = ((0.43, 1.815), (0.68, 1.837))
 TAIL_SEAM = -1.827
 TAIL_TOP = 0.86
@@ -436,11 +432,8 @@ def x_nose_seam(Z):
 
 
 def r_nose(X, Y, Z):
-    yy = np.abs(Y)
+    # ahead of the flank seams and the bonnet's split (the split runs on into the seams)
     d = np.maximum(x_nose_seam(Z) - X, (FB_Z[1] - 0.02) - Z)
-    # up to the bonnet's front edge where the bonnet is, to just under the shoulders outside it
-    top = Z - (z_top_c(X) - crown(X, yy)) + 0.003
-    d = np.maximum(d, np.where(yy < HOOD_Y - 0.06, -1.0, top))
     return np.maximum(d, -r_hood(X, Y, Z))
 
 

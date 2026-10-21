@@ -17,7 +17,7 @@ gain    The parametric rigs only get the broad tones right; the photos' steel al
 usage: python3 tools/tex/studio_fit.py [params] [gain]    (both by default; serve the repo root on
        :8123 first)
 """
-import json, math, os, subprocess, sys
+import json, math, os, re, subprocess, sys
 from multiprocessing import Pool
 import numpy as np
 from PIL import Image
@@ -89,6 +89,13 @@ def fit(job):
     return name, best, bc
 
 
+def save_rigs(rigs, path):
+    """studio_rigs.json, with each row of a gain map on one line."""
+    def row(m):
+        return '[' + ', '.join(v.strip() for v in m.group(1).split(',')) + ']'
+    open(path, 'w').write(re.sub(r'\[\s+(-?[0-9][-0-9.,\s]*?)\s+\]', row, json.dumps(rigs, indent=1)))
+
+
 def fit_params(rigs):
     import studio_env as SE
     jobs = []
@@ -98,7 +105,7 @@ def fit_params(rigs):
         rigs.setdefault(name, {'azimuth': az, 'views': views, 'params': {}})
         rigs[name].pop('gain', None)                   # fitted on top of the old parameters
         jobs.append((name, views, rigs[name]['params'] or None))
-    json.dump(rigs, open(SE.RIGS_PATH, 'w'), indent=1)
+    save_rigs(rigs, SE.RIGS_PATH)
     subprocess.run([sys.executable, os.path.join(HERE, 'studio_env.py')], check=True)     # rig list into env.json
     with Pool(len(jobs)) as pool:
         for name, best, c in pool.imap_unordered(fit, jobs):
@@ -213,5 +220,5 @@ if __name__ == '__main__':
         fit_params(rigs)
     if 'gain' in stages:
         fit_gain(rigs)
-    json.dump(rigs, open(SE.RIGS_PATH, 'w'), indent=1)
+    save_rigs(rigs, SE.RIGS_PATH)
     subprocess.run([sys.executable, os.path.join(HERE, 'studio_env.py')], check=True)
