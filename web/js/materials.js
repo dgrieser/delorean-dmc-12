@@ -180,6 +180,14 @@ export function enhance(mat, tri = null) {
     sh.uniforms.uKeySpec = KEY.spec;
     let v = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float ao; attribute float ao2; varying float vAO; uniform float uAOOpen;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAO = mix(ao, ao2, uAOOpen);');
+    const F = mat.userData.fascia;
+    if (F) {
+      // second stainless finish, weighted per vertex by the `fascia` attribute (web/js/main.js)
+      sh.uniforms.uFasciaTint = { value: F.tint };
+      sh.uniforms.uFasciaRough = { value: F.rough };
+      v = v.replace('#include <common>', '#include <common>\nattribute float fascia; varying float vFascia;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFascia = fascia;');
+    }
     let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAO; uniform float uAOStr; uniform float uAODirect; uniform float uAOPow; uniform float uKeySpec;')
       .replace('#include <aomap_fragment>', `#include <aomap_fragment>
       {
@@ -204,6 +212,11 @@ export function enhance(mat, tri = null) {
           reflectedLight.indirectSpecular *= computeSpecularOcclusion( dotNVao, ambientOcclusion, material.roughness );
         #endif
       }`);
+    if (F) {
+      f = f.replace('#include <common>', '#include <common>\nvarying float vFascia; uniform vec3 uFasciaTint; uniform float uFasciaRough;')
+        .replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), uFasciaTint, vFascia);')
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = min(roughnessFactor * mix(1.0, uFasciaRough, vFascia), 1.0);');
+    }
     if (T) {
       const { normal, rough, color, scale, normalScale, roughMul = 1 } = T;
       sh.uniforms.tTriN = { value: normal || null };
@@ -255,7 +268,7 @@ export function enhance(mat, tri = null) {
     sh.vertexShader = v;
     sh.fragmentShader = f;
   };
-  const key = (mat.userData.thin ? 'thin' : '') + 'enh' + (T ? 't' + (T.normal ? 'n' : '') + (T.rough ? 'r' : '') + (T.color ? 'c' : '') : '');
+  const key = (mat.userData.thin ? 'thin' : '') + (mat.userData.fascia ? 'fascia' : '') + 'enh' + (T ? 't' + (T.normal ? 'n' : '') + (T.rough ? 'r' : '') + (T.color ? 'c' : '') : '');
   mat.customProgramCacheKey = () => key;
   return mat;
 }
@@ -312,8 +325,10 @@ export function createLibrary(opts = {}) {
     side: THREE.DoubleSide, envMapIntensity: 1.0,
   });
   lib.Urethane = new THREE.MeshPhysicalMaterial({
-    // satin charcoal urethane: picks up soft reflections that show the bumper's shape
-    name: 'Urethane', color: lin(0.026, 0.028, 0.034), metalness: 0, roughness: 0.55,
+    // satin graphite urethane (bumpers, air dam, rear valance): a cool dark grey that reads as a
+    // second, darker metal against the stainless in the photos (sRGB ~55-65 face-on in front, ~40 at
+    // the back), not black; it picks up soft reflections that show the bumper's shape
+    name: 'Urethane', color: lin(0.052, 0.057, 0.080), metalness: 0, roughness: 0.55,
     normalMap: grainN, normalScale: new THREE.Vector2(0.2, 0.2), clearcoat: 0.35, clearcoatRoughness: 0.35,
   });
   lib.Rubber = new THREE.MeshStandardMaterial({ name: 'Rubber', color: lin(0.010, 0.010, 0.011), roughness: 0.78 });
@@ -426,6 +441,9 @@ export function createLibrary(opts = {}) {
   const aoStr = { Stainless: 0.6, Urethane: 0.6, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5 };
   for (const [k, v] of Object.entries(aoStr)) lib[k].userData.aoStr = { value: v };
   lib.Stainless.userData.aoDirect = { value: 0.85 };
+  // the nose and tail panels (separate pieces round the lamps, with seams on the flanks): a darker,
+  // slightly duller grade of brushed steel than the wings, doors and bonnet in the photos
+  lib.Stainless.userData.fascia = { tint: new THREE.Color().setRGB(0.62, 0.62, 0.62, THREE.LinearSRGBColorSpace), rough: 1.12 };
   // the cabin sits under a roof: far less of the studio's light reaches it than the bake captures
   for (const k of ['Leather', 'LeatherBlack', 'Vinyl', 'Carpet', 'Headliner']) { lib[k].userData.aoPow = { value: 2.2 }; lib[k].envMapIntensity = 0.5; }
   for (const [k, m] of Object.entries(lib)) if (m && m.isMaterial && !m.userData.tri) enhance(m);

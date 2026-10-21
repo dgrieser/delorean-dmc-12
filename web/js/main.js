@@ -116,6 +116,9 @@ async function init() {
     const g = o.geometry, P = g.attributes.position, N = g.attributes.normal, n = P.count;
     const M = o.matrixWorld, Mi = new THREE.Matrix4().copy(M).invert();
     const ax = new THREE.Vector3(1, 0, 0).transformDirection(Mi), az = new THREE.Vector3(0, 0, 1).transformDirection(Mi);
+    // the nose and tail panels are a darker grade of steel than the rest (materials.js), the tail's
+    // a shade lighter than the nose's
+    const fascia = new Float32Array(n).fill({ nose: 1, tail: 0.6 }[o.name] || 0);
     const uv = new Float32Array(n * 2), tan = new Float32Array(n * 4);
     const p = new THREE.Vector3(), nn = new THREE.Vector3(), nw = new THREE.Vector3(), t = new THREE.Vector3();
     for (let i = 0; i < n; i++) {
@@ -131,6 +134,7 @@ async function init() {
     }
     g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     g.setAttribute('tangent', new THREE.BufferAttribute(tan, 4));
+    g.setAttribute('fascia', new THREE.BufferAttribute(fascia, 1));
   });
   // meshes without baked AO get neutral attributes (the AO shader patch reads `ao`/`ao2`)
   carRoot.traverse(o => {

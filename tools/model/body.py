@@ -223,7 +223,9 @@ def body_solid(X, Y, Z):
     plan = smax(flanks(X, Y, Z), (X - x_nose(Z)) * 0.876, CORNER_R)
     plan = smax(plan, (x_tail(Z) - X) * 0.999, CORNER_R)
     top = smin((Z - (z_top_c(X) - crown(X, yy))) * 0.994, cabin_top(X, Y, Z), 0.012)
-    d = smax(plan, top, 0.009)
+    # the bonnet breaks over into the nose's header strip in a crisp edge (no rolled highlight
+    # above the lamps in the photos); the shoulders keep their softer roll
+    d = smax(plan, top, 0.009 - 0.006 * smoothstep(1.84, 1.89, X))
     return smax(d, z_bot(X, yy) - Z, 0.015)
 
 
@@ -364,14 +366,30 @@ def r_door(X, Y, Z, side=1):
 HOOD_Y = 0.735
 
 
+def x_nose_edge(yy):
+    """X of the bonnet's front edge, where its top breaks over into the nose face (bisection on the
+    centreline profile less the crown)."""
+    lo, hi = np.full(np.shape(yy), 1.80), np.full(np.shape(yy), 2.00)
+    for _ in range(40):
+        m = (lo + hi) / 2
+        short = m - x_nose(z_top_c(m) - crown(m, yy)) < 0
+        lo, hi = np.where(short, m, lo), np.where(short, hi, m)
+    return (lo + hi) / 2
+
+
 def _hood_poly():
-    """Bonnet: from the cowl to the bend over the nose, between the shoulder seams."""
-    xf, r = 1.925, 0.06
-    front = []
-    for a in np.linspace(0, np.pi / 2, 7):
-        front.append((xf - r + r * np.sin(a), -(HOOD_Y - r) - r * np.cos(a)))
-    for a in np.linspace(np.pi / 2, np.pi, 7):
-        front.append((xf - r + r * np.sin(a), (HOOD_Y - r) - r * np.cos(a)))
+    """Bonnet: from the cowl to its front edge, between the shoulder seams. It stops just behind
+    the break over the nose: the strip above the lamps and grille belongs to the nose panel, a
+    darker finish in the photos (web/js/materials.js)."""
+    r = 0.06
+
+    def xf(y):
+        return float(x_nose_edge(np.array(abs(y)))) - 0.004
+
+    xc = xf(HOOD_Y - r) - r
+    front = [(xc + r * np.sin(a), -(HOOD_Y - r) - r * np.cos(a)) for a in np.linspace(0, np.pi / 2, 7)]
+    front += [(xf(y), y) for y in np.linspace(-(HOOD_Y - r), HOOD_Y - r, 15)[1:-1]]
+    front += [(xc + r * np.sin(a), (HOOD_Y - r) - r * np.cos(a)) for a in np.linspace(np.pi / 2, np.pi, 7)]
     ys = np.linspace(HOOD_Y, -HOOD_Y, 21)
     rear = [(0.80 - WS_WRAP * y * y - 0.005, y) for y in ys]
     return np.array(front + rear)
@@ -401,6 +419,35 @@ LID_POLY = _lid_poly()
 def r_lid(X, Y, Z):
     d = poly2d(X, Y, LID_POLY)
     return np.maximum(d, 0.82 - Z)
+
+
+# Nose and tail panels: separate pieces of a darker grade of steel (web/js/materials.js) round the
+# lamps, wrapping round the corners to near-vertical seams on the flanks (side photo: X 1.815 at the
+# bottom to 1.837 at the top in front, -1.827 at the back). They reach up to the bonnet's front
+# edge, the wings' shoulders and the deck lip, and down behind the bumpers.
+NOSE_SEAM = ((0.43, 1.815), (0.68, 1.837))
+TAIL_SEAM = -1.827
+TAIL_TOP = 0.86
+
+
+def x_nose_seam(Z):
+    (z0, x0), (z1, x1) = NOSE_SEAM
+    return x0 + (Z - z0) * (x1 - x0) / (z1 - z0)
+
+
+def r_nose(X, Y, Z):
+    yy = np.abs(Y)
+    d = np.maximum(x_nose_seam(Z) - X, (FB_Z[1] - 0.02) - Z)
+    # up to the bonnet's front edge where the bonnet is, to just under the shoulders outside it
+    top = Z - (z_top_c(X) - crown(X, yy)) + 0.003
+    d = np.maximum(d, np.where(yy < HOOD_Y - 0.06, -1.0, top))
+    return np.maximum(d, -r_hood(X, Y, Z))
+
+
+def r_tail(X, Y, Z):
+    d = np.maximum(X - TAIL_SEAM, Z - TAIL_TOP)
+    d = np.maximum(d, (RB_Z[1] - 0.02) - Z)
+    return np.maximum(d, -r_lid(X, Y, Z))
 
 
 _WS_G = (WS_T - WS_B) / np.linalg.norm(WS_T - WS_B)         # up the glass, in the (X, Z) plane
@@ -466,11 +513,11 @@ def r_quarter(X, Y, Z):
 # Deep rounded bands: their rolled top and bottom edges catch the studio light as the bright
 # lines the photos show above and below them. The front one stands proud of a recessed black
 # air dam; the rear one sits low on the tail over a slotted stainless strip.
-FB_Z = (0.426, 0.546)          # front bumper bottom / top
-FB_X_SIDE = 1.86               # the front bumper wraps ~15 cm round the corners, inside the wings
+FB_Z = (0.426, 0.528)          # front bumper bottom / top (a steel strip shows between the lamps and it)
+FB_X_SIDE = 1.825              # the front bumper wraps round the corners back to the nose panel's seam
 FB_X0 = 2.110
 RB_Z = (0.390, 0.575)
-RB_X_SIDE = -1.85
+RB_X_SIDE = -1.83              # back to the tail panel's seam
 RB_X0 = -2.092
 RB_SLOT_Z = 0.368              # centre of the slotted stainless strip under the rear bumper
 TURN_Z = 0.475
@@ -493,14 +540,13 @@ def front_bumper(X, Y, Z):
     zc = z_crease(X)
     xb = x_fbump(yy)
     d_front = X - xb
-    # the sides stay just inside the wings: from the front the stainless corners show beyond the
-    # bumper's rounded ends
-    d_side = (yy - arch_flare(X, Z) - (wc - 0.012)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
+    # the sides run back flush with the nose panel to its seam (side photo)
+    d_side = (yy - arch_flare(X, Z) - (wc + 0.006)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
     d_top = Z - FB_Z[1]
     d_bot = FB_Z[0] - Z
     d_back = FB_X_SIDE - X
     d = smax(d_front, d_side, 0.13)
-    d = smax(d, d_top, 0.030)
+    d = smax(d, d_top, 0.018)
     d = smax(d, d_bot, 0.038)
     d = smax(d, d_back, 0.012)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_FA, ARCH_ZF, ARCH_F), 0.55 - yy), 0.006)
@@ -521,7 +567,7 @@ def rear_bumper(X, Y, Z):
     zc = z_crease(X)
     xb = x_rbump(yy)
     d_rear = xb - X
-    d_side = (yy - arch_flare(X, Z) - (wc + 0.018)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
+    d_side = (yy - arch_flare(X, Z) - (wc + 0.008)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
     d_top = Z - RB_Z[1]
     d_front = X - RB_X_SIDE
     d_bot = RB_Z[0] - Z
@@ -587,7 +633,8 @@ def airdam(X, Y, Z):
     yy = np.abs(Y)
     xb = x_airdam(yy, Z)
     d = X - xb
-    d = smax(d, (yy - arch_flare(X, Z) - (w_crease(X) - 0.03)), 0.08)
+    # its sides run back flush with the flanks to the front wheels (three-quarter photos)
+    d = smax(d, (yy - arch_flare(X, Z) - (w_crease(X) + 0.004)), 0.08)
     d = smax(d, np.maximum(Z - AD_Z[1], AD_Z[0] - Z), 0.012)
     # the outer lower corners are cut away on a slant up to the wheel arches (front view)
     d = smax(d, ((yy - 0.73) * 0.12 - (Z - AD_Z[0]) * 0.115) / 0.166, 0.02)

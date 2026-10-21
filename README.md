@@ -104,6 +104,9 @@ The reference car sits lower than a stock US car on low-profile tyres (wheel cen
 above the floor); the model follows it (`STANCE` and `R_F` / `R_R` in `tools/model/body.py`, the
 tyre squash in `web/js/car.js`). It has the later bonnet without a fuel flap and Recaro seats; the
 model keeps the stock PRV V6 under its engine cover (the photographed car is turbocharged).
+Its nose and tail panels, round the lamps, are a darker grade of steel than the rest of the body,
+with seams on the flanks behind the corners (`r_nose` / `r_tail` in `body.py`, the `fascia` weight
+in `web/js/materials.js`); the bumpers, the air dam and the rear valance are graphite grey.
 
 ## Credits
 

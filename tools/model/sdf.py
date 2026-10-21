@@ -7,8 +7,8 @@ import numpy as np
 
 
 def smin(a, b, r):
-    """Polynomial smooth union (fillet radius ~r)."""
-    if r <= 0:
+    """Polynomial smooth union (fillet radius ~r; r may vary per point)."""
+    if np.ndim(r) == 0 and r <= 0:
         return np.minimum(a, b)
     h = np.clip(0.5 + 0.5 * (b - a) / r, 0.0, 1.0)
     return b * (1 - h) + a * h - r * h * (1 - h)

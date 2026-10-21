@@ -56,11 +56,15 @@ PARTS = {
     'door_L': ('Stainless', 'Door_L', 'brush'),
     'door_R': ('Stainless', 'Door_R', 'brush'),
     'hood': ('Stainless', 'Hood', 'brush'),
+    # nose and tail panels: the darker steel (web/js/main.js gives them the full `fascia` weight)
+    'nose': ('Stainless', 'Body', 'brush'),
+    'tail': ('Stainless', 'Body', 'brush'),
     'bumper_f': ('Urethane', 'Body', 'box'),
     'bumper_r': ('Urethane', 'Body', 'box'),
     'rocker': ('PlasticMatte', 'Body', 'box'),
-    'airdam': ('Urethane', 'Body', 'box'),          # satin like the bumpers (front photo)
-    'rvalance': ('PlasticMatte', 'Body', 'box'),
+    # the air dam and the rear valance are the bumpers' graphite grey (front and rear photos)
+    'airdam': ('Urethane', 'Body', 'box'),
+    'rvalance': ('Urethane', 'Body', 'box'),
     'door_handle_L': ('PlasticBlack', 'Door_L', 'box'),
     'door_handle_R': ('PlasticBlack', 'Door_R', 'box'),
     'bumper_letters': ('Urethane', 'Body', 'box'),

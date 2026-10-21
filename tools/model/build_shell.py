@@ -31,6 +31,8 @@ def cut_all(X, Y, Z):
     r = np.minimum(r, B.r_lid(X, Y, Z))
     r = np.minimum(r, B.r_windshield(X, Y, Z))
     r = np.minimum(r, B.r_quarter(X, Y, Z))
+    r = np.minimum(r, B.r_nose(X, Y, Z))
+    r = np.minimum(r, B.r_tail(X, Y, Z))
     return r
 
 
@@ -58,6 +60,8 @@ PARTS = {
     'door_R': (panel(door_R), (-0.76, -0.95, 0.23), (0.70, -0.09, 1.16), True),
     'hood': (panel(hood), (0.62, -0.90, 0.60), (2.07, 0.90, 0.87), True),
     'lid_skin': (panel(B.r_lid), (-1.95, -0.80, 0.82), (-0.70, 0.80, 1.14), True),
+    'nose': (panel(B.r_nose), (1.78, -0.92, 0.48), (2.06, 0.92, 0.76), True),
+    'tail': (panel(B.r_tail), (-2.10, -0.92, 0.53), (-1.79, 0.92, 0.90), True),
     'bumper_f': (B.front_bumper, B.FBUMP_BMIN, B.FBUMP_BMAX, False),
     'bumper_r': (B.rear_bumper, B.RBUMP_BMIN, B.RBUMP_BMAX, False),
     'rocker': (B.rocker, B.ROCKER_BMIN, B.ROCKER_BMAX, False),
@@ -66,12 +70,12 @@ PARTS = {
 }
 
 
-BUDGET = {'body': 260000, 'hood': 40000, 'bumper_f': 40000, 'bumper_r': 42000, 'rocker': 10000, 'lid_skin': 1000,
+BUDGET = {'body': 240000, 'hood': 40000, 'nose': 30000, 'tail': 30000, 'bumper_f': 40000, 'bumper_r': 42000, 'rocker': 10000, 'lid_skin': 1000,
           'door_L': 45000, 'door_R': 45000, 'airdam': 24000, 'rvalance': 6000}
 
 
 # stainless panels: split long slivers (baked AO smears along them); dark/flat parts are left as is
-SPLIT = {'body', 'door_L', 'door_R', 'hood'}
+SPLIT = {'body', 'door_L', 'door_R', 'hood', 'nose', 'tail'}
 
 
 def build(name, reduction=0.86):
