@@ -90,7 +90,12 @@ def x_nose(Z, yy=0.0):
     # this surface back, exposing the centre of the brow as a hook in the side silhouette.
     cheek = smoothstep(0.66, 0.75, yy) * cubic_interp(
         Z, [0.54, 0.60, 0.65, 0.68], [0.030, 0.040, 0.045, 0.0])
-    return NOSE_EDGE[0] - NOSE_EDGE[1] * (yy / 0.736) ** 2 + (0.672 - np.maximum(Z, 0.540)) * rake + cheek
+    face = NOSE_EDGE[0] - NOSE_EDGE[1] * (yy / 0.736) ** 2 + (0.672 - np.maximum(Z, 0.540)) * rake + cheek
+    # The fascia turns forward below the sealed beams into a continuous ledge above
+    # the bumper (studio 01/04). Keep the cheeks' measured rake above this return.
+    lip = smoothstep(0.595, 0.540, Z) * smoothstep(0.518, 0.533, Z)
+    edge = x_fbump(yy) - 0.012 + 0.015 * smoothstep(0.66, 0.78, yy)
+    return face + (edge - face) * lip
 
 
 def x_tail(Z):
@@ -229,7 +234,11 @@ def arch_flare(X, Z):
 
 def flanks(X, Y, Z):
     """Crease line, tumblehome above it, tuck-under below it, and the side-glass plane on top."""
-    yy = np.abs(Y) - arch_flare(X, Z)
+    # Carry the fascia's lower ledge around the cheeks to the flank seam. The
+    # rounded return is above the bumper, not a second strip attached to it.
+    nose_lip = (0.010 * smoothstep(1.815, 1.850, X)
+                * smoothstep(0.568, 0.543, Z) * smoothstep(0.520, 0.534, Z))
+    yy = np.abs(Y) - arch_flare(X, Z) - nose_lip
     zc, wc, a = z_crease(X), w_crease(X), lean_up(X)
     t = np.maximum(Z - zc, 0.0)
     d_su = (yy - (wc - t * np.tan(a) - CONVEX * t * t)) * np.cos(a)
@@ -288,9 +297,9 @@ def _rbox2(u, v, hu, hv, r):
 
 
 def x_pocket_end(Z):
-    """|y| of the lamp opening's outer ends: ~3 cm past the outer lamps, into the corner's wrap,
-    leaning out a little towards the bottom with the corner (front photo)."""
-    return 0.742 + (0.607 - Z) * 0.25
+    """Outer edge of the opening: a narrow surround beyond the lamps, almost upright
+    in the front photo. It joins the lower ledge without a triangular scoop."""
+    return 0.730 + (0.607 - Z) * 0.08
 
 
 def nose_recesses(X, Y, Z):
@@ -302,7 +311,7 @@ def nose_recesses(X, Y, Z):
     top = HL_Z[1] - 0.004
     zc = 0.5 * (HL_Z[0] + top)
     hz = 0.5 * (top - HL_Z[0])
-    d = _rbox2(Y, Z - zc, x_pocket_end(Z), hz, 0.024)
+    d = _rbox2(Y, Z - zc, x_pocket_end(Z), hz, 0.010)
     depth = X - (x_lamp(Z, yy) - 0.06)          # deep enough for the sealed beams' bowls (4.8 cm)
     return np.maximum(d, -depth)
 
@@ -374,7 +383,7 @@ def shell(X, Y, Z):
 
 
 BODY_BMIN = (-2.08, -0.95, 0.24)
-BODY_BMAX = (2.04, 0.95, 1.16)
+BODY_BMAX = (2.12, 0.95, 1.16)
 
 
 # ---- panel regions (negative inside) ----------------------------------------------------

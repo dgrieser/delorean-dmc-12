@@ -62,7 +62,7 @@ PARTS = {
     'door_R': (panel(door_R), (-0.76, -0.95, 0.23), (0.70, -0.09, 1.16), True),
     'hood': (panel(hood), (0.62, -0.90, 0.60), (2.07, 0.90, 0.87), True),
     'lid_skin': (panel(B.r_lid), (-1.95, -0.80, 0.82), (-0.70, 0.80, 1.14), True),
-    'nose': (panel(B.r_nose), (1.78, -0.92, 0.48), (2.06, 0.92, 0.76), True),
+    'nose': (panel(B.r_nose), (1.78, -0.92, 0.48), (2.12, 0.92, 0.76), True),
     'tail': (panel(B.r_tail), (-2.10, -0.92, 0.53), (-1.79, 0.92, 0.90), True),
     'bumper_f': (B.front_bumper, B.FBUMP_BMIN, B.FBUMP_BMAX, False),
     'bumper_r': (B.rear_bumper, B.RBUMP_BMIN, B.RBUMP_BMAX, False),
