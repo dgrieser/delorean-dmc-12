@@ -322,12 +322,14 @@ def door_t(Z):
 def door_trim(X, Y, Z, side=1, upper=False):
     s = SX.shell(X, Y, Z)
     t = door_t(Z)
+    if not upper:
+        t = t + 0.012 * np.exp(-((X + 0.05) / 0.38) ** 4) * smoothstep(0.35, 0.43, Z) * (1 - smoothstep(0.66, 0.76, Z))
     d = np.maximum(s + 0.004, -(s + t))
     # stop just short of the door's edge walls (build_edges.py), whose dark flange band runs under
     # the trim's end, so the two never share a surface (that z-fights into a sawtooth)
     Xs, Ys, Zs = SX.to_skin(X, Y, Z)
-    d = np.maximum(d, B.r_door(Xs, Ys, Zs, side) + DOOR_FRAME + front_end(X))
-    d = smax(d, -(B.r_door_glass(Xs, Ys, Zs, side) - 0.75 * DOOR_FRAME), 0.002)
+    d = smax(d, B.r_door(Xs, Ys, Zs, side) + DOOR_FRAME + front_end(X), 0.012)
+    d = smax(d, -(B.r_door_glass(Xs, Ys, Zs, side) - 0.75 * DOOR_FRAME), 0.008)
     d = np.maximum(d, 0.345 - Z)
     split = 0.875
     d = np.maximum(d, (split - Z) if upper else (Z - split))
@@ -346,6 +348,11 @@ def door_trim(X, Y, Z, side=1, upper=False):
         # inner handle recess near the front
         hr = rbox3(X, yy, Z, (0.30, inner, 0.70), (0.05, 0.03, 0.018), 0.012)
         d = smax(d, -hr, 0.005)
+        # Rounded front pod visible underneath the raised door in photo 03.
+        pod = rbox3(X, yy, Z, (0.30, 0.795, 0.48), (0.105, 0.065, 0.085), 0.035)
+        d = smin(d, pod, 0.018)
+        speaker = np.sqrt((X - 0.30) ** 2 + (Z - 0.48) ** 2) - 0.034
+        d = smax(d, -np.maximum(speaker, yy - 0.748), 0.003)
         # horizontal stitched seam on the card
         seam = np.abs(Z - 0.50) - 0.0025
         d = smax(d, -np.maximum(seam, np.abs(s + t) - 0.004), 0.001)
@@ -454,21 +461,86 @@ def belt_buttons(X, Y, Z):
 
 
 def door_strap(X, Y, Z, side=1):
+    """Leather pull loop below the armrest, hanging down when the door is raised."""
     yy = Y * side
-    inner = B.w_crease(X) - 0.075 - (Z - 0.62) * 0.35
-    strap = np.maximum(rbox3(X, yy, Z, (0.05, inner - 0.005, 0.79), (0.016, 0.004, 0.09), 0.003), 0.70 - Z)
-    return strap
+    dy, dz = yy - 0.795, Z - 0.565
+    a = 69 * DEG
+    v = -dy * np.sin(a) - dz * np.cos(a)
+    w = dy * np.cos(a) - dz * np.sin(a)
+    across = 0.6 * (X - 0.10) + 0.8 * w
+    depth = 0.8 * (X - 0.10) - 0.6 * w
+    ring = np.abs(np.sqrt((across / 0.032) ** 2 + ((v - 0.055) / 0.055) ** 2) - 1) * 0.032 - 0.004
+    loop = smax(ring, np.abs(depth) - 0.0025, 0.001)
+    tab = cap_x(X, yy, Z, (0.10, 0.830, 0.575), (0.10, 0.795, 0.565), 0.008)
+    return np.minimum(loop, tab)
 
 
-# the door's front end face runs up and forward from its bottom corner (DOOR_POLY's first edge)
-_DE = np.subtract(B.DOOR_POLY[1], B.DOOR_POLY[0]) / np.hypot(*np.subtract(B.DOOR_POLY[1], B.DOOR_POLY[0]))
+def door_speaker(X, Y, Z, side=1):
+    yy = Y * side
+    r = np.sqrt((X - 0.30) ** 2 + (Z - 0.48) ** 2)
+    disc = np.maximum(r - 0.031, np.abs(yy - 0.745) - 0.0025)
+    rim = np.sqrt((r - 0.034) ** 2 + (yy - 0.731) ** 2) - 0.003
+    return np.minimum(disc, rim)
+
+
+def door_end_local(X, Y, Z, side=1, rear=False):
+    """Coordinates on the front/rear latch faces of the door, before it opens."""
+    if rear:
+        a, b = B.DOOR_POLY[-1], B.DOOR_POLY[-2]
+        slope = (b[0] - a[0]) / (b[1] - a[1])
+        edge_x = a[0] + (Z - a[1]) * slope
+    else:
+        # The front edge changes rake above the lower lamp. Follow the actual
+        # contour so the latch plate does not disappear inside the steel wall.
+        pts = B.DOOR_POLY[:4]
+        edge_x = interp(Z, pts[:, 1], pts[:, 0])
+        slopes = np.diff(pts[:, 0]) / np.diff(pts[:, 1])
+        slope = np.where(Z < pts[1, 1], slopes[0], np.where(Z < pts[2, 1], slopes[1], slopes[2]))
+    scale = np.sqrt(1 + slope * slope)
+    u = (Z - 0.352) * scale
+    w = (X - edge_x) / scale * (-1 if rear else 1)
+    return u, Y * side, w
+
+
+def door_latches(X, Y, Z, side=1):
+    """Recessed metal latch plates, fixing holes and raised fork on both end faces."""
+    d = np.full(np.shape(X), 1.0)
+    for rear in (False, True):
+        u, yy, w = door_end_local(X, Y, Z, side, rear)
+        plate = rbox3(u, yy, w, (0.067, 0.842, -0.007), (0.031, 0.029, 0.003), 0.005)
+        for du, dy in [(-0.021, -0.020), (-0.021, 0.020), (0.021, -0.020), (0.021, 0.020)]:
+            hole = np.sqrt((u - 0.067 - du) ** 2 + (yy - 0.842 - dy) ** 2) - 0.003
+            plate = np.maximum(plate, -hole)
+        socket = np.sqrt((u - 0.067) ** 2 + (yy - 0.842) ** 2) - 0.010
+        plate = np.maximum(plate, -socket)
+        fork = cap_x(u, yy, w, (0.058, 0.837, -0.003), (0.077, 0.850, -0.002), 0.003)
+        d = np.minimum(d, np.minimum(plate, fork))
+    return d
+
+
+def door_lamp_bezels(X, Y, Z, side=1):
+    d = np.full(np.shape(X), 1.0)
+    for rear in (False, True):
+        u, yy, w = door_end_local(X, Y, Z, side, rear)
+        outer = _rbox2(u, yy - 0.848, 0.023, 0.016, 0.004)
+        inner = _rbox2(u, yy - 0.848, 0.019, 0.012, 0.003)
+        d = np.minimum(d, np.maximum(np.maximum(outer, -inner), np.abs(w + 0.005) - 0.003))
+        # Dark latch socket visible through the central hole in the metal plate.
+        socket = np.sqrt((u - 0.067) ** 2 + (yy - 0.842) ** 2) - 0.010
+        d = np.minimum(d, np.maximum(socket, np.abs(w + 0.005) - 0.001))
+    return d
+
+
+def rear_door_lamp(X, Y, Z, side=1):
+    u, yy, w = door_end_local(X, Y, Z, side, True)
+    return rbox3(u, yy, w, (0.0, 0.848, -0.004), (0.019, 0.012, 0.0025), 0.002)
 
 
 def courtesy_lamp(X, Y, Z, side=1):
     """Amber lamp in the door's front end face by the latch, near its lower corner (it shows, lit,
     at the top of the open door in the reference photos)."""
-    yy = Y * side
-    p = B.DOOR_POLY[0] + 0.50 * np.subtract(B.DOOR_POLY[1], B.DOOR_POLY[0])
-    u = (X - p[0]) * _DE[0] + (Z - p[1]) * _DE[1]           # along the end face
-    w = (X - p[0]) * _DE[1] - (Z - p[1]) * _DE[0]           # out of it, forwards and down
-    return rbox3(u, yy, w, (0.0, 0.838, -0.0015), (0.020, 0.012, 0.0030), 0.0018)
+    u, yy, w = door_end_local(X, Y, Z, side)
+    end = rbox3(u, yy, w, (0.0, 0.848, -0.004), (0.019, 0.012, 0.0025), 0.002)
+    sy = B.w_crease(X) - (B.z_crease(X) - Z) * np.tan(B.TUCK)
+    marker = np.maximum(_rbox2(X + 0.12, Z - 0.325, 0.017, 0.007, 0.002), np.abs(yy - sy - 0.001) - 0.002)
+    return np.minimum(end, marker)

@@ -59,16 +59,18 @@ function ribNormal() {
   }, { repeat: [20, 20] });          // UVs in metres: 8 ribs per 5 cm
 }
 
-// expanded-metal intake mesh: diamond cells, transparent between the wires (alpha-tested)
+// Square wire grille seen in the front studio photograph.
 function meshAlpha() {
   return canvasTex(256, 128, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    g.strokeStyle = '#ffffff'; g.lineWidth = 9;
-    for (let k = -4; k <= 8; k++) {
-      g.beginPath(); g.moveTo(k * 64, 0); g.lineTo(k * 64 + 128, h); g.stroke();
-      g.beginPath(); g.moveTo(k * 64 + 128, 0); g.lineTo(k * 64, h); g.stroke();
+    g.fillStyle = '#000000'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 3;
+    for (let x = 0; x <= w; x += 32) {
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke();
     }
-  }, { srgb: true, repeat: [20, 40] });   // one 256 x 128 tile = 5 x 2.5 cm (UVs in metres)
+    for (let y = 0; y <= h; y += 32) {
+      g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+    }
+  }, { repeat: [10, 20] });   // square openings at 12.5 mm pitch; UVs in metres
 }
 
 // radiator core: fine vertical fins
@@ -145,16 +147,22 @@ function decalJump() {
   });
 }
 
-// rear licence plate: a generic US-style plate (white, blue lettering) like the reference car's
+// Rear plate layout and lettering from the supplied studio photographs.
 function decalPlate() {
   return decalCanvas(1024, 512, (g, w, h) => {
-    g.fillStyle = '#f4f3ee'; g.fillRect(0, 0, w, h);
-    g.strokeStyle = '#1d3f8f'; g.lineWidth = 10; g.strokeRect(14, 14, w - 28, h - 28);
-    g.fillStyle = '#1d3f8f'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = `600 ${h * 0.12}px ${DFONT}`; g.fillText('DE LOREAN', w / 2, h * 0.16);
-    g.font = `700 ${h * 0.50}px ${DFONT}`; g.fillText('DMC 12', w / 2, h * 0.56);
-    g.font = `500 ${h * 0.08}px ${DFONT}`; g.fillText('BELFAST · 1981', w / 2, h * 0.88);
-    for (const x of [w * 0.2, w * 0.8]) { g.fillStyle = '#9a9a9a'; g.beginPath(); g.arc(x, h * 0.16, 12, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#eeeede'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#184a95'; g.lineWidth = 9; g.strokeRect(12, 12, w - 24, h - 24);
+    g.fillStyle = '#144c9e'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `italic 600 ${h * 0.12}px ${DFONT}`; g.fillText('Michigan', w / 2, h * 0.13);
+    g.save(); g.translate(w / 2, h * 0.54); g.scale(0.77, 1);
+    g.font = `500 ${h * 0.58}px monospace`; g.fillText('MCFLYIN', 0, 0); g.restore();
+    g.fillStyle = '#174b98'; g.fillRect(20, h - 59, w - 40, 39);
+    g.fillStyle = '#eeeeee'; g.font = `500 ${h * 0.065}px ${DFONT}`; g.fillText('michigan.org', w / 2, h - 39);
+    g.fillStyle = '#e3c34b'; g.fillRect(w - 145, 24, 104, 85);
+    g.fillStyle = '#30302a'; g.font = `700 ${h * 0.07}px ${DFONT}`; g.fillText('FEB', w - 93, 76);
+    for (const x of [w * 0.18, w * 0.82]) {
+      g.fillStyle = '#393a39'; g.beginPath(); g.arc(x, h * 0.16, 8, 0, Math.PI * 2); g.fill();
+    }
   });
 }
 
@@ -293,7 +301,7 @@ export const TRIM = {
   grey: { leather: [0.165, 0.170, 0.178], vinyl: [0.150, 0.155, 0.162], carpet: [0.105, 0.108, 0.112], head: [0.30, 0.30, 0.29] },
   // as on the reference car (ref/studio 03, 04, 09-12): charcoal hide, near-black carpet, grey cloth
   // on the headliner and the upper door panels
-  black: { leather: [0.014, 0.014, 0.015], vinyl: [0.016, 0.016, 0.017], carpet: [0.010, 0.010, 0.011], head: [0.12, 0.12, 0.118] },
+  black: { leather: [0.014, 0.014, 0.015], vinyl: [0.016, 0.016, 0.017], carpet: [0.010, 0.010, 0.011], head: [0.36, 0.365, 0.36] },
 };
 export function setTrim(lib, name) {
   const t = TRIM[name];
@@ -334,9 +342,11 @@ export function createLibrary(opts = {}) {
   lib.Rubber = new THREE.MeshStandardMaterial({ name: 'Rubber', color: lin(0.010, 0.010, 0.011), roughness: 0.78 });
   lib.PlasticBlack = new THREE.MeshPhysicalMaterial({ name: 'PlasticBlack', color: lin(0.012, 0.012, 0.013), roughness: 0.42, clearcoat: 0.15, clearcoatRoughness: 0.4, side: THREE.DoubleSide });
   // The chin spoiler has a satin moulded finish: broad highlights reveal its rolled cheeks.
-  lib.AirDam = new THREE.MeshPhysicalMaterial({ name: 'AirDam', color: lin(0.022, 0.023, 0.025), roughness: 0.32,
+  lib.AirDam = new THREE.MeshPhysicalMaterial({ name: 'AirDam', color: lin(0.020, 0.022, 0.029), roughness: 0.30,
     clearcoat: 0.25, clearcoatRoughness: 0.30, envMapIntensity: 1.3, side: THREE.DoubleSide });
   lib.PlasticMatte = new THREE.MeshStandardMaterial({ name: 'PlasticMatte', color: lin(0.024, 0.024, 0.026), roughness: 0.8, side: THREE.DoubleSide });
+  lib.Louvre = new THREE.MeshPhysicalMaterial({ name: 'Louvre', color: lin(0.045, 0.048, 0.050), roughness: 0.48,
+    clearcoat: 0.25, clearcoatRoughness: 0.4, side: THREE.DoubleSide });
   lib.Glass = new THREE.MeshPhysicalMaterial({
     name: 'Glass', color: lin(0.86, 0.90, 0.88), metalness: 0, roughness: 0.0, transmission: 1, thickness: 0.0,
     ior: 1.52, specularIntensity: 1, side: THREE.DoubleSide, envMapIntensity: 1.2,
@@ -352,10 +362,11 @@ export function createLibrary(opts = {}) {
   // sooty steel tips (they read dark under the bumper in the photos)
   lib.Exhaust = new THREE.MeshStandardMaterial({ name: 'Exhaust', color: lin(0.16, 0.15, 0.14), metalness: 1, roughness: 0.5 });
   // black-painted wire mesh: only its sheen picks it out against the dark radiator (front photo)
-  lib.GrilleMesh = new THREE.MeshStandardMaterial({ name: 'GrilleMesh', color: lin(0.10, 0.10, 0.105), map: meshAlpha(), alphaTest: 0.5,
-    metalness: 0.5, roughness: 0.5, side: THREE.DoubleSide });
+  lib.GrilleMesh = new THREE.MeshStandardMaterial({ name: 'GrilleMesh', color: lin(0.035, 0.040, 0.045), alphaMap: meshAlpha(), alphaTest: 0.15,
+    metalness: 0.5, roughness: 0.5, side: THREE.FrontSide });
   lib.Radiator = new THREE.MeshStandardMaterial({ name: 'Radiator', color: lin(0.035, 0.035, 0.037), metalness: 0.6, roughness: 0.55,
     normalMap: finNormal(), normalScale: new THREE.Vector2(0.8, 0.8) });
+  lib.RadiatorFrame = new THREE.MeshStandardMaterial({ name: 'RadiatorFrame', color: lin(0.16, 0.17, 0.18), metalness: 0.5, roughness: 0.5 });
 
   // lamps: emissiveIntensity is driven by the lighting system
   const lens = (name, col, emis, extra = {}) => new THREE.MeshPhysicalMaterial({
@@ -411,7 +422,7 @@ export function createLibrary(opts = {}) {
     { normal: leatherN, rough: leatherR, scale: 9, normalScale: 0.7 });
   lib.Vinyl = triplanar(new THREE.MeshPhysicalMaterial({ name: 'Vinyl', color: lin(0.15, 0.155, 0.162), roughness: 0.68, clearcoat: 0.05 }),
     { normal: leatherN, rough: leatherR, scale: 11, normalScale: 0.45 });
-  lib.Headliner = triplanar(new THREE.MeshStandardMaterial({ name: 'Headliner', color: lin(0.30, 0.30, 0.29), roughness: 0.95, side: THREE.DoubleSide }),
+  lib.Headliner = triplanar(new THREE.MeshStandardMaterial({ name: 'Headliner', color: lin(0.30, 0.30, 0.29), roughness: 0.80, side: THREE.DoubleSide }),
     { normal: carpetN, scale: 14, normalScale: 0.3 });
   lib.Carpet = triplanar(new THREE.MeshPhysicalMaterial({ name: 'Carpet', color: lin(0.105, 0.108, 0.112), roughness: 1.0, sheen: 0.6, sheenRoughness: 0.9, sheenColor: lin(0.25, 0.25, 0.26) }),
     { normal: carpetN, color: carpetC, scale: 4, normalScale: 1.0 });
@@ -453,6 +464,7 @@ export function createLibrary(opts = {}) {
   lib.Stainless.userData.fascia = { tint: new THREE.Color().setRGB(0.62, 0.62, 0.62, THREE.LinearSRGBColorSpace), rough: 1.12 };
   // the cabin sits under a roof: far less of the studio's light reaches it than the bake captures
   for (const k of ['Leather', 'LeatherBlack', 'Vinyl', 'Carpet', 'Headliner']) { lib[k].userData.aoPow = { value: 2.2 }; lib[k].envMapIntensity = 0.5; }
+  lib.Headliner.userData.aoPow = { value: 1.1 }; lib.Headliner.envMapIntensity = 1.0;
   for (const [k, m] of Object.entries(lib)) if (m && m.isMaterial && !m.userData.tri) enhance(m);
   return lib;
 }

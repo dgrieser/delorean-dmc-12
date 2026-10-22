@@ -326,16 +326,18 @@ def lid_slats(X, Y, Z):
     """Five stepped blades; the last one carries two slatted grilles either side of a centre bar."""
     yy = np.abs(Y)
     inner = poly2d(X, Y, B.LID_POLY) + 0.030
-    e = np.array(LID_BLADES)
-    k = np.clip(np.searchsorted(-e, -X) - 1, 0, len(e) - 2)
-    xf, xr = e[k] + 0.030, e[k + 1]                # each blade's front edge tucks under the one ahead
-    ztop = _fb_z(xr) - 0.002 + (X - xr) * 0.05      # nearly level: steps down the fastback
-    s = np.maximum(Z - ztop, (ztop - 0.008) - Z)
-    s = np.maximum(s, np.maximum(xr - X, X - xf))
-    s = np.maximum(s, X - (LID_BLADES[0] + 0.01))
-    # riser under each blade's front edge, down to the pan (closes the step from below)
-    rise = np.maximum(np.abs(X - (e[k] + 0.026)) - 0.003, np.maximum(Z - ztop, (ztop - 0.05) - Z))
-    blades = smax(np.minimum(s, rise), inner, 0.002)
+    blades = np.full(np.shape(X), 1.0)
+    # Each blade is a continuous solid. Selecting a blade by X made the field
+    # discontinuous at every step and left sawtooth normals in the extracted mesh.
+    for i, (front, xr) in enumerate(zip(LID_BLADES[:-1], LID_BLADES[1:])):
+        xf = front + (0.010 if i == 0 else 0.030)
+        ztop = _fb_z(xr) - 0.002 + (X - xr) * 0.05
+        s = smax(np.abs(Z - ztop + 0.004) - 0.004,
+                 np.maximum(xr - X, X - xf), 0.003)
+        rise = np.maximum(np.abs(X - (xf - 0.004)) - 0.003,
+                          np.maximum(Z - ztop, (ztop - 0.05) - Z))
+        blades = np.minimum(blades, np.minimum(s, rise))
+    blades = smax(blades, inner, 0.002)
     gx0, gx1, gy0, gy1 = LID_GRILLE
     hole = _rbox2(X - 0.5 * (gx0 + gx1), yy - 0.5 * (gy0 + gy1), 0.5 * (gx0 - gx1), 0.5 * (gy1 - gy0), 0.006)
     zt = _fb_z(LID_BLADES[-1]) - 0.002 + (X - LID_BLADES[-1]) * 0.05
@@ -365,7 +367,7 @@ def bpillar_insert(X, Y, Z):
     slot = _rbox2(u, Z - B.BV_Z, B.BV_HU + 0.0015, B.BV_HZ + 0.0015, 0.022)
     gs = B.d_glass_side(X, yy, Z)
     back = np.maximum(slot, np.abs(gs + 0.026) - 0.002)
-    divider = np.maximum(np.maximum(slot, np.abs(u) - 0.004), np.maximum(gs + 0.026, -gs - 0.004))
+    divider = np.maximum(np.maximum(slot, np.abs(u) - 0.003), np.maximum(gs + 0.026, -gs - 0.004))
     walls = np.maximum(np.maximum(slot, -(slot + 0.004)), np.maximum(gs + 0.026, -gs - 0.002))
     return np.minimum(np.minimum(back, divider), walls)
 
@@ -453,8 +455,8 @@ def rear_frame(X, Y, Z):
     """Black rear frame under the engine: the backbone's Y-arms, a cross member, the trailing arms
     out to the hubs (body frame, hub at R_R)."""
     yy = np.abs(Y)
-    rails = rbox3(X, yy, Z, (-1.42, 0.33, 0.30), (0.50, 0.035, 0.045), 0.012)
-    cross = rbox3(X, yy, Z, (-1.80, 0.0, 0.31), (0.035, 0.40, 0.04), 0.012)
+    rails = rbox3(X, yy, Z, (-1.30, 0.33, 0.30), (0.40, 0.035, 0.045), 0.012)
+    cross = rbox3(X, yy, Z, (-1.48, 0.0, 0.235), (0.035, 0.40, 0.025), 0.012)
     arm = cap_x(X, yy, Z, (-0.62, 0.66, 0.31), (B.X_RA + 0.04, 0.70, B.R_R - 0.02), 0.035)
     upr = rbox3(X, yy, Z, (B.X_RA, 0.68, B.R_R), (0.07, 0.03, 0.09), 0.02)
     return np.minimum(np.minimum(rails, cross), np.minimum(arm, upr))
@@ -480,8 +482,17 @@ def intake_mesh(X, Y, Z):
 def radiator(X, Y, Z):
     zc, hz, hy = B.AD_SLOT
     xm = B.x_airdam(np.abs(Y), zc) - 0.11
-    r = _rbox2(Y, Z - zc + 0.01, hy + 0.03, hz + 0.05, 0.01)
+    r = _rbox2(Y, Z - zc, 0.345, hz + 0.010, 0.01)
     return np.maximum(r, np.abs(X - xm) - 0.012)
+
+
+def intake_supports(X, Y, Z):
+    """Radiator end tanks and retaining rail, visible behind the square intake mesh."""
+    zc, hz, hy = B.AD_SLOT
+    xm = B.x_airdam(np.abs(Y), zc) - 0.085
+    uprights = np.maximum(np.abs(np.abs(Y) - 0.345) - 0.010, np.abs(Z - zc) - 0.050)
+    rail = np.maximum(np.abs(Z - zc + 0.029) - 0.004, np.abs(Y) - 0.355)
+    return smax(np.minimum(uprights, rail), np.abs(X - xm) - 0.007, 0.003)
 
 
 # ======================================================================================
@@ -530,17 +541,68 @@ def antenna_base(X, Y, Z):
 
 # ======================================================================================
 # Exhaust tips and muffler
-EXH_TIPS = ((0.018, 0.325), (-0.046, 0.325))     # twin tips under the bumper centre (y, z)
+EXH_TIPS = tuple((y, B.EXHAUST_Z) for y in B.EXHAUST_Y)
 
 
 def exhaust(X, Y, Z):
     d = np.full(np.shape(X), 1.0)
     for ty, tz in EXH_TIPS:
         tip = np.sqrt((Y - ty) ** 2 + (Z - tz) ** 2)
-        d = np.minimum(d, np.maximum(np.abs(tip - 0.027) - 0.0018, np.maximum(X + 2.075, -1.66 - X)))
-    # silencer tucked up under the engine, ahead of the rear valance
-    muff = rbox3(X, Y, Z, (-1.56, 0, 0.31), (0.11, 0.30, 0.06), 0.05)
+        tube = np.maximum(np.abs(tip - 0.035) - 0.0020, np.maximum(-2.12 - X, X + 1.94))
+        # Rolled outlet lip; the bore stays open rather than ending in a solid cap.
+        rim = np.sqrt((tip - 0.035) ** 2 + (X + 2.116) ** 2) - 0.003
+        d = np.minimum(d, np.minimum(tube, rim))
+        neck = cap_x(X, Y, Z, (-1.955, ty, tz), (-1.955, ty, 0.47), 0.032)
+        d = np.minimum(d, neck)
+    # Tucked behind the bumper, clear of the crankcase and sump. The former low
+    # box intersected the engine and hid it from the photographed rear angle.
+    muff = rbox3(X, Y, Z, (-1.97, 0, 0.50), (0.065, 0.30, 0.055), 0.04)
     return np.minimum(d, muff)
+
+
+def rear_fasteners(X, Y, Z):
+    """Small lens-panel and lower-apron screws visible in rear studio close-ups."""
+    d = np.full(np.shape(X), 1.0)
+    for y in [-0.70, -0.52, -0.285, 0.285, 0.52, 0.70]:
+        for z in [0.651, 0.801]:
+            screw = np.maximum(np.sqrt((Y - y) ** 2 + (Z - z) ** 2) - 0.0032,
+                               np.abs(X - (B.x_tail(z) + 0.004)) - 0.002)
+            d = np.minimum(d, screw)
+    for y in [-0.45, -0.225, 0.225, 0.45]:
+        screw = np.maximum(np.sqrt((Y - y) ** 2 + (Z - 0.350) ** 2) - 0.003,
+                           np.abs(X - (B.x_rear_valance(Z) - 0.001)) - 0.002)
+        d = np.minimum(d, screw)
+    return d
+
+
+def sill_details(X, Y, Z):
+    """Circular sill access plug and the small lower-trim fixings in side photo 07."""
+    yy = np.abs(Y)
+    face = B.w_crease(X) - (B.z_crease(X) - Z) * np.tan(B.TUCK) - 0.014
+    r = np.sqrt((X + 0.283) ** 2 + (Z - 0.192) ** 2)
+    plug = np.maximum(r - 0.024, np.abs(yy - face - 0.001) - 0.002)
+    ring = np.sqrt((r - 0.024) ** 2 + (yy - face - 0.003) ** 2) - 0.002
+    d = np.minimum(plug, ring)
+    for x in [-0.76, -0.60, -0.12, 0.25, 0.66]:
+        screw = np.maximum(np.sqrt((X - x) ** 2 + (Z - 0.205) ** 2) - 0.0025,
+                           np.abs(yy - face - 0.002) - 0.002)
+        d = np.minimum(d, screw)
+    return d
+
+
+def plate_lights(X, Y, Z):
+    """Two downward-facing plate-lamp housings above the rear number plate."""
+    face = B.x_tail(Z)
+    return rbox3(X - face, np.abs(Y), Z, (0.004, 0.116, 0.830), (0.016, 0.042, 0.012), 0.005)
+
+
+def rear_slot_back(X, Y, Z):
+    """Dark recess behind the six slots in the lower stainless band."""
+    yy = np.abs(Y)
+    u = np.mod(yy - 0.135 + 0.045, 0.090) - 0.045
+    slots = np.maximum(_rbox2(u, Z - B.RB_SLOT_Z, 0.029, 0.0048, 0.003),
+                       np.abs(yy - 0.225) - 0.125)
+    return np.maximum(slots, np.abs(X - B.x_tail(Z) - 0.009) - 0.0015)
 
 
 # ======================================================================================
@@ -582,7 +644,7 @@ def _delorean_glyphs():
 DEL_GLYPHS, DEL_W = _delorean_glyphs()
 
 
-DEL_YC, DEL_ZC, DEL_HU, DEL_HV = 0.495, 0.488, 0.0735, 0.055     # 0.45 m wide, 55 mm tall on the left
+DEL_YC, DEL_ZC, DEL_HU, DEL_HV = 0.495, 0.518, 0.0735, 0.055     # 0.45 m wide, 55 mm tall on the left
 
 
 def bumper_letters(X, Y, Z):

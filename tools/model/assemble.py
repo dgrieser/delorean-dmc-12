@@ -210,7 +210,8 @@ def bake_ao(tag, samples=64, dist=0.6, door_angle=0.0):
 
 def NOAO(o):
     m = o.data.materials[0].name if o.data.materials else ''
-    return m.startswith(('Glass', 'Lamp_HeadLens', 'Lamp_Turn', 'Lamp_Marker', 'Lamp_Tail', 'Lamp_Reverse', 'MirrorGlass'))
+    # The alpha-cut grille is mostly open; its proxy sheet must not block the radiator's AO.
+    return m.startswith(('GrilleMesh', 'Glass', 'Lamp_HeadLens', 'Lamp_Turn', 'Lamp_Marker', 'Lamp_Tail', 'Lamp_Reverse', 'MirrorGlass'))
 
 
 if DO_AO:

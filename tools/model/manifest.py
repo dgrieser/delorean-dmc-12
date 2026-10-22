@@ -14,6 +14,7 @@ MATERIALS = {
     'Rubber':           ((0.012, 0.012, 0.012), 0.0, 0.70, {}),
     'PlasticBlack':     ((0.015, 0.015, 0.016), 0.0, 0.45, {}),
     'PlasticMatte':     ((0.020, 0.020, 0.021), 0.0, 0.85, {}),
+    'Louvre':           ((0.045, 0.048, 0.050), 0.0, 0.48, {}),
     'Glass':            ((0.80, 0.84, 0.82), 0.0, 0.02, {'alpha': 0.25}),
     'Chrome':           ((0.90, 0.90, 0.90), 1.0, 0.06, {}),
     'MirrorGlass':      ((0.85, 0.86, 0.88), 1.0, 0.02, {}),
@@ -46,6 +47,7 @@ MATERIALS = {
     'Lamp_TurnRefl':    ((0.85, 0.40, 0.06), 1.0, 0.25, {}),
     'Lamp_HeadRefl':    ((0.90, 0.90, 0.90), 1.0, 0.32, {}),
     'Radiator':         ((0.05, 0.05, 0.05), 0.5, 0.6, {}),
+    'RadiatorFrame':    ((0.16, 0.17, 0.18), 0.5, 0.5, {}),
     'RedPaint':         ((0.45, 0.02, 0.02), 0.0, 0.35, {}),
     'Tyre_Rubber':      ((0.018, 0.018, 0.019), 0.0, 0.86, {}),
     'DoorEdge':         ((0.03, 0.03, 0.032), 0.3, 0.55, {}),
@@ -117,6 +119,7 @@ PARTS = {
     'turn_refl': ('Lamp_TurnRefl', 'Body', 'box'),
     'intake_mesh': ('GrilleMesh', 'Body', 'lens'),
     'radiator': ('Radiator', 'Body', 'lens'),
+    'intake_supports': ('RadiatorFrame', 'Body', 'box'),
     'marker_front': ('Lamp_MarkerFront', 'Body', 'lens'),
     'marker_rear': ('Lamp_MarkerRear', 'Body', 'lens'),
     'tl_turn': ('Lamp_TurnRear', 'Body', 'lens'),
@@ -124,8 +127,8 @@ PARTS = {
     'tl_rev': ('Lamp_Reverse', 'Body', 'lens'),
     'tl_housing': ('PlasticBlack', 'Body', 'box'),
     'plate': ('Decal_Plate', 'Body', 'lens'),
-    'lid_frame': ('PlasticMatte', 'EngineLid', 'box'),
-    'lid_slats': ('PlasticMatte', 'EngineLid', 'box'),
+    'lid_frame': ('Louvre', 'EngineLid', 'box'),
+    'lid_slats': ('Louvre', 'EngineLid', 'box'),
     'lid_under': ('PlasticMatte', 'EngineLid', 'box'),
     'bpillar_vent': ('PlasticBlack', 'Body', 'box'),
     'mirror_L': ('PlasticBlack', 'Door_L', 'box'),
@@ -138,6 +141,10 @@ PARTS = {
     'rear_frame': ('MetalDark', 'Body', 'box'),
     'driveshafts': ('MetalDark', 'Body', 'box'),
     'exhaust': ('Exhaust', 'Body', 'box'),
+    'rear_fasteners': ('MetalDark', 'Body', 'box'),
+    'plate_lights': ('PlasticBlack', 'Body', 'box'),
+    'rear_slot_back': ('PlasticBlack', 'Body', 'box'),
+    'sill_details': ('Urethane', 'Body', 'box'),
     'antenna': ('Chrome', 'Body', 'box'),
     'cowl_vent': ('PlasticBlack', 'Body', 'box'),
     'antenna_base': ('PlasticBlack', 'Body', 'box'),
@@ -154,6 +161,7 @@ INTERIOR = {
     # the door's inner frame is bare stainless on the reference car (the aperture seals stay black)
     'door_edge_L': ('Stainless', 'Door_L'), 'door_edge_R': ('Stainless', 'Door_R'),
     'jamb_L': ('DoorEdge', 'Body'), 'jamb_R': ('DoorEdge', 'Body'),
+    'door_seal_L': ('Rubber', 'Body'), 'door_seal_R': ('Rubber', 'Body'),
     'body_trim': ('Headliner', 'Body'), 'carpet': ('Carpet', 'Body'), 'sills': ('Carpet', 'Body'),
     'sill_plates': ('Rubber', 'Body'), 'parcel': ('Carpet', 'Body'), 'rear_window': ('Glass', 'Body'),
     'bulkhead': ('Vinyl', 'Body'), 'rear_mirror': ('PlasticBlack', 'Body'),
@@ -168,6 +176,11 @@ INTERIOR = {
     'shift_boot': ('LeatherBlack', 'ShifterBase', 'local'),
     'handbrake': ('PlasticBlack', 'Handbrake', 'local'),
 }
+for tag in ['L', 'R']:
+    for name, material in [('door_latches', 'BadgeAlu'), ('door_lamp_bezels', 'PlasticBlack'),
+                           ('door_speaker', 'PlasticBlack'), ('courtesy_rear', 'Lamp_MarkerRear')]:
+        INTERIOR[f'{name}_{tag}'] = (material, f'Door_{tag}')
+
 INTERIOR.update({
     'eng_block': ('EngineAlu', 'Body'), 'eng_covers': ('CastAlu', 'Body'), 'eng_intake': ('CastAlu', 'Body'),
     'eng_airbox': ('PlasticBlack', 'Body'), 'eng_decal': ('Decal_Airbox', 'Body', 'lens'), 'eng_exhaust': ('RustyIron', 'Body'),

@@ -88,6 +88,12 @@ async function init() {
       o.receiveShadow = true;
     }
   });
+  // Open gull-wing doors expose both sides of their glass; keep the inner face visible.
+  const doorGlass = lib.Glass.clone();
+  doorGlass.side = THREE.DoubleSide;
+  doorGlass.onBeforeCompile = lib.Glass.onBeforeCompile;
+  doorGlass.customProgramCacheKey = lib.Glass.customProgramCacheKey;
+  body.traverse(o => { if (o.isMesh && /^(glass_door_|glass_toll_)/.test(o.name)) o.material = doorGlass; });
   // decals: normalise their (metre) box UVs into 0..1
   for (const nm of ['eng_decal', 'bay_panel', 'plate']) {
     let mesh = null; body.traverse(o => { if (o.isMesh && o.name === nm) mesh = o; });

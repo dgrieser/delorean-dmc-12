@@ -132,7 +132,7 @@ def hoses(X, Y, Z):
 
 
 def bay_tub(X, Y, Z):
-    """Black engine-bay walls (inner layer of the shell under the cover) and floor."""
+    """Engine-bay side walls; the engine and rear frame remain exposed underneath."""
     s = SX.shell(X, Y, Z)
     yy = np.abs(Y)
     wall = np.maximum(s + 0.03, -(s + 0.045))
@@ -141,11 +141,12 @@ def bay_tub(X, Y, Z):
     wall = np.maximum(wall, Z - 0.86)
     # no ceiling: the louvred cover is the lid
     wall = np.maximum(wall, -(poly2d(X, Y, B.LID_POLY) - 0.06))
-    floor = rbox3(X, Y, Z, (-1.40, 0, 0.215), (0.56, 0.70, 0.01), 0.01)
-    floor = smax(floor, -B.arch_cyl(X, Y, Z, 0.03), 0.01)
+    # There is no flat floor beneath the engine in the rear studio photos.
+    # Keep the rear wall above the apron so it cannot close off the visible running gear.
+    wall = np.maximum(wall, np.minimum(X + 1.80, 0.46 - Z))
     # inner fender walls between the bay and the rear wheel wells
     fw = np.maximum(np.abs(yy - 0.56) - 0.008, np.maximum(np.maximum(-1.64 - X, X + 0.78), np.maximum(0.22 - Z, Z - 0.80)))
-    return np.minimum(np.minimum(wall, floor), fw)
+    return np.minimum(wall, fw)
 
 
 def firewall_panel(X, Y, Z):

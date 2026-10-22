@@ -51,7 +51,7 @@ tools/model/details.py           quad sealed-beam headlamps, grille + DMC badge,
 tools/model/interior.py          seats, dash + binnacle, console, door cards, steering wheel,
                                  pedals, shifter, handbrake, carpets, seals
 tools/model/engine.py            PRV V6 engine bay, front luggage compartment
-tools/model/build_edges.py       door edge walls and aperture jambs
+tools/model/build_edges.py       door edge walls, aperture jambs and rounded rubber seals
 tools/model/wheels.py            Blender: procedural wheel assemblies, discs, calipers
 tools/model/wheels_pd.py         Blender: fits Peter_D's wheels and tyres into those assemblies
 tools/model/assemble.py          Blender: assembles all parts, pivots, bakes two AO sets
@@ -112,6 +112,20 @@ finish on the air dam. At the front, the wing, lower steel strip and air dam sha
 rising edge (`front_lower_edge` in `body.py`); the nose cheeks slope forward beneath the rounded
 brow, and the recessed chin has rolled corners. These profiles follow the side and front
 three-quarter studio views.
+
+The open doors include latch plates, front amber and rear red warning lamps, pull loops,
+speaker recesses and aperture seals. Their visible gas struts track both mounting points
+through the full opening motion. Roof panel corners share the same rounded outline in the
+skin, trim and jambs. Rear bumper and vent-strip heights follow the calibrated low rear view;
+the twin exhausts pass through a shared central cutout, with the engine and frame exposed
+underneath. Each louvre blade is a continuous solid, and its surfaces use shorter triangles
+for the vertex AO bake so shadows do not break into large triangular patches.
+The rear quarter windows follow straight rails with rounded tips and blend into a curved
+shoulder. The tail-panel seams have a consistent rake and a slight convex bow. The front
+bumper and steel strip are level across the car, with sloping side returns. The lower rear
+apron follows the quarter-panel edge before
+sloping forward underneath. The front intake uses a square wire alpha mask, with a recessed
+radiator and retaining rails; its transparent proxy is excluded from the solid AO bake.
 
 ## Credits
 

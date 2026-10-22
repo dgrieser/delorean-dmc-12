@@ -92,7 +92,7 @@ def strips():
     # Continue the black carrier under the amber lens; exposed steel here washes it out
     # and makes the marker look detached from the strip in the side view.
     segs = {'fender': (xd1 + 0.008, fa0 - 0.012), 'nose': (fa1 + 0.012, 1.788), 'tip': (1.788, tip1), 'door': (xd0, xd1),
-            'quarter': (ra1 + 0.012, xd0 - 0.008), 'rearcorner': (-1.650, ra0 - 0.012)}
+            'quarter': (ra1 + 0.012, xd0 - 0.008), 'rearcorner': (B.TAIL_SEAM + 0.004, ra0 - 0.012)}
     for side, tag in [(1, 'L'), (-1, 'R')]:
         for k, (a, b) in segs.items():
             pts = band(min(a, b), max(a, b), None)

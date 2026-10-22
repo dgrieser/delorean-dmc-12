@@ -2,7 +2,7 @@
 import sys, time, os
 import numpy as np
 from extract import extract, decimate, sdf_normals, orient_faces, project_to_surface, keep_faces, finish4, clip_level
-from sdf import smax, smin
+from sdf import smax, smin, smoothstep
 import body as B
 
 H = float(os.environ.get('H', '0.006'))
@@ -49,7 +49,19 @@ def fixed(X, Y, Z):
     # Below the bumper the separate front strip owns the skin ahead of the panel seam.
     # Keep this cut at that seam, beyond the wing, to avoid overlapping steel surfaces.
     front = np.maximum(B.x_nose_seam(Z) - X, Z - (B.FB_Z[1] + 0.005))
-    return smax(d, -front, 0.004)
+    d = smax(d, -front, 0.004)
+    # The lower rear apron owns this surface; do not leave a second steel wall
+    # behind its exhaust opening and curved lower edge.
+    rear = np.maximum(X - B.x_tail_seam(Z), Z - (B.RB_SLOT_Z - 0.014))
+    d = smax(d, -rear, 0.004)
+    # Open underside of the engine bay; the fixed shell must not leave a steel
+    # floor crossing the crankcase when the rear apron is viewed from below.
+    engine_width = 0.52 + 0.20 * smoothstep(-1.45, -1.65, X)
+    engine_floor = np.maximum(np.maximum(X + 0.90, np.abs(Y) - engine_width), Z - 0.36)
+    d = smax(d, -engine_floor, 0.004)
+    # At the rounded bumper corners the old shell poked through by 1–2 mm,
+    # leaving a bright vertical steel stripe across the graphite bumper.
+    return smax(d, -(B.rear_bumper(X, Y, Z) - 0.006), 0.002)
 
 
 def skin_mask(X, Y, Z):
@@ -77,8 +89,8 @@ BUDGET = {'body': 240000, 'hood': 40000, 'nose': 30000, 'tail': 30000, 'bumper_f
           'door_L': 45000, 'door_R': 45000, 'airdam': 24000, 'rvalance': 6000, 'fstrip': 12000}
 
 
-# stainless panels: split long slivers (baked AO smears along them); dark/flat parts are left as is
-SPLIT = {'body', 'door_L', 'door_R', 'hood', 'nose', 'tail'}
+# Split long triangles on panels and bumper bands so baked AO cannot smear across an edge.
+SPLIT = {'body', 'door_L', 'door_R', 'hood', 'nose', 'tail', 'fstrip', 'bumper_f', 'bumper_r', 'airdam'}
 
 
 def build(name, reduction=0.86):

@@ -44,10 +44,10 @@ PARTS = [
     P('rear_mirror', I.rear_mirror, (-0.10, -0.14, 0.98), (0.02, 0.14, 1.12), 0.0015, 4000),
     P('buckles', I.seatbelt_buckles, (-0.37, -0.18, 0.35), (-0.27, 0.18, 0.45), 0.0015, 3000),
     P('belt_buttons', I.belt_buttons, (-0.34, -0.17, 0.43), (-0.30, 0.17, 0.45), 0.001, 1000),
-    P('door_strap_L', lambda X, Y, Z: I.door_strap(X, Y, Z, 1), (0.02, 0.70, 0.69), (0.08, 0.90, 0.90), 0.0012, 1500),
-    P('door_strap_R', lambda X, Y, Z: I.door_strap(X, Y, Z, -1), (0.02, -0.90, 0.69), (0.08, -0.70, 0.90), 0.0012, 1500),
-    P('courtesy_L', lambda X, Y, Z: I.courtesy_lamp(X, Y, Z, 1), (0.40, 0.81, 0.27), (0.48, 0.87, 0.35), 0.0010, 1500),
-    P('courtesy_R', lambda X, Y, Z: I.courtesy_lamp(X, Y, Z, -1), (0.40, -0.87, 0.27), (0.48, -0.81, 0.35), 0.0010, 1500),
+    P('door_strap_L', lambda X, Y, Z: I.door_strap(X, Y, Z, 1), (0.06, 0.65, 0.49), (0.14, 0.85, 0.60), 0.0012, 1500),
+    P('door_strap_R', lambda X, Y, Z: I.door_strap(X, Y, Z, -1), (0.06, -0.85, 0.49), (0.14, -0.65, 0.60), 0.0012, 1500),
+    P('courtesy_L', lambda X, Y, Z: I.courtesy_lamp(X, Y, Z, 1), (-0.15, 0.80, 0.31), (0.51, 0.93, 0.39), 0.0010, 1500),
+    P('courtesy_R', lambda X, Y, Z: I.courtesy_lamp(X, Y, Z, -1), (-0.15, -0.93, 0.31), (0.51, -0.80, 0.39), 0.0010, 1500),
     # local-frame moving parts
     P('steering_wheel', I.steering_wheel_local, (-0.22, -0.22, -0.11), (0.22, 0.22, 0.04), 0.0015, 30000),
     P('pedal_Clutch', lambda x, y, z: I.pedal_local(x, y, z, 'Clutch'), (-0.07, -0.06, -0.34), (0.02, 0.06, 0.02), 0.0015, 4000),
@@ -58,6 +58,18 @@ PARTS = [
     P('shift_boot', I.shift_boot_local, (-0.07, -0.07, -0.01), (0.07, 0.07, 0.13), 0.0015, 5000),
     P('handbrake', I.handbrake_local, (-0.03, -0.03, -0.03), (0.28, 0.03, 0.03), 0.0012, 3000),
 ]
+
+
+for side, tag in [(1, 'L'), (-1, 'R')]:
+    ylo, yhi = (0.70, 0.93) if side > 0 else (-0.93, -0.70)
+    for name, fn, xlo, xhi, zlo, zhi, target in [
+        ('door_latches', I.door_latches, -0.64, 0.59, 0.36, 0.47, 6000),
+        ('door_lamp_bezels', I.door_lamp_bezels, -0.64, 0.59, 0.31, 0.46, 4000),
+        ('courtesy_rear', I.rear_door_lamp, -0.56, -0.43, 0.32, 0.39, 1500),
+        ('door_speaker', I.door_speaker, 0.25, 0.35, 0.43, 0.53, 4000),
+    ]:
+        PARTS.append(P(f'{name}_{tag}', lambda X, Y, Z, fn=fn, side=side: fn(X, Y, Z, side),
+                       (xlo, ylo, zlo), (xhi, yhi, zhi), 0.0015, target))
 
 
 def build(p):

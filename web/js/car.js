@@ -64,6 +64,7 @@ export class HingedPanel {
   apply() {
     const q = new THREE.Quaternion().setFromAxisAngle(this.axis, this.sign * this.theta);
     this.node.quaternion.copy(this.base).multiply(q);
+    this.onPose?.();
   }
 }
 
@@ -186,6 +187,41 @@ export class Car {
       root.traverse(o => { if (!mesh && o.isMesh && o.name === 'glass_toll_' + k) mesh = o; });
       if (mesh) this.toll[k] = { mesh, base: mesh.position.clone(), dir, pos: 0, target: 0, travel: 0.085 };
     }
+    this.addDoorStrut(this.doorL, 1, 'L');
+    this.addDoorStrut(this.doorR, -1, 'R');
+  }
+
+  addDoorStrut(panel, side, tag) {
+    // Rear-quarter ball mount and the door's rear inner frame, measured in the body frame.
+    const a = Car.b2t(-0.81, side * 0.57, 1.055);
+    const mount = Car.b2t(-0.697, side * 0.31, 1.093);
+    this.body.updateWorldMatrix(true, true);
+    const local = panel.node.worldToLocal(this.body.localToWorld(mount));
+    const group = new THREE.Group(); group.name = 'door_strut_' + tag;
+    this.body.add(group);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 12), this.lib.PlasticBlack);
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 1, 10), this.lib.Chrome);
+    const ballA = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 6), this.lib.MetalDark);
+    const ballB = ballA.clone();
+    group.add(barrel, rod, ballA, ballB);
+    for (const mesh of group.children) { mesh.castShadow = true; mesh.receiveShadow = true; }
+    const b = new THREE.Vector3(), dir = new THREE.Vector3(), joint = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+    const segment = (mesh, start, end) => {
+      dir.subVectors(end, start);
+      mesh.position.copy(start).add(end).multiplyScalar(0.5);
+      mesh.scale.y = dir.length();
+      mesh.quaternion.setFromUnitVectors(up, dir.normalize());
+    };
+    panel.onPose = () => {
+      panel.node.updateWorldMatrix(true, false);
+      b.copy(local); panel.node.localToWorld(b); this.body.worldToLocal(b);
+      const length = a.distanceTo(b);
+      joint.copy(a).lerp(b, Math.min(0.205 / Math.max(length, 0.001), 0.8));
+      segment(barrel, a, joint); segment(rod, joint, b);
+      ballA.position.copy(a); ballB.position.copy(b);
+    };
+    panel.onPose();
   }
 
   setToll(side, down) { const t = this.toll[side]; if (t) t.target = down ? 1 : 0; }

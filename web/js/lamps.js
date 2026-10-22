@@ -68,7 +68,7 @@ export class Lamps {
     const find = n => { let r = null; root.traverse(o => { if (!r && o.isMesh && o.name === n) r = o; }); return r || root.getObjectByName(n); };
     // split shared-material meshes into sides
     this.mats = {};
-    for (const name of ['turn_front', 'marker_front', 'tl_turn', 'marker_rear', 'hl_bulb_Lo', 'hl_bulb_Hi', 'tl_tail', 'tl_rev', 'courtesy_L', 'courtesy_R']) {
+    for (const name of ['turn_front', 'marker_front', 'tl_turn', 'marker_rear', 'hl_bulb_Lo', 'hl_bulb_Hi', 'tl_tail', 'tl_rev', 'courtesy_L', 'courtesy_R', 'courtesy_rear_L', 'courtesy_rear_R']) {
       const m = find(name);
       if (!m || !m.isMesh) continue;
       if (name.startsWith('courtesy')) { m.material = m.material.clone(); this.mats[name] = m.material; continue; }
@@ -186,6 +186,8 @@ export class Lamps {
     this.lights.cabin.intensity = b.cab.step(cabOn ? 1 : 0, dt) * 0.8;
     set('courtesy_L', b.courtL.step(this.car.doorL.theta > 0.05 ? 1 : 0, dt) * 5);
     set('courtesy_R', b.courtR.step(this.car.doorR.theta > 0.05 ? 1 : 0, dt) * 5);
+    set('courtesy_rear_L', this.car.doorL.theta > 0.05 ? 3 : 0);
+    set('courtesy_rear_R', this.car.doorR.theta > 0.05 ? 3 : 0);
     this.lights.dash.intensity = parkOn && ign ? 0.004 * s.dimmer : 0;
     return { panel: parkOn, dimmer: s.dimmer, turnL: tL > 0.5, turnR: tR > 0.5, high: highOn };
   }

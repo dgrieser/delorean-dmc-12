@@ -58,11 +58,21 @@ def jamb_solid(side):
     return f
 
 
+def aperture_seal(side):
+    def f(X, Y, Z):
+        s = SX.shell(X, Y, Z)
+        edge = B.r_door(*SX.to_skin(X, Y, Z), side)
+        tube = np.sqrt((s + 0.025) ** 2 + (edge - 0.005) ** 2) - 0.005
+        return np.maximum(tube, B.SILL_Z + 0.010 - Z)
+    return f
+
+
 PARTS = []
 for side, tag in [(1, 'L'), (-1, 'R')]:
     ylo, yhi = (0.08, 0.96) if side > 0 else (-0.96, -0.08)
     PARTS.append((f'door_edge_{tag}', door_solid(side), (-0.78, ylo, 0.24), (0.72, yhi, 1.16), 30000))
     PARTS.append((f'jamb_{tag}', jamb_solid(side), (-0.82, ylo - 0.02 * side, 0.26), (0.76, yhi, 1.16), 24000))
+    PARTS.append((f'door_seal_{tag}', aperture_seal(side), (-0.82, ylo - 0.02 * side, 0.30), (0.76, yhi, 1.16), 12000))
 
 if __name__ == '__main__':
     sel = sys.argv[1:]
