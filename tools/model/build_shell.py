@@ -43,11 +43,13 @@ def panel(region):
 
 
 def fixed(X, Y, Z):
+    # B.z_bot owns the continuous lower wing edge. A separate vertical cutoff here leaves
+    # a rectangular notch between the wheel, bumper and air dam in the side view.
     d = smax(B.shell(X, Y, Z), GAP / 2 - cut_all(X, Y, Z), ROLL)
-    # the nose skin stops just below the airdam's top edge, hidden behind it (a cut in the field
-    # gives a clean edge; a face mask would leave a sawtooth in the line under the bumper)
-    nose = np.maximum(1.70 - X, Z - (B.FB_Z[0] - 0.03))
-    return smax(d, -nose, 0.004)
+    # Below the bumper the separate front strip owns the skin ahead of the panel seam.
+    # Keep this cut at that seam, beyond the wing, to avoid overlapping steel surfaces.
+    front = np.maximum(B.x_nose_seam(Z) - X, Z - (B.FB_Z[1] + 0.005))
+    return smax(d, -front, 0.004)
 
 
 def skin_mask(X, Y, Z):

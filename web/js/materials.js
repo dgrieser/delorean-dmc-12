@@ -325,7 +325,7 @@ export function createLibrary(opts = {}) {
     side: THREE.DoubleSide, envMapIntensity: 1.0,
   });
   lib.Urethane = new THREE.MeshPhysicalMaterial({
-    // satin graphite urethane (bumpers, air dam, rear valance): a cool dark grey that reads as a
+    // satin graphite urethane (bumpers and rear valance): a cool dark grey that reads as a
     // second, darker metal against the stainless in the photos (sRGB ~55-65 face-on in front, ~40 at
     // the back), not black; it picks up soft reflections that show the bumper's shape
     name: 'Urethane', color: lin(0.052, 0.057, 0.080), metalness: 0, roughness: 0.55,
@@ -333,6 +333,9 @@ export function createLibrary(opts = {}) {
   });
   lib.Rubber = new THREE.MeshStandardMaterial({ name: 'Rubber', color: lin(0.010, 0.010, 0.011), roughness: 0.78 });
   lib.PlasticBlack = new THREE.MeshPhysicalMaterial({ name: 'PlasticBlack', color: lin(0.012, 0.012, 0.013), roughness: 0.42, clearcoat: 0.15, clearcoatRoughness: 0.4, side: THREE.DoubleSide });
+  // The chin spoiler has a satin moulded finish: broad highlights reveal its rolled cheeks.
+  lib.AirDam = new THREE.MeshPhysicalMaterial({ name: 'AirDam', color: lin(0.022, 0.023, 0.025), roughness: 0.32,
+    clearcoat: 0.25, clearcoatRoughness: 0.30, envMapIntensity: 1.3, side: THREE.DoubleSide });
   lib.PlasticMatte = new THREE.MeshStandardMaterial({ name: 'PlasticMatte', color: lin(0.024, 0.024, 0.026), roughness: 0.8, side: THREE.DoubleSide });
   lib.Glass = new THREE.MeshPhysicalMaterial({
     name: 'Glass', color: lin(0.86, 0.90, 0.88), metalness: 0, roughness: 0.0, transmission: 1, thickness: 0.0,
@@ -442,7 +445,7 @@ export function createLibrary(opts = {}) {
   lib.Lamp_TurnFront.opacity = 0.75;     // the reflector shows through the front indicators
   // AO strength per material (open steel panels bake to ~1, so this mostly darkens gaps, arches and the strip's shadow)
   // (the lamp reflectors bake deep inside their bowls, but light reaches them through the glass)
-  const aoStr = { Stainless: 0.6, Urethane: 0.6, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5, Lamp_HeadRefl: 0.1 };
+  const aoStr = { Stainless: 0.6, Urethane: 0.6, AirDam: 0.45, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5, Lamp_HeadRefl: 0.1 };
   for (const [k, v] of Object.entries(aoStr)) lib[k].userData.aoStr = { value: v };
   lib.Stainless.userData.aoDirect = { value: 0.85 };
   // the nose and tail panels (separate pieces round the lamps, with seams on the flanks): a darker,

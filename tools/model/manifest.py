@@ -10,6 +10,7 @@ import numpy as np
 MATERIALS = {
     'Stainless':        ((0.60, 0.60, 0.60), 1.0, 0.30, {}),
     'Urethane':         ((0.035, 0.037, 0.040), 0.0, 0.55, {}),
+    'AirDam':           ((0.022, 0.023, 0.025), 0.0, 0.32, {}),
     'Rubber':           ((0.012, 0.012, 0.012), 0.0, 0.70, {}),
     'PlasticBlack':     ((0.015, 0.015, 0.016), 0.0, 0.45, {}),
     'PlasticMatte':     ((0.020, 0.020, 0.021), 0.0, 0.85, {}),
@@ -65,7 +66,7 @@ PARTS = {
     'rocker': ('PlasticMatte', 'Body', 'box'),
     # the rear valance is the bumpers' graphite grey; the air dam is a darker, near-black satin
     # (front photo: ~10 of 255 face-on against the bumper's ~55)
-    'airdam': ('PlasticBlack', 'Body', 'box'),
+    'airdam': ('AirDam', 'Body', 'box'),
     'rvalance': ('Urethane', 'Body', 'box'),
     'fstrip': ('Stainless', 'Body', 'brush'),
     'door_handle_L': ('PlasticBlack', 'Door_L', 'box'),

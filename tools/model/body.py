@@ -83,7 +83,14 @@ NOSE_EDGE = (2.000, 0.068)
 
 
 def x_nose(Z, yy=0.0):
-    return NOSE_EDGE[0] - NOSE_EDGE[1] * (yy / 0.736) ** 2 + (0.672 - np.maximum(Z, 0.552)) * 0.12
+    # The lamp plane stays nearly upright, but the outer cheeks rake forward towards the
+    # bumper: side photo 07 puts the cheek at X 1.93 / 2.00, Z 0.68 / 0.55.
+    rake = 0.12 + 0.48 * smoothstep(0.70, 0.79, yy)
+    # Carry the rounded cheek forward below the brow. The plan fillet otherwise pulls
+    # this surface back, exposing the centre of the brow as a hook in the side silhouette.
+    cheek = smoothstep(0.66, 0.75, yy) * cubic_interp(
+        Z, [0.54, 0.60, 0.65, 0.68], [0.030, 0.040, 0.045, 0.0])
+    return NOSE_EDGE[0] - NOSE_EDGE[1] * (yy / 0.736) ** 2 + (0.672 - np.maximum(Z, 0.540)) * rake + cheek
 
 
 def x_tail(Z):
@@ -98,11 +105,22 @@ def corner_r(X):
     return CORNER_R + (NOSE_CORNER_R - CORNER_R) * smoothstep(1.0, 1.5, X)
 
 
+def front_lower_edge(X, yy):
+    """Continuous wing/valance joint measured in side view 07 (body-frame metres).
+
+    It rises from the wheel to the bumper, then wraps into the lower, level front strip.
+    Both the steel and the air dam use this edge so their corner cannot develop a step.
+    """
+    side = interp(X, [1.50, 1.815, 2.07], [0.322, 0.387, 0.421])
+    return side - 0.024 * smoothstep(0.65, 0.0, yy) * smoothstep(1.82, 2.04, X)
+
+
 def z_bot(X, yy=None):
     """Lower edge of the stainless skin: the sills, rising under the nose and behind the rear wheels.
     At the tail only the middle carries a stainless strip below the bumper; the corners end behind it
     (the black valance wraps round them)."""
-    z = interp(X, [-2.12, -1.87, -1.56, 1.50, 1.70, 1.86, 2.12], [0.345, 0.350, 0.250, 0.272, 0.330, 0.372, 0.372])
+    z = interp(X, [-2.12, -1.87, -1.56, 1.35, 1.50], [0.345, 0.350, 0.250, 0.272, 0.322])
+    z = np.where(X >= 1.50, front_lower_edge(X, 0.0 if yy is None else yy), z)
     if yy is None:
         return z
     corner = smoothstep(0.66, 0.74, yy) * smoothstep(-1.80, -1.90, X)
@@ -235,7 +253,7 @@ def body_solid(X, Y, Z):
     plan = smax(plan, (x_tail(Z) - X) * 0.999, CORNER_R)
     top = smin((Z - (z_top_c(X) - crown(X, yy))) * 0.994, cabin_top(X, Y, Z), 0.012)
     # the nose panel's brow over the lamps is rolled a little rounder than the shoulders
-    d = smax(plan, top, 0.009 + 0.004 * smoothstep(1.88, 1.93, X))
+    d = smax(plan, top, 0.009 + 0.031 * smoothstep(1.88, 1.93, X))
     return smax(d, z_bot(X, yy) - Z, 0.015)
 
 
@@ -437,8 +455,8 @@ def r_lid(X, Y, Z):
 # Nose and tail panels: separate pieces of a darker grade of steel (web/js/materials.js) round the
 # lamps, wrapping round the corners to near-vertical seams on the flanks (side photo: X 1.815 at the
 # bottom to 1.837 at the top in front, -1.827 at the back). The nose panel takes the front of the
-# bonnet line ahead of the bonnet's split; the tail panel reaches up to the deck lip. Both run down
-# behind the bumpers.
+# bonnet line ahead of the bonnet's split and ends above the front bumper; the tail panel reaches
+# from the deck lip down behind the rear bumper.
 NOSE_SEAM = ((0.43, 1.815), (0.68, 1.837))
 TAIL_SEAM = -1.827
 TAIL_TOP = 0.86
@@ -451,7 +469,9 @@ def x_nose_seam(Z):
 
 def r_nose(X, Y, Z):
     # ahead of the flank seams and the bonnet's split (the split runs on into the seams)
-    d = np.maximum(x_nose_seam(Z) - X, (FB_Z[1] - 0.02) - Z)
+    # Finish above the bumper: extending this skin down behind its top lets the raked
+    # cheeks protrude over the bumper's face at the corners.
+    d = np.maximum(x_nose_seam(Z) - X, (FB_Z[1] + 0.003) - Z)
     return np.maximum(d, -r_hood(X, Y, Z))
 
 
@@ -554,7 +574,9 @@ def front_bumper(X, Y, Z):
     # the sides run back flush with the nose panel to its seam (side photo)
     d_side = (yy - arch_flare(X, Z) - (wc + 0.006)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
     d_top = Z - FB_Z[1]
-    d_bot = FB_Z[0] - Z
+    # The visible side end tapers upwards towards the front, rather than forming a box.
+    bottom = FB_Z[0] + 0.010 * smoothstep(1.83, 2.03, X) * smoothstep(0.60, 0.78, yy)
+    d_bot = bottom - Z
     d_back = FB_X_SIDE - X
     d = smax(d_front, d_side, 0.13)
     d = smax(d, d_top, 0.018)
@@ -637,12 +659,14 @@ def front_strip(X, Y, Z):
     yy = np.abs(Y)
     d = X - (x_fbump(yy) - 0.045)
     d = smax(d, yy - arch_flare(X, Z) - (w_crease(X) + 0.002), 0.08)
-    d = smax(d, np.maximum(Z - 0.432, 0.397 - Z), 0.010)
+    bottom = front_lower_edge(X, yy)
+    top = FB_Z[0] + 0.006 + 0.010 * smoothstep(1.83, 2.03, X) * smoothstep(0.60, 0.78, yy)
+    d = smax(d, np.maximum(Z - top, bottom - Z), 0.008)
     return smax(d, FB_X_SIDE - 0.02 - X, 0.006)
 
 
-FSTRIP_BMIN = (1.76, -0.98, 0.385)
-FSTRIP_BMAX = (2.10, 0.98, 0.445)
+FSTRIP_BMIN = (1.76, -0.98, 0.370)
+FSTRIP_BMAX = (2.10, 0.98, 0.475)
 
 
 AD_Z = (0.245, 0.400)          # air dam bottom lip / top (a stainless strip shows between it and the bumper)
@@ -650,10 +674,13 @@ AD_SLOT = (0.323, 0.041, 0.490)  # intake centre z, half height, half width (fro
 
 
 def x_airdam(yy, Z):
-    """Air-dam face: set well back under the bumper and following its plan curve, concave in
-    section, with the chin lip at the bottom standing ~7 cm ahead of the top (side photo: the lip
-    15 cm behind the bumper's face, the side's front edge at X 1.80 / 1.88 top / lip)."""
-    return x_fbump(yy) - 0.225 + 0.07 * np.clip((0.36 - Z) / 0.11, 0, 1) ** 2
+    """Recessed, concave air-dam face with a rounded chin projecting about 5 cm.
+
+    The outer ends sweep back to the wheels; the separate upper return meets the bumper.
+    """
+    chin = cubic_interp(Z, [0.245, 0.260, 0.280, 0.320, 0.360, 0.400],
+                        [0.048, 0.043, 0.022, 0.0, 0.0, 0.014])
+    return x_fbump(yy) - 0.225 + 0.025 * smoothstep(0.55, 0.78, yy) + chin
 
 
 def airdam(X, Y, Z):
@@ -663,12 +690,21 @@ def airdam(X, Y, Z):
     yy = np.abs(Y)
     xb = x_airdam(yy, Z)
     d = (X - xb) * 0.6            # the face leans up to ~50 deg at the lip: keep the field a bound
-    d = smax(d, (yy - arch_flare(X, Z) - (w_crease(X) + 0.004)), 0.03)
-    top = interp(X, [1.50, 1.80, 1.95], [0.320, 0.357, AD_Z[1]])
+    top = front_lower_edge(X, yy) + 0.012
     bot = interp(X, [1.50, 1.90], [0.232, AD_Z[0]])
-    d = smax(d, np.maximum(Z - top, bot - Z), 0.010)
+    # The cheek is moulded with a shallow waist and rolled edges, not a flat wedge.
+    t = np.clip((Z - bot) / np.maximum(top - bot, 0.01), 0, 1)
+    waist = 0.016 * np.sin(np.pi * t) ** 2
+    d = smax(d, yy - arch_flare(X, Z) - (w_crease(X) + 0.004) + waist, 0.080)
+    d = smax(d, np.maximum(Z - top, bot - Z), 0.024)
     # the outer lower corners are cut away on a slant up to the wheel arches (front view)
-    d = smax(d, ((yy - 0.73) * 0.12 - (Z - AD_Z[0]) * 0.115) / 0.166, 0.02)
+    d = smax(d, ((yy - 0.78) * 0.12 - (Z - AD_Z[0]) * 0.115) / 0.166, 0.060)
+    # A rolled upper return joins the recessed chin to the strip beneath the bumper.
+    # Without it the side view sees daylight through the corner above the spoiler.
+    upper = np.abs(Z - (front_lower_edge(X, yy) - 0.009)) - 0.014
+    upper = smax(upper, X - (x_fbump(yy) - 0.045), 0.010)
+    upper = smax(upper, yy - arch_flare(X, Z) - (w_crease(X) - 0.006), 0.020)
+    d = smin(d, upper, 0.012)
     d = smax(d, 1.42 - X, 0.0)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_FA, ARCH_ZF, ARCH_F + 0.01), 0.55 - yy), 0.01)
     zc, hz, hy = AD_SLOT
@@ -678,4 +714,4 @@ def airdam(X, Y, Z):
 
 
 AIRDAM_BMIN = (1.40, -0.97, 0.22)
-AIRDAM_BMAX = (2.10, 0.97, 0.42)
+AIRDAM_BMAX = (2.10, 0.97, 0.46)

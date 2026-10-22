@@ -107,7 +107,11 @@ model keeps the stock PRV V6 under its engine cover (the photographed car is tur
 Its nose and tail panels, round the lamps, are a darker grade of steel than the rest of the body,
 with seams on the flanks behind the corners (the bonnet ends at a split ahead of which the nose
 panel runs on to a brow over the lamps) (`r_nose` / `r_tail` in `body.py`, the `fascia` weight
-in `web/js/materials.js`); the bumpers, the air dam and the rear valance are graphite grey.
+in `web/js/materials.js`); the bumpers and rear valance are graphite grey, with a darker satin
+finish on the air dam. At the front, the wing, lower steel strip and air dam share a continuous
+rising edge (`front_lower_edge` in `body.py`); the nose cheeks slope forward beneath the rounded
+brow, and the recessed chin has rolled corners. These profiles follow the side and front
+three-quarter studio views.
 
 ## Credits
 
