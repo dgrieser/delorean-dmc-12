@@ -41,7 +41,8 @@ def inside(f):
 
 def build(p):
     t = time.time()
-    p = dict(p, f=inside(p['f']))
+    # Engine castings and pipes are exposed below the body floor in rear views.
+    p = dict(p, f=p['f'] if p['name'].startswith('eng_') else inside(p['f']))
     V, F = extract(p['f'], p['bmin'], p['bmax'], p['h'], verbose=False)
     if len(F) == 0:
         print('EMPTY', p['name'], flush=True)

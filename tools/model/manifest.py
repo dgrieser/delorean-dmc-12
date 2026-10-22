@@ -53,6 +53,16 @@ MATERIALS = {
     'DoorEdge':         ((0.03, 0.03, 0.032), 0.3, 0.55, {}),
 }
 
+MATERIALS.update({
+    'FasciaPaint': ((.52,.53,.54),.95,.28,{}),
+    'TailFrame': ((.026,.028,.030),.05,.38,{}),
+    'Lamp_RearRefl': ((.65,.64,.60),1.0,.27,{}),
+    'FrameCoat': ((.085,.090,.092),.25,.62,{}),
+    'BraidedMetal': ((.36,.35,.32),.80,.58,{}),
+    'AnodizedBlue': ((.018,.12,.20),.75,.30,{}),
+    'PlateLight': ((.72,.65,.46),0,.25,{}),
+})
+
 # part file -> (material, parent, uv)
 # parents: Body, Door_L, Door_R, Hood, EngineLid, FuelFlap
 PARTS = {
@@ -60,9 +70,9 @@ PARTS = {
     'door_L': ('Stainless', 'Door_L', 'brush'),
     'door_R': ('Stainless', 'Door_R', 'brush'),
     'hood': ('Stainless', 'Hood', 'brush'),
-    # nose and tail panels: the darker steel (web/js/main.js gives them the full `fascia` weight)
+    # Dark nose finish and smooth satin rear fascia, separate from the stainless body.
     'nose': ('Stainless', 'Body', 'brush'),
-    'tail': ('Stainless', 'Body', 'brush'),
+    'tail': ('FasciaPaint', 'Body', 'box'),
     'bumper_f': ('Urethane', 'Body', 'box'),
     'bumper_r': ('Urethane', 'Body', 'box'),
     'rocker': ('PlasticMatte', 'Body', 'box'),
@@ -138,7 +148,7 @@ PARTS = {
     'liner_f': ('PlasticMatte', 'Body', 'box'),
     'liner_r': ('PlasticMatte', 'Body', 'box'),
     'underbody': ('PlasticMatte', 'Body', 'box'),
-    'rear_frame': ('MetalDark', 'Body', 'box'),
+    'rear_frame': ('FrameCoat', 'Body', 'box'),
     'driveshafts': ('MetalDark', 'Body', 'box'),
     'exhaust': ('Exhaust', 'Body', 'box'),
     'rear_fasteners': ('MetalDark', 'Body', 'box'),
@@ -149,6 +159,33 @@ PARTS = {
     'cowl_vent': ('PlasticBlack', 'Body', 'box'),
     'antenna_base': ('PlasticBlack', 'Body', 'box'),
 }
+
+PARTS.update({
+    'rear_band': ('BadgeAlu','Body','box'),
+    'tl_bezel': ('TailFrame','Body','box'),
+    'tl_gasket': ('Rubber','Body','box'),
+    'tl_reflectors': ('Lamp_RearRefl','Body','box'),
+    'plate_border': ('BadgeAlu','Body','box'),
+    'plate_lenses': ('PlateLight','Body','box'),
+    'rear_lower_fasteners': ('BadgeAlu','Body','box'),
+    'rear_bumper_seal': ('Rubber','Body','box'),
+    'rear_apron_seal': ('Rubber','Body','box'),
+    'rear_timing_cover': ('CastAlu','Body','box'),
+    'rear_sump': ('EngineAlu','Body','box'),
+    'rear_pulleys': ('MetalDark','Body','box'),
+    'rear_belt': ('Rubber','Body','box'),
+    'rear_mechanical_bolts': ('BadgeAlu','Body','box'),
+    'rear_suspension': ('MetalDark','Body','box'),
+    'rear_dampers': ('FrameCoat','Body','box'),
+    'rear_damper_rods': ('Chrome','Body','box'),
+    'rear_springs': ('MetalDark','Body','box'),
+    'rear_hoses': ('BraidedMetal','Body','box'),
+    'rear_hose_fittings': ('AnodizedBlue','Body','box'),
+    'exhaust_liners': ('PlasticMatte','Body','box'),
+    'rear_logo_border': ('Urethane','Body','box'),
+    'lid_fasteners': ('MetalDark','EngineLid','box'),
+    'lid_seal': ('Rubber','EngineLid','box'),
+})
 
 INTERIOR = {
     'seat_L': ('Leather', 'Body'), 'seat_R': ('Leather', 'Body'),
@@ -183,7 +220,7 @@ for tag in ['L', 'R']:
 
 INTERIOR.update({
     'eng_block': ('EngineAlu', 'Body'), 'eng_covers': ('CastAlu', 'Body'), 'eng_intake': ('CastAlu', 'Body'),
-    'eng_airbox': ('PlasticBlack', 'Body'), 'eng_decal': ('Decal_Airbox', 'Body', 'lens'), 'eng_exhaust': ('RustyIron', 'Body'),
+    'eng_airbox': ('PlasticBlack', 'Body'), 'eng_decal': ('Decal_Airbox', 'Body', 'lens'), 'eng_exhaust': ('Exhaust', 'Body'),
     'eng_tank': ('Exhaust', 'Body'), 'eng_aux': ('CastAlu', 'Body'), 'eng_battery': ('PlasticBlack', 'Body'),
     'eng_hoses': ('Rubber', 'Body'), 'bay_tub': ('PlasticMatte', 'Body'), 'bay_panel': ('Decal_Jump', 'Body', 'lens'),
     'frunk_tub': ('Carpet', 'Body'), 'fuel_tank': ('PlasticMatte', 'Body'), 'spare_tyre': ('Tyre_Rubber', 'Body'),

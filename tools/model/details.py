@@ -238,63 +238,89 @@ def side_marker_rear(X, Y, Z):
 # Tail lamps: 3 rows x 6 columns per side in one black tail panel (measured on the reference car:
 # inner white reverse column, three red tail/stop columns, two amber indicator columns whose
 # outer edge leans in with the body corner); the licence-plate panel between them
-TL_ROWS = [(0.658, 0.703), (0.709, 0.751), (0.756, 0.796)]
-TL_COLS = [('Reverse', 0.286, 0.335), ('Tail', 0.344, 0.426), ('Tail', 0.435, 0.516), ('Tail', 0.525, 0.604),
-           ('Turn', 0.612, 0.666), ('Turn', 0.673, 0.740)]
+TL_ROWS = [(0.659, 0.7025), (0.7065, 0.7505), (0.7545, 0.798)]
+TL_COLS = [('Reverse', 0.286, 0.337), ('Tail', 0.342, 0.428), ('Tail', 0.432, 0.518), ('Tail', 0.522, 0.607),
+           ('Turn', 0.611, 0.668), ('Turn', 0.672, 0.741)]
 
 
-def tl_outer(Z):
-    """Outer edge of the lens grid: leans in towards the top with the rear corner."""
-    return 0.737 - (Z - 0.658) * 0.52
+def tail_cell_outline(Y, Z, a, b, z0, z1, inset=0.0):
+    yy = np.abs(Y)
+    r = _rbox2(yy - (a+b)/2, Z - (z0+z1)/2, (b-a)/2-inset, (z1-z0)/2-inset, 0.002)
+    # The outer amber cells follow the same rounded perimeter as their bezel.
+    return np.maximum(r, B.tail_band(Y, Z, -0.008 - inset))
 
 
 def tail_cells(X, Y, Z, kind):
-    yy = np.abs(Y)
-    face = B.x_tail(Z) + 0.006
-    edge = tl_outer(Z) - yy
+    face = B.x_tail(Z)
     d = np.full(np.shape(X), 1.0)
     for k, a, b in TL_COLS:
         if k != kind:
             continue
         for z0, z1 in TL_ROWS:
-            ym, hy = 0.5 * (a + b), 0.5 * (b - a)
-            zm, hz = 0.5 * (z0 + z1), 0.5 * (z1 - z0)
-            dome = 0.0025 * np.clip(1 - ((yy - ym) / hy) ** 2, 0, 1) * np.clip(1 - ((Z - zm) / hz) ** 2, 0, 1)
-            r = _rbox2(yy - ym, Z - zm, hy, hz, 0.004)
-            r = smax(r, -edge, 0.004)
-            s = np.maximum(face - X - dome, X - (face + 0.008))
-            d = np.minimum(d, smax(s, r, 0.0012))
+            u = (np.abs(Y) - (a+b)/2) / ((b-a)/2)
+            v = (Z - (z0+z1)/2) / ((z1-z0)/2)
+            dome = 0.0012 * np.clip(1-u*u, 0, 1) * np.clip(1-v*v, 0, 1)
+            depth = np.maximum(face + 0.012 - dome - X, X - face - 0.017)
+            d = np.minimum(d, smax(tail_cell_outline(Y, Z, a, b, z0, z1), depth, 0.0008))
     return d
 
 
 def tail_housing(X, Y, Z):
-    """Black tail panel: back plate and grid webs behind the cells, and the plate panel with its
-    two moulded pads of square bosses either side of the plate."""
-    yy = np.abs(Y)
+    """Separate recessed carriers and a central moulded licence-panel cassette."""
     face = B.x_tail(Z)
-    band = B.tail_band(Y, Z, -0.001)
-    back = np.maximum(band, np.maximum(face + 0.030 - X, X - (face + 0.034)))
-    # grid webs between cells (slightly recessed from cell faces)
-    web = np.maximum(band, np.maximum(face + 0.009 - X, X - (face + 0.034)))
-    web = np.maximum(web, 0.279 - yy)
-    # plate panel and its pads
-    zc = 0.5 * (B.TL_Z[0] + B.TL_Z[1])
-    hz = 0.5 * (B.TL_Z[1] - B.TL_Z[0])
-    plate = np.maximum(_rbox2(Y, Z - zc, 0.274, hz - 0.004, 0.010), np.maximum(face + 0.016 - X, X - (face + 0.034)))
-    cu = np.mod(yy - 0.170 + 0.025, 0.050) - 0.025
-    cv = np.mod(Z - 0.660 + 0.0245, 0.049) - 0.0245
-    boss = np.maximum(_rbox2(cu, cv, 0.0215, 0.021, 0.004), np.maximum(np.abs(yy - 0.220) - 0.050, np.abs(Z - 0.7275) - 0.0735))
-    boss = np.maximum(boss, np.maximum(face + 0.011 - X, X - (face + 0.034)))
-    return np.minimum(np.minimum(back, web), np.minimum(plate, boss))
+    band = B.tail_band(Y, Z, -0.003)
+    back = np.maximum(band, np.maximum(face+0.042-X, X-face-0.050))
+    centre = _rbox2(Y, Z-0.727, 0.276, 0.078, 0.008)
+    plate = np.maximum(centre, np.maximum(face+0.025-X, X-face-0.048))
+    pads = np.full(np.shape(X), 1.0)
+    for y in [0.190, 0.242]:
+        for z in [0.677, 0.726, 0.775]:
+            pad = _rbox2(np.abs(Y)-y, Z-z, 0.023, 0.022, 0.0025)
+            pads = np.minimum(pads, np.maximum(pad, np.maximum(face+0.019-X, X-face-0.030)))
+    return np.minimum(back, np.minimum(plate, pads))
 
 
-PLATE_W, PLATE_H, PLATE_ZC = 0.305, 0.152, 0.745       # US 12 x 6 in. plate on the tail panel
+def tail_bezel(X, Y, Z):
+    face = B.x_tail(Z)
+    outline = np.maximum(B.tail_band(Y, Z, -0.003), 0.280-np.abs(Y))
+    holes = np.full(np.shape(X), 1.0)
+    for _, a, b in TL_COLS:
+        for z0, z1 in TL_ROWS:
+            holes = np.minimum(holes, tail_cell_outline(Y, Z, a, b, z0, z1, -0.0003))
+    grille = np.maximum(outline, -holes)
+    grille = np.maximum(grille, np.maximum(face+0.008-X, X-face-0.032))
+    # Perimeter lip round the centre cassette; 3 mm seams separate it from both lamps.
+    rim = np.maximum(_rbox2(Y, Z-0.727, 0.276, 0.079, 0.008),
+                     -_rbox2(Y, Z-0.727, 0.270, 0.073, 0.005))
+    rim = np.maximum(rim, np.maximum(face+0.012-X, X-face-0.034))
+    return np.minimum(grille, rim)
+
+
+def tail_gasket(X, Y, Z):
+    ring = np.maximum(B.tail_band(Y, Z, 0.002), -B.tail_band(Y, Z, -0.003))
+    face = B.x_tail(Z)
+    return np.maximum(ring, np.maximum(face+0.004-X, X-face-0.018))
+
+
+def tail_reflectors(X, Y, Z):
+    d = np.full(np.shape(X), 1.0)
+    face = B.x_tail(Z)
+    for _, a, b in TL_COLS:
+        for z0, z1 in TL_ROWS:
+            u=(np.abs(Y)-(a+b)/2)/((b-a)/2); v=(Z-(z0+z1)/2)/((z1-z0)/2)
+            bowl=0.005*np.clip(1-u*u,0,1)*np.clip(1-v*v,0,1)
+            d=np.minimum(d, np.maximum(tail_cell_outline(Y,Z,a,b,z0,z1,0.001),
+                                      np.abs(X-face-0.030-bowl)-0.002))
+    return d
+
+
+PLATE_W, PLATE_H, PLATE_ZC = 0.305, 0.142, 0.729       # visible plate face within the recessed tail-panel surround
 
 
 def licence_plate(X, Y, Z):
     face = B.x_tail(Z)
     d = _rbox2(Y, Z - PLATE_ZC, 0.5 * PLATE_W, 0.5 * PLATE_H, 0.008)
-    return np.maximum(d, np.maximum(face + 0.010 - X, X - (face + 0.016)))
+    return np.maximum(d, np.maximum(face + 0.014 - X, X - (face + 0.020)))
 
 
 # ======================================================================================
@@ -315,7 +341,7 @@ def lid_frame(X, Y, Z):
     yy = np.abs(Y)
     fb = B.d_fastback(X, yy, Z)
     reg = poly2d(X, Y, B.LID_POLY) + LID_GAP / 2
-    inner = poly2d(X, Y, B.LID_POLY) + 0.035
+    inner = poly2d(X, Y, B.LID_POLY) + 0.022
     d = smax(reg, -inner, 0.003)
     # deep enough to meet the pan below the blades, so nothing shows past the blades' ends
     d = smax(d, np.maximum(fb + 0.0005, -fb - 0.085), 0.003)
@@ -325,35 +351,45 @@ def lid_frame(X, Y, Z):
 def lid_slats(X, Y, Z):
     """Five stepped blades; the last one carries two slatted grilles either side of a centre bar."""
     yy = np.abs(Y)
-    inner = poly2d(X, Y, B.LID_POLY) + 0.030
+    inner = poly2d(X, Y, B.LID_POLY) + 0.020
     blades = np.full(np.shape(X), 1.0)
     # Each blade is a continuous solid. Selecting a blade by X made the field
     # discontinuous at every step and left sawtooth normals in the extracted mesh.
     for i, (front, xr) in enumerate(zip(LID_BLADES[:-1], LID_BLADES[1:])):
         xf = front + (0.010 if i == 0 else 0.030)
-        ztop = _fb_z(xr) - 0.002 + (X - xr) * 0.05
+        # A shallow crown catches the broad, soft highlight visible on each blade.
+        u = (X - (xf+xr)*0.5) / ((xf-xr)*0.5)
+        ztop = _fb_z(xr) - 0.002 + (X - xr) * 0.05 + 0.0025*np.clip(1-u*u,0,1) + 0.0015*np.clip(1-(Y/.57)**2,0,1)
         s = smax(np.abs(Z - ztop + 0.004) - 0.004,
                  np.maximum(xr - X, X - xf), 0.003)
         rise = np.maximum(np.abs(X - (xf - 0.004)) - 0.003,
-                          np.maximum(Z - ztop, (ztop - 0.05) - Z))
+                          np.maximum(Z - ztop, (ztop - 0.008) - Z))
         blades = np.minimum(blades, np.minimum(s, rise))
-    blades = smax(blades, inner, 0.002)
+    blades = smax(blades, inner, 0.006)
     gx0, gx1, gy0, gy1 = LID_GRILLE
     hole = _rbox2(X - 0.5 * (gx0 + gx1), yy - 0.5 * (gy0 + gy1), 0.5 * (gx0 - gx1), 0.5 * (gy1 - gy0), 0.006)
     zt = _fb_z(LID_BLADES[-1]) - 0.002 + (X - LID_BLADES[-1]) * 0.05
     blades = smax(blades, -np.maximum(hole, np.abs(Z - zt + 0.004) - 0.02), 0.0015)
-    bars = np.maximum(hole, np.abs(np.mod(X + 0.0075, 0.015) - 0.0075) - 0.0022)
+    bars = np.maximum(hole, np.abs(np.mod(X + 0.010, 0.020) - 0.010) - 0.0028)
     bars = np.maximum(bars, np.maximum(Z - (zt - 0.003), (zt - 0.030) - Z))
-    return np.minimum(blades, bars)
+    # Each grille has a narrow central cross brace and a rolled perimeter lip.
+    brace = np.maximum(hole,np.abs(yy-0.5*(gy0+gy1))-.0025)
+    brace = np.maximum(brace,np.maximum(Z-(zt-.006),(zt-.023)-Z))
+    rim = np.maximum(np.abs(hole)-.0025,np.abs(Z-zt+.002)-.003)
+    return np.minimum(blades,np.minimum(bars,np.minimum(brace,rim)))
 
 
 def lid_under(X, Y, Z):
-    """Dark pan below the louvres (engine-cover inner skin), out to the frame's walls."""
+    """Narrow underside return on the frame, leaving the louvre gaps open."""
     yy = np.abs(Y)
     fb = B.d_fastback(X, yy, Z)
     inner = poly2d(X, Y, B.LID_POLY) + 0.010
-    d = np.maximum(np.abs(fb + 0.082) - 0.005, inner)        # thick enough for the extraction grid
-    return d
+    rim = np.maximum(inner,-(inner+0.012))
+    d = np.maximum(np.abs(fb + 0.082) - 0.005, rim)
+    # A recessed black baffle sits only under the two rear ventilation grilles.
+    # It leaves the long sight lines between the louvre blades unobstructed.
+    baffle = np.maximum(inner,np.maximum(X+1.705,np.abs(fb+.072)-.004))
+    return np.minimum(d,baffle)
 
 
 LID_HINGE = (B.LID_X0 + 0.02, float(_fb_z(B.LID_X0 + 0.02)) - 0.012)
@@ -451,25 +487,6 @@ def underbody(X, Y, Z):
     return np.minimum(pan, bb)
 
 
-def rear_frame(X, Y, Z):
-    """Black rear frame under the engine: the backbone's Y-arms, a cross member, the trailing arms
-    out to the hubs (body frame, hub at R_R)."""
-    yy = np.abs(Y)
-    rails = rbox3(X, yy, Z, (-1.30, 0.33, 0.30), (0.40, 0.035, 0.045), 0.012)
-    cross = rbox3(X, yy, Z, (-1.48, 0.0, 0.235), (0.035, 0.40, 0.025), 0.012)
-    arm = cap_x(X, yy, Z, (-0.62, 0.66, 0.31), (B.X_RA + 0.04, 0.70, B.R_R - 0.02), 0.035)
-    upr = rbox3(X, yy, Z, (B.X_RA, 0.68, B.R_R), (0.07, 0.03, 0.09), 0.02)
-    return np.minimum(np.minimum(rails, cross), np.minimum(arm, upr))
-
-
-def driveshafts(X, Y, Z):
-    yy = np.abs(Y)
-    shaft = cap_x(X, yy, Z, (B.X_RA, 0.18, B.R_R - 0.01), (B.X_RA, 0.66, B.R_R), 0.022)
-    boot = np.sqrt((X - B.X_RA) ** 2 + (Z - B.R_R + 0.005) ** 2) - 0.045
-    boot = np.maximum(boot, np.abs(yy - 0.22) - 0.05)
-    return np.minimum(shaft, boot)
-
-
 # ======================================================================================
 # Air-dam intake: a wire mesh across the opening and the radiator core behind it
 def intake_mesh(X, Y, Z):
@@ -556,23 +573,8 @@ def exhaust(X, Y, Z):
         d = np.minimum(d, neck)
     # Tucked behind the bumper, clear of the crankcase and sump. The former low
     # box intersected the engine and hid it from the photographed rear angle.
-    muff = rbox3(X, Y, Z, (-1.97, 0, 0.50), (0.065, 0.30, 0.055), 0.04)
+    muff = rbox3(X, Y, Z, (-1.96, 0, 0.49), (0.045, 0.12, 0.035), 0.03)
     return np.minimum(d, muff)
-
-
-def rear_fasteners(X, Y, Z):
-    """Small lens-panel and lower-apron screws visible in rear studio close-ups."""
-    d = np.full(np.shape(X), 1.0)
-    for y in [-0.70, -0.52, -0.285, 0.285, 0.52, 0.70]:
-        for z in [0.651, 0.801]:
-            screw = np.maximum(np.sqrt((Y - y) ** 2 + (Z - z) ** 2) - 0.0032,
-                               np.abs(X - (B.x_tail(z) + 0.004)) - 0.002)
-            d = np.minimum(d, screw)
-    for y in [-0.45, -0.225, 0.225, 0.45]:
-        screw = np.maximum(np.sqrt((Y - y) ** 2 + (Z - 0.350) ** 2) - 0.003,
-                           np.abs(X - (B.x_rear_valance(Z) - 0.001)) - 0.002)
-        d = np.minimum(d, screw)
-    return d
 
 
 def sill_details(X, Y, Z):
@@ -590,19 +592,13 @@ def sill_details(X, Y, Z):
     return d
 
 
-def plate_lights(X, Y, Z):
-    """Two downward-facing plate-lamp housings above the rear number plate."""
-    face = B.x_tail(Z)
-    return rbox3(X - face, np.abs(Y), Z, (0.004, 0.116, 0.830), (0.016, 0.042, 0.012), 0.005)
-
-
 def rear_slot_back(X, Y, Z):
     """Dark recess behind the six slots in the lower stainless band."""
     yy = np.abs(Y)
     u = np.mod(yy - 0.135 + 0.045, 0.090) - 0.045
     slots = np.maximum(_rbox2(u, Z - B.RB_SLOT_Z, 0.029, 0.0048, 0.003),
                        np.abs(yy - 0.225) - 0.125)
-    return np.maximum(slots, np.abs(X - B.x_tail(Z) - 0.009) - 0.0015)
+    return np.maximum(slots, np.abs(X - B.x_rbump(yy) - 0.025) - 0.002)
 
 
 # ======================================================================================
@@ -659,7 +655,8 @@ def bumper_letters(X, Y, Z):
         for cx, cy, hx, hy in subs:
             g = np.maximum(g, -_rbox2(u - cx, v - cy, hx, hy, 0.04))
         d = np.minimum(d, g)
-    d = d * min(DEL_HU, DEL_HV)
+    # Shallow outlined embossing, rather than solid raised block letters.
+    d = np.abs(d * min(DEL_HU, DEL_HV)) - 0.0008
     xb = B.x_rbump(np.abs(Y))
-    slab = np.maximum((xb - 0.0025) - X, X - (xb + 0.004))
+    slab = np.maximum((xb - 0.0008) - X, X - (xb + 0.003))
     return smax(d, slab, 0.0006)

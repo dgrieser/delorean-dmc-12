@@ -94,7 +94,8 @@ def x_nose(Z, yy=0.0):
 
 
 def x_tail(Z):
-    return -2.022 - (0.80 - Z) * 0.05 + 0.25 * np.maximum(Z - 0.590, 0.0)
+    # The fascia swells into a narrow rolled ledge above the bumper.
+    return -2.022 - (0.80 - Z) * 0.05 + 0.25 * np.maximum(Z - 0.590, 0.0) - 0.009*np.exp(-((Z-0.618)/0.022)**2)
 
 
 CORNER_R = 0.016             # the flanks meet the tail in a crisp vertical crease
@@ -374,12 +375,12 @@ def tail_band(Y, Z, grow=0.0):
     hz = 0.5 * (TL_Z[1] - TL_Z[0])
     s = (Z - TL_Z[0]) / (TL_Z[1] - TL_Z[0])
     half = TL_Y + (TL_Y_TOP - TL_Y) * np.clip(s, 0, 1)
-    return _rbox2(Y, Z - zc, half + grow, hz + grow, 0.018 + grow)
+    return _rbox2(Y, Z - zc, half + grow, hz + grow, 0.023 + grow)
 
 
 def tail_recess(X, Y, Z):
     r = tail_band(Y, Z)
-    depth = (x_tail(Z) + 0.03) - X
+    depth = (x_tail(Z) + 0.058) - X
     return np.maximum(r, -depth)
 
 
@@ -393,16 +394,6 @@ def bpillar_vents(X, Y, Z):
     slot = _rbox2(u, Z - BV_Z, BV_HU, BV_HZ, 0.022)
     depth = d_glass_side(X, yy, Z) + 0.03
     return np.maximum(slot, -depth)
-
-
-def rear_slots(X, Y, Z):
-    """Row of slots in the stainless strip between the rear bumper and the lower valance."""
-    yy = np.abs(Y)
-    u = np.mod(yy - 0.135 + 0.045, 0.090) - 0.045          # three slots each side of the exhaust
-    slots = np.maximum(_rbox2(u, Z - RB_SLOT_Z, 0.030, 0.0055, 0.004), np.abs(yy - 0.225) - 0.125)
-    slots = np.maximum(slots, -((x_tail(Z) + 0.012) - X))
-    outlets = _rbox2(Y + 0.003, Z - EXHAUST_Z, 0.090, 0.045, 0.018)
-    return np.minimum(slots, np.maximum(outlets, X + 1.90))
 
 
 COWL = (0.781, 0.66, 0.015)    # plenum between bonnet and windscreen: front edge (wrapped X), half-width, depth
@@ -430,8 +421,7 @@ def shell(X, Y, Z):
     d = smax(d, -cowl_recess(X, Y, Z), 0.004)
     d = smax(d, -arch_cyl(X, Y, Z), 0.006)
     d = smax(d, -nose_recesses(X, Y, Z), 0.007)          # the panel rolls into the lamp opening
-    d = smax(d, -tail_recess(X, Y, Z), 0.005)
-    d = smax(d, -rear_slots(X, Y, Z), 0.002)
+    d = smax(d, -tail_recess(X, Y, Z), 0.016)
     d = smax(d, -bpillar_vents(X, Y, Z), 0.004)
     return d
 
@@ -617,7 +607,7 @@ def r_quarter(X, Y, Z):
 FB_Z = (0.426, 0.528)          # front bumper bottom / top (a steel strip shows between the lamps and it)
 FB_X_SIDE = 1.825              # the front bumper wraps round the corners back to the nose panel's seam
 FB_X0 = 2.110
-RB_Z = (0.438, 0.590)         # rear photo 06: top/bottom projected onto the bumper plane
+RB_Z = (0.432, 0.590)         # rear photo 06: top/bottom projected onto the bumper plane
 RB_X_SIDE = TAIL_SEAM          # bumper and fascia meet the same flank seam
 RB_X0 = -2.092
 RB_SLOT_Z = 0.425              # centre of the slotted strip below the rear bumper
@@ -685,7 +675,7 @@ def rear_bumper(X, Y, Z):
     d_bot = bottom - Z
     d = smax(d_rear, d_side, 0.08)
     d = smax(d, d_top, 0.030)
-    d = smax(d, d_bot, 0.035)
+    d = smax(d, d_bot, 0.012)
     d = smax(d, d_front, 0.012)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_RA, ARCH_ZR, ARCH_R), 0.55 - yy), 0.006)
     # The reference's central twin outlets interrupt the bumper's lower edge.
@@ -699,33 +689,47 @@ RBUMP_BMIN = (-2.12, -0.99, 0.35)
 RBUMP_BMAX = (-1.80, 0.99, 0.62)
 
 
-def x_rear_valance(Z):
-    return x_tail(Z) + 0.025 + 0.20 * smoothstep(0.425, 0.323, Z)
+def rear_bumper_plan(X, Y, Z):
+    yy = np.abs(Y)
+    side = (yy - arch_flare(X, Z) - (w_crease(X)+0.008))*np.cos(TUCK) - np.minimum(Z-z_crease(X),0)*np.sin(TUCK)
+    return smax(smax(x_rbump(yy)-X, side, 0.08), X-RB_X_SIDE, 0.012)
+
+
+def rear_band(X, Y, Z):
+    """Thin silver band below the bumper, flush returns and six ventilation slots."""
+    plan = rear_bumper_plan(X,Y,Z)
+    skin = np.maximum(plan+0.006, -plan-0.016)
+    bottom = 0.411 - 0.014*smoothstep(0.60,0.84,np.abs(Y))
+    d = smax(skin, np.maximum(Z-0.437, bottom-Z), 0.003)
+    yy = np.abs(Y)
+    u = np.mod(yy-0.135+0.045,0.090)-0.045
+    slots = np.maximum(_rbox2(u,Z-RB_SLOT_Z,0.033,0.0055,0.004), np.abs(yy-0.225)-0.125)
+    outlets = _rbox2(Y+0.003,Z-EXHAUST_Z,0.092,0.046,0.018)
+    return smax(d,-np.minimum(slots,outlets),0.001)
+
+
+def x_rear_valance(Z, yy=0.0):
+    return x_rbump(yy) + 0.018 + 0.075*smoothstep(0.423,0.323,Z)
 
 
 def rear_valance(X, Y, Z):
-    """Black lower valance across the tail, under the slotted strip, with exhaust cut-outs."""
-    yy = np.abs(Y)
-    face_x = x_rear_valance(Z)
-    d = np.maximum(face_x - X, X - (face_x + 0.135))
-    d = smax(d, yy - (w_crease(X) - 0.03), 0.06)
-    # below the stainless strip in the middle; up behind the bumper round the corners
-    ztop = RB_SLOT_Z - 0.013 + 0.020 * smoothstep(0.62, 0.78, yy)
-    bottom = 0.323 + 0.050 * smoothstep(0.58, 0.82, yy)
-    d = smax(d, np.maximum(Z - ztop, bottom - Z), 0.014)
-    outlets = _rbox2(Y + 0.003, Z - EXHAUST_Z, 0.090, 0.045, 0.018)
-    # Two rounded reliefs expose the pipework below the outer ends of the slotted band.
-    relief = np.sqrt((yy - 0.535) ** 2 + (Z - 0.330) ** 2) - 0.042
-    d = smax(d, -np.minimum(outlets, relief), 0.005)
-    # A thin swept side apron continues to the rear wheel; it shares the steel
-    # quarter's lower edge instead of ending in a separate hanging block.
-    face = w_crease(X) - (z_crease(X) - Z) * np.tan(TUCK) - 0.006
-    skirt = np.maximum(yy - face, face - 0.035 - yy)
-    skirt = smax(skirt, np.maximum(Z - rear_lower_edge(X) - 0.003,
-                                  rear_lower_edge(X) - 0.045 - Z), 0.012)
-    skirt = smax(skirt, np.maximum(-1.96 - X, X + 1.48), 0.012)
-    skirt = smax(skirt, -arch_cyl(X, Y, Z, 0.008), 0.006)
-    return smin(d, skirt, 0.015)
+    """Moulded lower apron with a rolled bottom lip and swept quarter-panel returns."""
+    yy=np.abs(Y)
+    face_x=x_rear_valance(Z,yy)
+    d=np.maximum(face_x-X, X-face_x-0.045)
+    d=smax(d, yy-(w_crease(X)-0.025),0.035)
+    top=0.417-0.015*smoothstep(0.58,0.83,yy)
+    bottom=0.329+0.028*smoothstep(0.56,0.82,yy)
+    d=smax(d,np.maximum(Z-top,bottom-Z),0.012)
+    outlet=_rbox2(Y+0.003,Z-EXHAUST_Z,0.092,0.046,0.018)
+    relief=np.sqrt((yy-0.535)**2+(Z-0.340)**2)-0.055
+    d=smax(d,-np.minimum(outlet,relief),0.005)
+    face=w_crease(X)-(z_crease(X)-Z)*np.tan(TUCK)-0.006-0.014*smoothstep(0.38,0.26,Z)
+    skirt=np.maximum(yy-face,face-0.030-yy)
+    skirt=smax(skirt,np.maximum(Z-rear_lower_edge(X)+0.001,rear_lower_edge(X)-0.070-Z),0.021)
+    skirt=smax(skirt,np.maximum(-1.965-X,X+1.48),0.018)
+    skirt=smax(skirt,-arch_cyl(X,Y,Z,0.008),0.006)
+    return smin(d,skirt,0.020)
 
 
 RVAL_BMIN = (-2.10, -0.90, 0.22)

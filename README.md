@@ -52,6 +52,7 @@ tools/model/interior.py          seats, dash + binnacle, console, door cards, st
                                  pedals, shifter, handbrake, carpets, seals
 tools/model/engine.py            PRV V6 engine bay, front luggage compartment
 tools/model/build_edges.py       door edge walls, aperture jambs and rounded rubber seals
+tools/model/rear.py              rear fittings, lamp surrounds and visible running gear
 tools/model/wheels.py            Blender: procedural wheel assemblies, discs, calipers
 tools/model/wheels_pd.py         Blender: fits Peter_D's wheels and tyres into those assemblies
 tools/model/assemble.py          Blender: assembles all parts, pivots, bakes two AO sets
@@ -98,16 +99,18 @@ renders those directions). To check the model against the photos:
 python3 -m http.server 8123 &                        # from the repo root
 node tools/ref/shots.mjs /tmp/shots                  # the viewer from each photo's camera
 python3 tools/ref/compare.py /tmp/shots /tmp/cmp     # photo/render stacks and overlays
+node tools/ref/check_rear.mjs                       # rear parts, materials and lamp controls
 ```
 
 The reference car sits lower than a stock US car on low-profile tyres (wheel centres 271 / 298 mm
 above the floor); the model follows it (`STANCE` and `R_F` / `R_R` in `tools/model/body.py`, the
 tyre squash in `web/js/car.js`). It has the later bonnet without a fuel flap and Recaro seats; the
 model keeps the stock PRV V6 under its engine cover (the photographed car is turbocharged).
-Its nose and tail panels, round the lamps, are a darker grade of steel than the rest of the body,
-with seams on the flanks behind the corners (the bonnet ends at a split ahead of which the nose
-panel runs on to a brow over the lamps) (`r_nose` / `r_tail` in `body.py`, the `fascia` weight
-in `web/js/materials.js`); the bumpers and rear valance are graphite grey, with a darker satin
+The nose and tail panels have a darker finish than the stainless body, with seams on the
+flanks behind the corners. The bonnet ends at a split ahead of which the nose panel runs on
+to a brow over the lamps (`r_nose` / `r_tail` in `body.py`). The nose uses the `fascia` weight
+in `web/js/materials.js`; the rear fascia has a separate smooth satin paint material without
+brushed-steel grain. The bumpers and rear valance are graphite grey, with a darker satin
 finish on the air dam. At the front, the wing, lower steel strip and air dam share a continuous
 rising edge (`front_lower_edge` in `body.py`); the nose cheeks slope forward beneath the rounded
 brow, and the recessed chin has rolled corners. These profiles follow the side and front
@@ -118,13 +121,25 @@ speaker recesses and aperture seals. Their visible gas struts track both mountin
 through the full opening motion. Roof panel corners share the same rounded outline in the
 skin, trim and jambs. Rear bumper and vent-strip heights follow the calibrated low rear view;
 the twin exhausts pass through a shared central cutout, with the engine and frame exposed
-underneath. Each louvre blade is a continuous solid, and its surfaces use shorter triangles
+underneath. Each louvre blade is a continuous, slightly crowned solid. The rear grilles have cross braces
+and perimeter lips. Their surfaces use shorter triangles
 for the vertex AO bake so shadows do not break into large triangular patches.
 The rear quarter windows follow straight rails with rounded tips and blend into a curved
 shoulder. The tail-panel seams have a consistent rake and a slight convex bow. The front
 bumper and steel strip are level across the car, with sloping side returns. The lower rear
-apron follows the quarter-panel edge before
-sloping forward underneath. The front intake uses a square wire alpha mask, with a recessed
+apron follows the quarter-panel edge, with a rolled bottom, hose reliefs and a separate seal.
+The thin silver band below the bumper has six rounded slots and a central exhaust cutout.
+Rear lamps have separate gaskets, raised bezels, recessed fluted lenses and reflector bowls.
+The plate cassette includes raised pads, a border, fasteners and downward-facing lamps that
+follow the parking lights. The bumper lettering has a shallow moulded border.
+
+`tools/model/rear.py` adds the visible underside fittings from studio views 05/06: a ribbed
+casting and sump, pulley faces and belt, engine-cradle plates, suspension links, dampers,
+springs, corrugated driveshaft boots and braided hoses with blue fittings. These are visual
+reconstructions of the exposed parts; the upper engine remains the stock PRV model. Engine
+castings and pipes are no longer clipped at the body floor. Louvre perimeter seals and
+fasteners move with the engine cover. The underside is an open perimeter return, so the gaps
+between blades show the rear window and engine bay rather than an opaque backing pan. The front intake uses a square wire alpha mask, with a recessed
 radiator and retaining rails; its transparent proxy is excluded from the solid AO bake.
 
 ## Credits

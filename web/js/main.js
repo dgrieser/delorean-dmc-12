@@ -84,7 +84,9 @@ async function init() {
     if (o.isMesh && INTERIOR.test(o.name)) o.userData.interior = true;
     if (o.isMesh) {
       const tr = o.material.transparent || o.material.transmission > 0;
-      o.castShadow = !tr && !(o.material.name || '').startsWith('Lamp');
+      // Tiny plate housings use baked contact shadows; shadow-map texels turn them into
+      // oversized black blocks across the lettering.
+      o.castShadow = !tr && !(o.material.name || '').startsWith('Lamp') && o.name !== 'plate_lights';
       o.receiveShadow = true;
     }
   });
@@ -122,9 +124,8 @@ async function init() {
     const g = o.geometry, P = g.attributes.position, N = g.attributes.normal, n = P.count;
     const M = o.matrixWorld, Mi = new THREE.Matrix4().copy(M).invert();
     const ax = new THREE.Vector3(1, 0, 0).transformDirection(Mi), az = new THREE.Vector3(0, 0, 1).transformDirection(Mi);
-    // the nose and tail panels are a darker grade of steel than the rest (materials.js), the tail's
-    // a shade lighter than the nose's
-    const fascia = new Float32Array(n).fill({ nose: 1, tail: 0.6 }[o.name] || 0);
+    // The nose uses a finish mask; the rear fascia has its own smooth painted material.
+    const fascia = new Float32Array(n).fill(o.name === 'nose' ? 1 : 0);
     const uv = new Float32Array(n * 2), tan = new Float32Array(n * 4);
     const p = new THREE.Vector3(), nn = new THREE.Vector3(), nw = new THREE.Vector3(), t = new THREE.Vector3();
     for (let i = 0; i < n; i++) {

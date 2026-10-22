@@ -52,7 +52,7 @@ def fixed(X, Y, Z):
     d = smax(d, -front, 0.004)
     # The lower rear apron owns this surface; do not leave a second steel wall
     # behind its exhaust opening and curved lower edge.
-    rear = np.maximum(X - B.x_tail_seam(Z), Z - (B.RB_SLOT_Z - 0.014))
+    rear = np.maximum(X - B.x_tail_seam(Z), Z - (B.RB_Z[0] + 0.009))
     d = smax(d, -rear, 0.004)
     # Open underside of the engine bay; the fixed shell must not leave a steel
     # floor crossing the crankcase when the rear apron is viewed from below.
@@ -81,16 +81,17 @@ PARTS = {
     'rocker': (B.rocker, B.ROCKER_BMIN, B.ROCKER_BMAX, False),
     'airdam': (B.airdam, B.AIRDAM_BMIN, B.AIRDAM_BMAX, False),
     'fstrip': (B.front_strip, B.FSTRIP_BMIN, B.FSTRIP_BMAX, False),
+    'rear_band': (B.rear_band, (-2.14, -0.94, 0.38), (-1.84, 0.94, 0.46), False),
     'rvalance': (B.rear_valance, B.RVAL_BMIN, B.RVAL_BMAX, False),
 }
 
 
 BUDGET = {'body': 240000, 'hood': 40000, 'nose': 30000, 'tail': 30000, 'bumper_f': 40000, 'bumper_r': 42000, 'rocker': 10000, 'lid_skin': 1000,
-          'door_L': 45000, 'door_R': 45000, 'airdam': 24000, 'rvalance': 6000, 'fstrip': 12000}
+          'door_L': 45000, 'door_R': 45000, 'airdam': 24000, 'rvalance': 16000, 'fstrip': 12000}
 
 
 # Split long triangles on panels and bumper bands so baked AO cannot smear across an edge.
-SPLIT = {'body', 'door_L', 'door_R', 'hood', 'nose', 'tail', 'fstrip', 'bumper_f', 'bumper_r', 'airdam'}
+SPLIT = {'body', 'door_L', 'door_R', 'hood', 'nose', 'tail', 'fstrip', 'rvalance', 'rear_band', 'bumper_f', 'bumper_r', 'airdam'}
 
 
 def build(name, reduction=0.86):

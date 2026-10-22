@@ -103,6 +103,57 @@ function prismNormal() {
   }, { repeat: [40, 40] });
 }
 
+// Moulded rear lenses: broad vertical flutes crossed by finer horizontal ribs.
+function rearLensNormal() {
+  return canvasTex(256, 256, (g, w, h) => {
+    const img = g.createImageData(w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const nx = Math.sin((x / 32 % 1 - 0.5) * Math.PI) * 0.65;
+      const ny = Math.sin((y / 16 % 1 - 0.5) * Math.PI) * 0.35;
+      const i = (y * w + x) * 4;
+      img.data[i] = (nx * 0.5 + 0.5) * 255;
+      img.data[i + 1] = (ny * 0.5 + 0.5) * 255;
+      img.data[i + 2] = 240; img.data[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+  }, { repeat: [20, 20] });
+}
+
+function braidNormal() {
+  return canvasTex(128, 128, (g, w, h) => {
+    const img = g.createImageData(w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const a = Math.sin((x + y) * Math.PI / 16), b = Math.sin((x - y) * Math.PI / 16);
+      const i = (y * w + x) * 4;
+      img.data[i] = 128 + 45 * (a + b); img.data[i + 1] = 128 + 45 * (a - b);
+      img.data[i + 2] = 240; img.data[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+  });
+}
+
+// Subtle mottling on exposed cast aluminium; deterministic and seamless.
+function castColor() {
+  return canvasTex(256, 256, (g, w, h) => {
+    const img = g.createImageData(w, h);
+    const hash = (x, y, n) => {
+      const v = Math.sin((x % n) * 127.1 + (y % n) * 311.7) * 43758.5453;
+      return v - Math.floor(v);
+    };
+    const noise = (x, y, n) => {
+      const ix = Math.floor(x), iy = Math.floor(y);
+      let u = x - ix, v = y - iy; u = u*u*(3-2*u); v = v*v*(3-2*v);
+      return (hash(ix,iy,n)*(1-u)+hash(ix+1,iy,n)*u)*(1-v) +
+        (hash(ix,iy+1,n)*(1-u)+hash(ix+1,iy+1,n)*u)*v;
+    };
+    for (let y=0; y<h; y++) for (let x=0; x<w; x++) {
+      const c=207+30*noise(x/w*4,y/h*4,4)+15*noise(x/w*16,y/h*16,16), i=(y*w+x)*4;
+      img.data[i]=c; img.data[i+1]=c; img.data[i+2]=c-3; img.data[i+3]=255;
+    }
+    g.putImageData(img,0,0);
+  }, { srgb: true });
+}
+
 function decalCanvas(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   draw(c.getContext('2d'), w, h);
@@ -339,13 +390,25 @@ export function createLibrary(opts = {}) {
     name: 'Urethane', color: lin(0.052, 0.057, 0.080), metalness: 0, roughness: 0.55,
     normalMap: grainN, normalScale: new THREE.Vector2(0.2, 0.2), clearcoat: 0.35, clearcoatRoughness: 0.35,
   });
+  // Smooth painted rear fascia, distinct from the brushed stainless quarters.
+  lib.FasciaPaint = new THREE.MeshPhysicalMaterial({ name: 'FasciaPaint', color: lin(0.52, 0.53, 0.54),
+    metalness: 0.95, roughness: 0.28, clearcoat: 0.2, clearcoatRoughness: 0.3 });
+  lib.TailFrame = new THREE.MeshPhysicalMaterial({ name: 'TailFrame', color: lin(0.026, 0.028, 0.030),
+    roughness: 0.38, clearcoat: 0.25, clearcoatRoughness: 0.3 });
+  lib.Lamp_RearRefl = new THREE.MeshStandardMaterial({ name: 'Lamp_RearRefl', color: lin(0.65, 0.64, 0.60), metalness: 1, roughness: 0.27 });
+  lib.FrameCoat = new THREE.MeshStandardMaterial({ name: 'FrameCoat', color: lin(0.085, 0.090, 0.092), metalness: 0.25, roughness: 0.62 });
+  lib.BraidedMetal = triplanar(new THREE.MeshStandardMaterial({ name: 'BraidedMetal', color: lin(0.36, 0.35, 0.32), metalness: 0.8, roughness: 0.58 }),
+    { normal: braidNormal(), scale: 80, normalScale: 0.65 });
+  lib.AnodizedBlue = new THREE.MeshStandardMaterial({ name: 'AnodizedBlue', color: lin(0.018, 0.12, 0.20), metalness: 0.75, roughness: 0.3 });
+  lib.PlateLight = new THREE.MeshPhysicalMaterial({ name: 'PlateLight', color: lin(0.72, 0.65, 0.46), roughness: 0.25,
+    emissive: lin(1, 0.80, 0.48), emissiveIntensity: 0 });
   lib.Rubber = new THREE.MeshStandardMaterial({ name: 'Rubber', color: lin(0.010, 0.010, 0.011), roughness: 0.78 });
   lib.PlasticBlack = new THREE.MeshPhysicalMaterial({ name: 'PlasticBlack', color: lin(0.012, 0.012, 0.013), roughness: 0.42, clearcoat: 0.15, clearcoatRoughness: 0.4, side: THREE.DoubleSide });
   // The chin spoiler has a satin moulded finish: broad highlights reveal its rolled cheeks.
   lib.AirDam = new THREE.MeshPhysicalMaterial({ name: 'AirDam', color: lin(0.020, 0.022, 0.029), roughness: 0.30,
     clearcoat: 0.25, clearcoatRoughness: 0.30, envMapIntensity: 1.3, side: THREE.DoubleSide });
   lib.PlasticMatte = new THREE.MeshStandardMaterial({ name: 'PlasticMatte', color: lin(0.024, 0.024, 0.026), roughness: 0.8, side: THREE.DoubleSide });
-  lib.Louvre = new THREE.MeshPhysicalMaterial({ name: 'Louvre', color: lin(0.045, 0.048, 0.050), roughness: 0.48,
+  lib.Louvre = new THREE.MeshPhysicalMaterial({ name: 'Louvre', color: lin(0.045, 0.048, 0.050), roughness: 0.32,
     clearcoat: 0.25, clearcoatRoughness: 0.4, side: THREE.DoubleSide });
   lib.Glass = new THREE.MeshPhysicalMaterial({
     name: 'Glass', color: lin(0.86, 0.90, 0.88), metalness: 0, roughness: 0.0, transmission: 1, thickness: 0.0,
@@ -387,6 +450,12 @@ export function createLibrary(opts = {}) {
   lib.Lamp_Tail = lens('Lamp_Tail', [0.22, 0.006, 0.005], [1.0, 0.02, 0.01]);
   lib.Lamp_MarkerRear = lens('Lamp_MarkerRear', [0.16, 0.006, 0.005], [1.0, 0.02, 0.01]);
   lib.Lamp_Reverse = lens('Lamp_Reverse', [0.42, 0.42, 0.42], [1.0, 0.97, 0.92], { attenuationDistance: 1 });
+
+  const rearOptics = rearLensNormal();
+  for (const k of ['Lamp_TurnRear', 'Lamp_Tail', 'Lamp_Reverse']) {
+    lib[k].normalMap = rearOptics; lib[k].normalScale.set(0.35, 0.35);
+    lib[k].roughness = 0.14;
+  }
 
   // wheels (names from tools/model/wheels.py)
   lib.Tyre_Rubber = new THREE.MeshPhysicalMaterial({ name: 'Tyre_Rubber', color: lin(0.018, 0.018, 0.019), roughness: 0.86, sheen: 0.15, sheenRoughness: 0.8, sheenColor: lin(0.2, 0.2, 0.2) });
@@ -435,11 +504,13 @@ export function createLibrary(opts = {}) {
   triplanar(lib.Urethane, { normal: grainN, scale: 8, normalScale: 0.35 });
   lib.Urethane.normalMap = null;
   triplanar(lib.PlasticBlack, { normal: grainN, scale: 9, normalScale: 0.3 });
+  triplanar(lib.Louvre, { normal: grainN, scale: 9, normalScale: 0.15 });
   triplanar(lib.PlasticMatte, { normal: grainN, scale: 6, normalScale: 0.4 });
 
   // engine bay
-  lib.EngineAlu = triplanar(new THREE.MeshStandardMaterial({ name: 'EngineAlu', color: lin(0.36, 0.36, 0.35), metalness: 1, roughness: 0.62 }), { normal: grainN, scale: 14, normalScale: 0.5 });
-  lib.CastAlu = triplanar(new THREE.MeshStandardMaterial({ name: 'CastAlu', color: lin(0.56, 0.56, 0.55), metalness: 1, roughness: 0.48 }), { normal: grainN, scale: 18, normalScale: 0.6 });
+  const castC = castColor();
+  lib.EngineAlu = triplanar(new THREE.MeshStandardMaterial({ name: 'EngineAlu', color: lin(0.36, 0.36, 0.35), metalness: 1, roughness: 0.62 }), { normal: grainN, color: castC, scale: 14, normalScale: 0.5 });
+  lib.CastAlu = triplanar(new THREE.MeshStandardMaterial({ name: 'CastAlu', color: lin(0.56, 0.56, 0.55), metalness: 1, roughness: 0.48 }), { normal: grainN, color: castC, scale: 18, normalScale: 0.6 });
   lib.RustyIron = triplanar(new THREE.MeshStandardMaterial({ name: 'RustyIron', color: lin(0.16, 0.075, 0.035), metalness: 0.4, roughness: 0.9 }), { normal: grainN, scale: 10, normalScale: 1.0 });
   lib.RedPaint = new THREE.MeshPhysicalMaterial({ name: 'RedPaint', color: lin(0.42, 0.015, 0.01), roughness: 0.3, clearcoat: 0.6 });
   lib.Decal_Airbox = new THREE.MeshStandardMaterial({ name: 'Decal_Airbox', map: decalAirbox(), roughness: 0.45, metalness: 0.1 });
@@ -453,14 +524,16 @@ export function createLibrary(opts = {}) {
   thinGlass(lib.Glass, 0.30); lib.Glass.color = lin(0.035, 0.032, 0.026); lib.Glass.side = THREE.FrontSide;
   thinGlass(lib.Lamp_HeadLens, 0.05); lib.Lamp_HeadLens.side = THREE.FrontSide;      // clear: the chrome reflectors show
   for (const k of ['Lamp_TurnFront', 'Lamp_MarkerFront', 'Lamp_TurnRear', 'Lamp_Tail', 'Lamp_MarkerRear', 'Lamp_Reverse', 'Lamp_Courtesy']) thinGlass(lib[k], 0.82);
+  for (const k of ['Lamp_TurnRear', 'Lamp_Tail']) lib[k].opacity = 0.97;
   lib.Lamp_TurnFront.opacity = 0.75;     // the reflector shows through the front indicators
   // AO strength per material (open steel panels bake to ~1, so this mostly darkens gaps, arches and the strip's shadow)
   // (the lamp reflectors bake deep inside their bowls, but light reaches them through the glass)
-  const aoStr = { Stainless: 0.6, Urethane: 0.6, AirDam: 0.45, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5, Lamp_HeadRefl: 0.1 };
+  const aoStr = { Stainless: 0.6, Urethane: 0.6, AirDam: 0.45, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5, Lamp_HeadRefl: 0.1, Lamp_RearRefl: 0.1, FasciaPaint: 0.5, TailFrame: 0.5, FrameCoat: 0.7, Decal_Plate: 0.15 };
   for (const [k, v] of Object.entries(aoStr)) lib[k].userData.aoStr = { value: v };
+  lib.Decal_Plate.userData.aoDirect = { value: 0 };
   lib.Stainless.userData.aoDirect = { value: 0.85 };
-  // the nose and tail panels (separate pieces round the lamps, with seams on the flanks): a darker,
-  // slightly duller grade of brushed steel than the wings, doors and bonnet in the photos
+  // The nose retains its darker finish through the fascia vertex mask. The rear fascia
+  // uses its own smooth painted material; the wings, doors and bonnet remain brushed steel.
   lib.Stainless.userData.fascia = { tint: new THREE.Color().setRGB(0.62, 0.62, 0.62, THREE.LinearSRGBColorSpace), rough: 1.12 };
   // the cabin sits under a roof: far less of the studio's light reaches it than the bake captures
   for (const k of ['Leather', 'LeatherBlack', 'Vinyl', 'Carpet', 'Headliner']) { lib[k].userData.aoPow = { value: 2.2 }; lib[k].envMapIntensity = 0.5; }

@@ -68,7 +68,7 @@ export class Lamps {
     const find = n => { let r = null; root.traverse(o => { if (!r && o.isMesh && o.name === n) r = o; }); return r || root.getObjectByName(n); };
     // split shared-material meshes into sides
     this.mats = {};
-    for (const name of ['turn_front', 'marker_front', 'tl_turn', 'marker_rear', 'hl_bulb_Lo', 'hl_bulb_Hi', 'tl_tail', 'tl_rev', 'courtesy_L', 'courtesy_R', 'courtesy_rear_L', 'courtesy_rear_R']) {
+    for (const name of ['turn_front', 'marker_front', 'tl_turn', 'marker_rear', 'hl_bulb_Lo', 'hl_bulb_Hi', 'tl_tail', 'tl_rev', 'plate_lenses', 'courtesy_L', 'courtesy_R', 'courtesy_rear_L', 'courtesy_rear_R']) {
       const m = find(name);
       if (!m || !m.isMesh) continue;
       if (name.startsWith('courtesy')) { m.material = m.material.clone(); this.mats[name] = m.material; continue; }
@@ -176,6 +176,7 @@ export class Lamps {
     const tail = park * 0.7 + brk * 3.2;
     set('tl_tail_L', tail); set('tl_tail_R', tail);
     set('tl_rev_L', rev * 4); set('tl_rev_R', rev * 4);
+    set('plate_lenses_L', park * 3); set('plate_lenses_R', park * 3);
     this.lights.tailL.intensity = this.lights.tailR.intensity = park * 0.25 + brk * 1.6;
     this.lights.revL.intensity = this.lights.revR.intensity = rev * 3.5;
     this.lights.turnFL.intensity = tL * 1.6 + park * 0.08; this.lights.turnFR.intensity = tR * 1.6 + park * 0.08;

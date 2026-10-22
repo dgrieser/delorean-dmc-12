@@ -4,6 +4,7 @@ import numpy as np
 from extract import extract, finish4
 import body as B
 import details as D
+import rear as R
 
 OUT = os.environ.get('OUT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out'))
 os.makedirs(OUT, exist_ok=True)
@@ -54,7 +55,7 @@ PARTS = HLs + [
     P('tl_turn', lambda X, Y, Z: D.tail_cells(X, Y, Z, 'Turn'), (-2.04, 0.60, 0.65), (-1.90, 0.75, 0.81), 0.0016, 0.5, True),
     P('tl_tail', lambda X, Y, Z: D.tail_cells(X, Y, Z, 'Tail'), (-2.04, 0.33, 0.65), (-1.90, 0.62, 0.81), 0.0018, 0.7, True, 1),
     P('tl_rev', lambda X, Y, Z: D.tail_cells(X, Y, Z, 'Reverse'), (-2.04, 0.27, 0.65), (-1.90, 0.35, 0.81), 0.0016, 0.5, True),
-    P('plate', D.licence_plate, (-2.05, -0.17, 0.66), (-1.90, 0.17, 0.83), 0.0012, 0.5),
+    P('plate', D.licence_plate, (-2.05, -0.17, 0.65), (-1.90, 0.17, 0.83), 0.0012, 0.5),
     P('tl_housing', D.tail_housing, (-2.04, -0.76, 0.64), (-1.90, 0.76, 0.815), 0.002, 0.8, False, 1),
     P('lid_frame', D.lid_frame, (-1.94, -0.62, 0.76), (-0.89, 0.62, 1.15), 0.003, 0.8, False, 1),
     P('lid_slats', D.lid_slats, (-1.93, -0.60, 0.82), (-0.90, 0.60, 1.15), 0.002, 0.85, False, 1),
@@ -66,21 +67,51 @@ PARTS = HLs + [
     P('mirror_glass_R', lambda X, Y, Z: D.mirror_glass(X, Y, Z, -1), (0.22, -1.00, 0.75), (0.45, -0.76, 0.89), 0.0015, 0.5),
     P('liner_f', lambda X, Y, Z: D.well_liner(X, Y, Z, True), (0.82, 0.50, 0.22), (1.60, 0.93, 0.70), 0.004, 0.8, True),
     P('liner_r', lambda X, Y, Z: D.well_liner(X, Y, Z, False), (-1.62, 0.50, 0.24), (-0.79, 0.94, 0.77), 0.004, 0.8, True),
-    P('rear_frame', D.rear_frame, (-1.95, -0.80, 0.17), (-0.55, 0.80, 0.46), 0.004, 0.8),
-    P('driveshafts', D.driveshafts, (-1.30, -0.70, 0.27), (-1.11, 0.70, 0.42), 0.003, 0.7),
+    P('rear_frame', R.frame, (-1.95, -0.80, 0.17), (-0.55, 0.80, 0.52), 0.004, 0.8),
+    P('driveshafts', R.driveshafts, (-1.30, -0.70, 0.27), (-1.11, 0.70, 0.42), 0.003, 0.7),
     P('underbody', D.underbody, (-2.0, -0.9, 0.19), (2.04, 0.9, 0.29), 0.006, 0.9),
     P('cowl_vent', D.cowl_vent, (0.60, -0.74, 0.80), (0.80, 0.74, 0.92), 0.0016, 0.6),
     P('antenna', D.antenna_mast, (0.64, -0.87, 0.78), (0.78, -0.78, 1.61), 0.0007, 0.6, False, 1),
     P('antenna_base', D.antenna_base, (0.74, -0.82, 0.77), (0.79, -0.77, 0.83), 0.0008, 0.6),
     P('exhaust', D.exhaust, (-2.14, -0.42, 0.34), (-1.89, 0.42, 0.57), 0.002, 0.8),
-    P('rear_fasteners', D.rear_fasteners, (-2.10, -0.72, 0.31), (-1.78, 0.72, 0.82), 0.0015, 0.6),
-    P('plate_lights', D.plate_lights, (-2.07, -0.18, 0.80), (-1.90, 0.18, 0.86), 0.002, 0.6),
+    P('rear_fasteners', lambda X,Y,Z: np.maximum(R.fasteners(X,Y,Z),.64-Z), (-2.10, -0.72, 0.31), (-1.78, 0.72, 0.82), 0.0015, 0.6),
+    P('plate_lights', R.plate_lights, (-2.07, -0.18, 0.79), (-1.90, 0.18, 0.86), 0.002, 0.6),
     P('rear_slot_back', D.rear_slot_back, (-2.08, -0.36, 0.415), (-1.97, 0.36, 0.435), 0.0015, 0.6),
     P('sill_details', D.sill_details, (-0.80, 0.78, 0.16), (0.70, 0.92, 0.23), 0.0015, 0.6, True),
     P('door_handle_L', lambda X, Y, Z: D.door_handle(X, Y, Z, 1), (-0.62, 0.86, 0.49), (-0.42, 0.95, 0.57), 0.0012, 0.6),
     P('door_handle_R', lambda X, Y, Z: D.door_handle(X, Y, Z, -1), (-0.62, -0.95, 0.49), (-0.42, -0.86, 0.57), 0.0012, 0.6),
     P('bumper_letters', D.bumper_letters, (-2.11, 0.24, 0.48), (-2.04, 0.76, 0.555), 0.0008, 0.6),
 ]
+
+PARTS += [
+    P('tl_bezel',D.tail_bezel,(-2.06,-.76,.64),(-1.89,.76,.82),.0015,.6),
+    P('tl_gasket',D.tail_gasket,(-2.06,-.76,.64),(-1.89,.76,.82),.0015,.6),
+    P('tl_reflectors',D.tail_reflectors,(-2.04,.27,.65),(-1.88,.75,.81),.0016,.6,True),
+    P('plate_border',R.plate_border,(-2.05,-.16,.65),(-1.90,.16,.81),.0012,.6),
+    P('plate_lenses',R.plate_lenses,(-2.06,-.16,.79),(-1.90,.16,.81),.0012,.6),
+    P('rear_lower_fasteners',lambda X,Y,Z: np.maximum(R.fasteners(X,Y,Z),Z-.5),(-2.10,-.72,.31),(-1.78,.72,.5),.0012,.6),
+    P('rear_bumper_seal',R.bumper_seal,(-2.12,-.90,.585),(-1.87,.90,.596),.0015,.6),
+    P('rear_apron_seal',R.apron_seal,(-1.97,-.90,.29),(-1.56,.90,.41),.0015,.6),
+    P('rear_timing_cover',R.timing_cover,(-1.96,-.26,.22),(-1.82,.26,.58),.0025,.6),
+    P('rear_sump',R.sump_details,(-1.80,-.18,.19),(-1.34,.18,.27),.002,.6),
+    P('rear_pulleys',R.pulleys,(-2.0,-.31,.24),(-1.93,.31,.58),.0015,.6),
+    P('rear_belt',R.belt,(-1.99,-.31,.24),(-1.94,.31,.58),.0015,.6),
+    P('rear_mechanical_bolts',R.mechanical_bolts,(-2.01,-.40,.24),(-1.84,.40,.57),.0015,.6),
+    P('rear_suspension',R.suspension,(-1.53,-.76,.24),(-.63,.76,.52),.003,.6),
+    P('rear_dampers',R.dampers,(-1.32,-.67,.25),(-1.22,.67,.57),.002,.6),
+    P('rear_damper_rods',R.damper_rods,(-1.29,-.65,.48),(-1.25,.65,.70),.002,.6),
+    P('rear_springs',R.springs,(-1.33,.56,.33),(-1.21,.69,.67),.002,.7,True),
+    P('rear_hoses',R.braided_hoses,(-2.04,-.56,.28),(-1.85,.56,.40),.002,.7),
+    P('rear_hose_fittings',R.hose_fittings,(-2.02,-.57,.27),(-1.85,.57,.40),.0018,.6),
+    P('exhaust_liners',R.exhaust_liners,(-2.13,-.09,.35),(-1.97,.09,.44),.0012,.7),
+    P('rear_logo_border',R.logo_border,(-2.12,.26,.48),(-2.03,.73,.56),.0012,.6),
+    P('lid_fasteners',R.louvre_fasteners,(-1.91,-.61,.87),(-.91,.61,1.12),.0015,.6),
+    P('lid_seal',R.lid_seal,(-1.95,-.60,.85),(-.89,.60,1.12),.002,.6),
+]
+BUDGET.update({'tl_bezel':30000,'tl_gasket':8000,'tl_reflectors':30000,'rear_timing_cover':18000,
+               'rear_pulleys':14000,'rear_suspension':16000,'rear_springs':18000,'rear_frame':16000,
+               'rear_sump':10000,'rear_hoses':16000})
+
 
 
 def build(p):
