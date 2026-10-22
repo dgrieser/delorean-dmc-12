@@ -90,12 +90,7 @@ def x_nose(Z, yy=0.0):
     # this surface back, exposing the centre of the brow as a hook in the side silhouette.
     cheek = smoothstep(0.66, 0.75, yy) * cubic_interp(
         Z, [0.54, 0.60, 0.65, 0.68], [0.030, 0.040, 0.045, 0.0])
-    face = NOSE_EDGE[0] - NOSE_EDGE[1] * (yy / 0.736) ** 2 + (0.672 - np.maximum(Z, 0.540)) * rake + cheek
-    # The fascia turns forward below the sealed beams into a continuous ledge above
-    # the bumper (studio 01/04). Keep the cheeks' measured rake above this return.
-    lip = smoothstep(0.595, 0.540, Z) * smoothstep(0.518, 0.533, Z)
-    edge = x_fbump(yy) - 0.012 + 0.015 * smoothstep(0.66, 0.78, yy)
-    return face + (edge - face) * lip
+    return NOSE_EDGE[0] - NOSE_EDGE[1] * (yy / 0.736) ** 2 + (0.672 - np.maximum(Z, 0.540)) * rake + cheek
 
 
 def x_tail(Z):
@@ -234,11 +229,7 @@ def arch_flare(X, Z):
 
 def flanks(X, Y, Z):
     """Crease line, tumblehome above it, tuck-under below it, and the side-glass plane on top."""
-    # Carry the fascia's lower ledge around the cheeks to the flank seam. The
-    # rounded return is above the bumper, not a second strip attached to it.
-    nose_lip = (0.010 * smoothstep(1.815, 1.850, X)
-                * smoothstep(0.568, 0.543, Z) * smoothstep(0.520, 0.534, Z))
-    yy = np.abs(Y) - arch_flare(X, Z) - nose_lip
+    yy = np.abs(Y) - arch_flare(X, Z)
     zc, wc, a = z_crease(X), w_crease(X), lean_up(X)
     t = np.maximum(Z - zc, 0.0)
     d_su = (yy - (wc - t * np.tan(a) - CONVEX * t * t)) * np.cos(a)
@@ -247,10 +238,22 @@ def flanks(X, Y, Z):
     return smax(d, d_glass_side(X, yy, Z), 0.010)          # beltline
 
 
+def nose_plan(X, Y, Z):
+    """Blend the fascia's lower return into the bumper's shared perimeter.
+
+    Separate front offsets and corner radii leave a step between the two parts.
+    The small inset follows the bumper's rolled top edge, with a narrow seam.
+    """
+    plan = smax(flanks(X, Y, Z), (X - x_nose(Z, np.abs(Y))) * 0.985, corner_r(X))
+    lip = (smoothstep(0.595, 0.540, Z) * smoothstep(0.518, 0.528, Z)
+           * smoothstep(1.78, 1.815, X))
+    return plan * (1 - lip) + (front_bumper_plan(X, Y, FB_Z[1]) + 0.0045) * lip
+
+
 def lower_body(X, Y, Z):
     """Kept for the parts that clip against the old lower body: flanks + deck/bonnet top + ends."""
     yy = np.abs(Y)
-    d = smax(flanks(X, Y, Z), (X - x_nose(Z, yy)) * 0.985, corner_r(X))
+    d = nose_plan(X, Y, Z)
     d = smax(d, (x_tail(Z) - X) * 0.999, CORNER_R)
     d = smax(d, (Z - (z_top_c(X) - crown(X, yy))) * 0.994, 0.009)
     return smax(d, z_bot(X, yy) - Z, 0.015)
@@ -258,7 +261,7 @@ def lower_body(X, Y, Z):
 
 def body_solid(X, Y, Z):
     yy = np.abs(Y)
-    plan = smax(flanks(X, Y, Z), (X - x_nose(Z, yy)) * 0.985, corner_r(X))
+    plan = nose_plan(X, Y, Z)
     plan = smax(plan, (x_tail(Z) - X) * 0.999, CORNER_R)
     top = smin((Z - (z_top_c(X) - crown(X, yy))) * 0.994, cabin_top(X, Y, Z), 0.012)
     # the nose panel's brow over the lamps is rolled a little rounder than the shoulders
@@ -478,9 +481,9 @@ def x_nose_seam(Z):
 
 def r_nose(X, Y, Z):
     # ahead of the flank seams and the bonnet's split (the split runs on into the seams)
-    # Finish above the bumper: extending this skin down behind its top lets the raked
-    # cheeks protrude over the bumper's face at the corners.
-    d = np.maximum(x_nose_seam(Z) - X, (FB_Z[1] + 0.003) - Z)
+    # The shell extractor adds its panel gap here. This leaves a hairline seam at
+    # the bumper top, with both parts following the same corner perimeter.
+    d = np.maximum(x_nose_seam(Z) - X, (FB_Z[1] - 0.002) - Z)
     return np.maximum(d, -r_hood(X, Y, Z))
 
 
@@ -574,20 +577,26 @@ def x_fbump(yy):
     return FB_X0 - 0.10 * (yy / 0.85) ** 2
 
 
-def front_bumper(X, Y, Z):
+def front_bumper_plan(X, Y, Z):
+    """Shared front/side outline for the bumper and the fascia edge above it."""
     yy = np.abs(Y)
     wc = w_crease(X)
     zc = z_crease(X)
-    xb = x_fbump(yy)
-    d_front = X - xb
+    d_front = X - x_fbump(yy)
     # the sides run back flush with the nose panel to its seam (side photo)
     d_side = (yy - arch_flare(X, Z) - (wc + 0.006)) * np.cos(TUCK) - np.minimum(Z - zc, 0) * np.sin(TUCK)
+    return smax(d_front, d_side, 0.13)
+
+
+def front_bumper(X, Y, Z):
+    yy = np.abs(Y)
+    xb = x_fbump(yy)
     d_top = Z - FB_Z[1]
     # The visible side end tapers upwards towards the front, rather than forming a box.
     bottom = FB_Z[0] + 0.010 * smoothstep(1.83, 2.03, X) * smoothstep(0.60, 0.78, yy)
     d_bot = bottom - Z
     d_back = FB_X_SIDE - X
-    d = smax(d_front, d_side, 0.13)
+    d = front_bumper_plan(X, Y, Z)
     d = smax(d, d_top, 0.018)
     d = smax(d, d_bot, 0.038)
     d = smax(d, d_back, 0.012)
