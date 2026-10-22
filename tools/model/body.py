@@ -68,8 +68,10 @@ def z_top_c(X):
 
 
 def crown(X, yy):
-    # the bonnet and wings are well domed across (antenna base and bonnet corners, calibrated views)
-    k = interp(X, [-2.2, 0.45, 0.75, 2.2], [0.010, 0.010, 0.050, 0.050])
+    # the bonnet and wings are well domed across at the scuttle (antenna base, calibrated views)
+    # and flatten towards the nose, whose brow stays level over the lamps (bonnet-corner landmarks
+    # at X 1.932: 5 mm below the centreline)
+    k = interp(X, [-2.2, 0.45, 0.75, 1.30, 1.93], [0.010, 0.010, 0.050, 0.040, 0.008])
     return k * (yy / 0.85) ** 2
 
 
@@ -88,7 +90,12 @@ def x_tail(Z):
     return -2.022 - (0.80 - Z) * 0.05
 
 
-CORNER_R = 0.016             # the flanks meet nose and tail in crisp vertical creases
+CORNER_R = 0.016             # the flanks meet the tail in a crisp vertical crease
+NOSE_CORNER_R = 0.08         # the nose panel wraps round its corners without a fold (front photo)
+
+
+def corner_r(X):
+    return CORNER_R + (NOSE_CORNER_R - CORNER_R) * smoothstep(1.0, 1.5, X)
 
 
 def z_bot(X, yy=None):
@@ -216,7 +223,7 @@ def flanks(X, Y, Z):
 def lower_body(X, Y, Z):
     """Kept for the parts that clip against the old lower body: flanks + deck/bonnet top + ends."""
     yy = np.abs(Y)
-    d = smax(flanks(X, Y, Z), (X - x_nose(Z, yy)) * 0.985, CORNER_R)
+    d = smax(flanks(X, Y, Z), (X - x_nose(Z, yy)) * 0.985, corner_r(X))
     d = smax(d, (x_tail(Z) - X) * 0.999, CORNER_R)
     d = smax(d, (Z - (z_top_c(X) - crown(X, yy))) * 0.994, 0.009)
     return smax(d, z_bot(X, yy) - Z, 0.015)
@@ -224,7 +231,7 @@ def lower_body(X, Y, Z):
 
 def body_solid(X, Y, Z):
     yy = np.abs(Y)
-    plan = smax(flanks(X, Y, Z), (X - x_nose(Z, yy)) * 0.985, CORNER_R)
+    plan = smax(flanks(X, Y, Z), (X - x_nose(Z, yy)) * 0.985, corner_r(X))
     plan = smax(plan, (x_tail(Z) - X) * 0.999, CORNER_R)
     top = smin((Z - (z_top_c(X) - crown(X, yy))) * 0.994, cabin_top(X, Y, Z), 0.012)
     # the nose panel's brow over the lamps is rolled a little rounder than the shoulders
@@ -250,9 +257,10 @@ TL_Y_TOP = 0.688
 
 
 def x_lamp(Z, yy=0.0):
-    """Face of the lamp/grille band: near-vertical, tucked under the nose panel's brow (calibrated
-    lamp corners at X 1.962 / 1.953)."""
-    return 1.978 - 0.02 * (yy / 0.7) ** 2 - (Z - 0.607) * 0.15
+    """Face of the lamp/grille band: near-vertical, tucked under the nose panel's brow and curving
+    back with it, so the outer lamps stay recessed in the skin (calibrated inner lamp corners at
+    X 1.962)."""
+    return 1.978 - 0.045 * (yy / 0.7) ** 2 - (Z - 0.607) * 0.15
 
 
 def _rbox2(u, v, hu, hv, r):
@@ -261,13 +269,23 @@ def _rbox2(u, v, hu, hv, r):
     return np.sqrt(np.maximum(qu, 0) ** 2 + np.maximum(qv, 0) ** 2) + np.minimum(np.maximum(qu, qv), 0) - r
 
 
+def x_pocket_end(Z):
+    """|y| of the lamp opening's outer ends: ~3 cm past the outer lamps, into the corner's wrap,
+    leaning out a little towards the bottom with the corner (front photo)."""
+    return 0.742 + (0.607 - Z) * 0.25
+
+
 def nose_recesses(X, Y, Z):
-    """One pocket for the lamps and grille in the nose (negative inside the pocket)."""
+    """One pocket for the lamps and grille in the nose (negative inside the pocket). Its top is the
+    lamps' rim line: the brow comes down onto the lamps with no slot above them. At the ends the
+    opening runs on past the outer lamps into the corners' wrap: the panel has no forward face
+    beside them."""
     yy = np.abs(Y)
-    zc = 0.5 * (HL_Z[0] + HL_Z[1])
-    hz = 0.5 * (HL_Z[1] - HL_Z[0])
-    d = _rbox2(Y, Z - zc, HL_Y[1][1], hz, 0.008)
-    depth = X - (x_lamp(Z, yy) - 0.03)
+    top = HL_Z[1] - 0.004
+    zc = 0.5 * (HL_Z[0] + top)
+    hz = 0.5 * (top - HL_Z[0])
+    d = _rbox2(Y, Z - zc, x_pocket_end(Z), hz, 0.024)
+    depth = X - (x_lamp(Z, yy) - 0.06)          # deep enough for the sealed beams' bowls (4.8 cm)
     return np.maximum(d, -depth)
 
 
@@ -330,7 +348,7 @@ def shell(X, Y, Z):
     d = body_solid(X, Y, Z)
     d = smax(d, -cowl_recess(X, Y, Z), 0.004)
     d = smax(d, -arch_cyl(X, Y, Z), 0.006)
-    d = smax(d, -nose_recesses(X, Y, Z), 0.004)
+    d = smax(d, -nose_recesses(X, Y, Z), 0.007)          # the panel rolls into the lamp opening
     d = smax(d, -tail_recess(X, Y, Z), 0.005)
     d = smax(d, -rear_slots(X, Y, Z), 0.002)
     d = smax(d, -bpillar_vents(X, Y, Z), 0.004)
@@ -611,30 +629,50 @@ def rocker(X, Y, Z):
 ROCKER_BMIN = (-1.62, -0.95, 0.16)
 ROCKER_BMAX = (0.86, 0.95, 0.33)
 
-AD_Z = (0.256, 0.404)          # air dam bottom lip / top (a stainless strip shows between it and the bumper)
-AD_SLOT = (0.300, 0.052, 0.490)  # intake centre z, half height, half width (measured, front photo)
+def front_strip(X, Y, Z):
+    """Stainless strip between the front bumper and the air dam: a band set a little behind the
+    bumper's face and wrapping round the corners to the bumper's ends, its rounded lower edge
+    catching the light (front and three-quarter photos; behind the bumper the wing's own lower
+    edge runs down to the air dam, side photo)."""
+    yy = np.abs(Y)
+    d = X - (x_fbump(yy) - 0.045)
+    d = smax(d, yy - arch_flare(X, Z) - (w_crease(X) + 0.002), 0.08)
+    d = smax(d, np.maximum(Z - 0.432, 0.397 - Z), 0.010)
+    return smax(d, FB_X_SIDE - 0.02 - X, 0.006)
+
+
+FSTRIP_BMIN = (1.76, -0.98, 0.385)
+FSTRIP_BMAX = (2.10, 0.98, 0.445)
+
+
+AD_Z = (0.245, 0.400)          # air dam bottom lip / top (a stainless strip shows between it and the bumper)
+AD_SLOT = (0.323, 0.041, 0.490)  # intake centre z, half height, half width (front photo: a 3.5 cm lip below it)
 
 
 def x_airdam(yy, Z):
-    """Air-dam face: a little behind the bumper face and following its plan curve round the
-    corners, its lower lip leaning forward."""
-    return x_fbump(yy) - 0.085 + np.maximum(0.0, 0.36 - Z) * 0.25
+    """Air-dam face: set well back under the bumper and following its plan curve, concave in
+    section, with the chin lip at the bottom standing ~7 cm ahead of the top (side photo: the lip
+    15 cm behind the bumper's face, the side's front edge at X 1.80 / 1.88 top / lip)."""
+    return x_fbump(yy) - 0.225 + 0.07 * np.clip((0.36 - Z) / 0.11, 0, 1) ** 2
 
 
 def airdam(X, Y, Z):
-    """Black lower valance / spoiler under the front bumper with the full-width intake slot."""
+    """Black lower valance / chin spoiler under the front bumper with the full-width intake slot.
+    Its sides run back flush with the flanks to the front wheels, their top edge under the wing's
+    lower edge, which drops towards the arch (side photo)."""
     yy = np.abs(Y)
     xb = x_airdam(yy, Z)
-    d = X - xb
-    # its sides run back flush with the flanks to the front wheels (three-quarter photos)
-    d = smax(d, (yy - arch_flare(X, Z) - (w_crease(X) + 0.004)), 0.08)
-    d = smax(d, np.maximum(Z - AD_Z[1], AD_Z[0] - Z), 0.012)
+    d = (X - xb) * 0.6            # the face leans up to ~50 deg at the lip: keep the field a bound
+    d = smax(d, (yy - arch_flare(X, Z) - (w_crease(X) + 0.004)), 0.03)
+    top = interp(X, [1.50, 1.80, 1.95], [0.320, 0.357, AD_Z[1]])
+    bot = interp(X, [1.50, 1.90], [0.232, AD_Z[0]])
+    d = smax(d, np.maximum(Z - top, bot - Z), 0.010)
     # the outer lower corners are cut away on a slant up to the wheel arches (front view)
     d = smax(d, ((yy - 0.73) * 0.12 - (Z - AD_Z[0]) * 0.115) / 0.166, 0.02)
     d = smax(d, 1.42 - X, 0.0)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_FA, ARCH_ZF, ARCH_F + 0.01), 0.55 - yy), 0.01)
     zc, hz, hy = AD_SLOT
-    slot = _rbox2(Y, Z - zc, hy, hz, 0.012)
+    slot = _rbox2(Y, Z - zc, hy, hz, 0.020)
     # the intake: open through (the wire mesh and the radiator behind it are details.py parts)
     return smax(d, -np.maximum(slot, -(X - (xb - 0.12))), 0.004)
 

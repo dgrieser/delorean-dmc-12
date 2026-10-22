@@ -66,12 +66,13 @@ PARTS = {
     'bumper_r': (B.rear_bumper, B.RBUMP_BMIN, B.RBUMP_BMAX, False),
     'rocker': (B.rocker, B.ROCKER_BMIN, B.ROCKER_BMAX, False),
     'airdam': (B.airdam, B.AIRDAM_BMIN, B.AIRDAM_BMAX, False),
+    'fstrip': (B.front_strip, B.FSTRIP_BMIN, B.FSTRIP_BMAX, False),
     'rvalance': (B.rear_valance, B.RVAL_BMIN, B.RVAL_BMAX, False),
 }
 
 
 BUDGET = {'body': 240000, 'hood': 40000, 'nose': 30000, 'tail': 30000, 'bumper_f': 40000, 'bumper_r': 42000, 'rocker': 10000, 'lid_skin': 1000,
-          'door_L': 45000, 'door_R': 45000, 'airdam': 24000, 'rvalance': 6000}
+          'door_L': 45000, 'door_R': 45000, 'airdam': 24000, 'rvalance': 6000, 'fstrip': 12000}
 
 
 # stainless panels: split long slivers (baked AO smears along them); dark/flat parts are left as is

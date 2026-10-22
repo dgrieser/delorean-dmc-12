@@ -87,7 +87,9 @@ def strips():
         return cx - h, cx + h
     fa0, fa1 = arch_span(B.X_FA, B.ARCH_ZF, B.ARCH_F, float(B.z_crease(np.array(B.X_FA))))
     ra0, ra1 = arch_span(B.X_RA, B.ARCH_ZR, B.ARCH_R, float(B.z_crease(np.array(B.X_RA))))
-    segs = {'fender': (xd1 + 0.008, fa0 - 0.012), 'nose': (fa1 + 0.012, 1.575), 'door': (xd0, xd1),
+    # the front marker's black end piece runs from its lens on to the nose panel's seam
+    tip1 = float(B.x_nose_seam(B.z_crease(np.array(1.80)))) - 0.005
+    segs = {'fender': (xd1 + 0.008, fa0 - 0.012), 'nose': (fa1 + 0.012, 1.575), 'tip': (1.788, tip1), 'door': (xd0, xd1),
             'quarter': (ra1 + 0.012, xd0 - 0.008), 'rearcorner': (-1.650, ra0 - 0.012)}
     for side, tag in [(1, 'L'), (-1, 'R')]:
         for k, (a, b) in segs.items():

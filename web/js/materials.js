@@ -340,6 +340,9 @@ export function createLibrary(opts = {}) {
   });
   // amber-coated reflector behind the front indicator lenses (the lens itself only tints what it reflects)
   lib.Lamp_TurnRefl = new THREE.MeshStandardMaterial({ name: 'Lamp_TurnRefl', color: lin(0.80, 0.34, 0.04), metalness: 1, roughness: 0.3 });
+  // sealed-beam reflectors: bright, a little hazy (the fluted glass in front scatters them), so the
+  // deep bowls read silver all over instead of mirroring the dark studio walls at their centres
+  lib.Lamp_HeadRefl = new THREE.MeshStandardMaterial({ name: 'Lamp_HeadRefl', color: lin(0.90, 0.90, 0.90), metalness: 1, roughness: 0.32, side: THREE.DoubleSide });
   lib.Chrome = new THREE.MeshStandardMaterial({ name: 'Chrome', color: lin(0.92, 0.92, 0.92), metalness: 1, roughness: 0.06, side: THREE.DoubleSide });
   lib.MirrorGlass = new THREE.MeshStandardMaterial({ name: 'MirrorGlass', color: lin(0.55, 0.56, 0.58), metalness: 1, roughness: 0.0 });
   lib.BadgeAlu = new THREE.MeshPhysicalMaterial({ name: 'BadgeAlu', color: lin(0.80, 0.80, 0.82), metalness: 1, roughness: 0.26, clearcoat: 0.4 });
@@ -438,7 +441,8 @@ export function createLibrary(opts = {}) {
   for (const k of ['Lamp_TurnFront', 'Lamp_MarkerFront', 'Lamp_TurnRear', 'Lamp_Tail', 'Lamp_MarkerRear', 'Lamp_Reverse', 'Lamp_Courtesy']) thinGlass(lib[k], 0.82);
   lib.Lamp_TurnFront.opacity = 0.75;     // the reflector shows through the front indicators
   // AO strength per material (open steel panels bake to ~1, so this mostly darkens gaps, arches and the strip's shadow)
-  const aoStr = { Stainless: 0.6, Urethane: 0.6, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5 };
+  // (the lamp reflectors bake deep inside their bowls, but light reaches them through the glass)
+  const aoStr = { Stainless: 0.6, Urethane: 0.6, Rubber: 0.7, BadgeAlu: 0.4, Chrome: 0.5, Lamp_HeadRefl: 0.1 };
   for (const [k, v] of Object.entries(aoStr)) lib[k].userData.aoStr = { value: v };
   lib.Stainless.userData.aoDirect = { value: 0.85 };
   // the nose and tail panels (separate pieces round the lamps, with seams on the flanks): a darker,

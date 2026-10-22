@@ -22,8 +22,8 @@ HLs = []
 for i, (a, b) in enumerate(B.HL_Y):
     yc, hw = 0.5 * (a + b), 0.5 * (b - a)
     tag = 'Hi' if i == 0 else 'Lo'      # inner pair = high beams, outer = low beams
-    bb = ((1.90, yc - hw - 0.012, B.HL_Z[0] - 0.012), (2.00, yc + hw + 0.012, B.HL_Z[1] + 0.012))
-    bbz = ((1.90, yc - hw - 0.012, B.HL_Z[0] - 0.012), (2.05, yc + hw + 0.012, B.HL_Z[1] + 0.012))
+    bb = ((1.86, yc - hw - 0.012, B.HL_Z[0] - 0.012), (2.00, yc + hw + 0.012, B.HL_Z[1] + 0.012))   # the outer bowls reach back to 1.89
+    bbz = ((1.86, yc - hw - 0.012, B.HL_Z[0] - 0.012), (2.05, yc + hw + 0.012 + (0.07 if i else 0), B.HL_Z[1] + 0.012))
     HLs += [
         P(f'hl_lens_{tag}', (lambda yc, hw: lambda X, Y, Z: D.headlight_lens(X, Y, Z, yc, hw))(yc, hw), *bb, 0.0018, 0.5, True),
         P(f'hl_refl_{tag}', (lambda yc, hw: lambda X, Y, Z: D.headlight_reflector(X, Y, Z, yc, hw))(yc, hw), *bb, 0.0018, 0.5, True),
@@ -46,8 +46,8 @@ PARTS = HLs + [
     P('turn_bezel', D.front_turn_bezel, (2.0, 0.42, 0.44), (2.11, 0.60, 0.51), 0.0012, 0.6, True),
     P('turn_refl', D.front_turn_reflector, (2.0, 0.43, 0.445), (2.10, 0.59, 0.505), 0.0012, 0.5, True),
     P('turn_front', D.front_turn_lens, (2.0, 0.43, 0.445), (2.11, 0.59, 0.505), 0.0014, 0.5, True),
-    P('intake_mesh', D.intake_mesh, (1.96, -0.52, 0.24), (2.05, 0.52, 0.36), 0.0015, 0.5),
-    P('radiator', D.radiator, (1.87, -0.55, 0.20), (2.0, 0.55, 0.38), 0.003, 0.5),
+    P('intake_mesh', D.intake_mesh, (1.80, -0.52, 0.26), (1.92, 0.52, 0.39), 0.0015, 0.5),
+    P('radiator', D.radiator, (1.72, -0.55, 0.20), (1.84, 0.55, 0.42), 0.003, 0.5),
     P('marker_front', D.side_marker_front, (1.57, 0.80, 0.51), (1.80, 0.93, 0.57), 0.0015, 0.5, True),
     P('marker_rear', D.side_marker_rear, (-1.89, 0.79, 0.55), (-1.66, 0.92, 0.61), 0.0015, 0.5, True),
     P('tl_turn', lambda X, Y, Z: D.tail_cells(X, Y, Z, 'Turn'), (-2.04, 0.60, 0.65), (-1.98, 0.75, 0.81), 0.0016, 0.5, True),

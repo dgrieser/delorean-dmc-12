@@ -1,6 +1,6 @@
 """Exterior detail parts (SDF) for the DMC-12: lamps, grille, louvres, mirrors, wipers..."""
 import numpy as np
-from sdf import smin, smax, interp, cyl_y, poly2d, box
+from sdf import smin, smax, interp, cyl_y, poly2d, box, smoothstep
 import body as B
 from body import _rbox2
 
@@ -53,26 +53,29 @@ def headlight_rim(X, Y, Z, yc, hw):
     """Chrome retaining rim around the sealed-beam glass."""
     u, v, w = _hl_local(X, Y, Z, yc)
     outer = _rbox2(v, w, hw - 0.004, HL_HZ - 0.004, 0.012)
-    inner = _rbox2(v, w, hw - 0.011, HL_HZ - 0.011, 0.009)
+    inner = _rbox2(v, w, hw - 0.0085, HL_HZ - 0.0085, 0.010)       # a thin bright edge, as on the photos
     ring = smax(outer, -inner, 0.0015)
     prof = np.maximum(u + 0.003 + 0.0025 * np.clip(-inner / 0.007, 0, 1), -u - 0.012)      # rounded crown
     return smax(ring, prof, 0.0015)
 
 
 def headlight_reflector(X, Y, Z, yc, hw):
-    """Rectangular sealed-beam reflector: a deep bowl whose rim follows the lamp's rounded
-    rectangle (superellipse depth profile), not a round dish."""
+    """Rectangular sealed-beam reflector: a deep paraboloid bowl inside the lamp's rounded
+    rectangle, flat round its corners."""
     u, v, w = _hl_local(X, Y, Z, yc)
-    q = ((np.abs(v) / (hw - 0.010)) ** 4 + (np.abs(w) / (HL_HZ - 0.010)) ** 4) ** 0.25
-    bowl = -0.014 - 0.034 * np.clip(1 - q * q, 0, 1)
-    d = np.abs(u - np.minimum(bowl, -0.014)) - 0.0012
-    d = np.maximum(d, u + 0.013)
+    q2 = (v / (hw - 0.010)) ** 2 + (w / (HL_HZ - 0.010)) ** 2        # a smooth paraboloid, flat at the corners
+    bowl = -0.014 - 0.034 * np.clip(1 - q2, 0, 1)
+    d = np.abs(u - np.minimum(bowl, -0.014)) - 0.0022           # thick enough to extract without holes
+    d = np.maximum(d, u + 0.012)
     return smax(d, _rbox2(v, w, hw - 0.010, HL_HZ - 0.010, 0.010), 0.002)
 
 
 def headlight_bulb(X, Y, Z, yc, hw):
+    """Halogen capsule with its round shield cap in front, at the bowl's focus."""
     u, v, w = _hl_local(X, Y, Z, yc)
-    return np.sqrt((u + 0.036) ** 2 + v * v + w * w) - 0.007
+    bulb = np.sqrt((u + 0.036) ** 2 + v * v + w * w) - 0.008
+    cap = np.maximum(np.sqrt(v * v + w * w) - 0.012, np.abs(u + 0.026) - 0.002)
+    return smin(bulb, cap, 0.004)
 
 
 def headlight_bezel(X, Y, Z, yc, hw):
@@ -83,31 +86,42 @@ def headlight_bezel(X, Y, Z, yc, hw):
     outer = _rbox2(v, w, hw + 0.007, HL_HZ + 0.007, 0.006)
     inner = _rbox2(v, w, hw - 0.006, HL_HZ - 0.006, 0.010)
     ring = smax(outer, -inner, 0.002)
+    if yc > 0.6:
+        # the outer lamp's surround runs on to the opening's end beyond it (body.x_pocket_end)
+        ring = np.minimum(ring, _rbox2(v - (hw + 0.035), w, 0.040, HL_HZ + 0.007, 0.006))
     ring = smax(ring, np.maximum(u + 0.004, -u - 0.034), 0.002)
+    # never out through the skin: the outer lamp's surround reaches past its pocket, under the
+    # brow where that curves back
+    ring = np.maximum(ring, B.body_solid(X, Y, Z) + 0.002)
     head = np.maximum(np.abs(w - (HL_HZ - 0.001)) - 0.004, np.abs(v) - (hw + 0.007))
-    head = np.maximum(head, np.maximum(u - 0.07, -u - 0.03))
-    head = np.maximum(head, B.shell(X, Y, Z) + 0.0015)
+    head = np.maximum(head, np.maximum(u - 0.03, -u - 0.03))
+    # kept well inside the skin: where the brow curves back over the outer lamps the pocket's top
+    # wall runs out thin, and a liner flush with it pokes through
+    head = np.maximum(head, B.shell(X, Y, Z) + 0.004)
     return np.minimum(ring, head)
 
 
 # ======================================================================================
-# Grille between the inner headlights: horizontal black ribs; the DMC letters sit on them
+# Grille between the inner headlights: nine horizontal black slats, tilted down at the front, with
+# rounded noses; the DMC letters sit on them. There are no side bars: the slats' ends show next to
+# the inner lamps as a comb (reference photos 01, 02).
 def grille_slats(X, Y, Z):
     yy = np.abs(Y)
     u = (X - B.x_lamp(Z, yy)) * np.cos(LAMP_TILT)
     zc = HL_ZC
-    n = 11
+    n = 9
     pitch = (2 * HL_HZ - 0.008) / n
     k = np.clip(np.round((Z - zc) / pitch), -(n // 2), n // 2)
     dz = Z - (zc + k * pitch)
-    s = np.abs(dz + (u + 0.010) * 0.20) - 0.0032
-    d = np.maximum(s, np.maximum(u + 0.003, -u - 0.026))
-    d = np.maximum(d, yy - (B.GRILLE_Y - 0.004))
-    frame = _rbox2(Y, Z - zc, B.GRILLE_Y + 0.004, HL_HZ + 0.007, 0.006)
-    inner = _rbox2(Y, Z - zc, B.GRILLE_Y - 0.006, HL_HZ - 0.006, 0.006)
+    s = np.abs(dz + (u + 0.010) * 0.20) - 0.0040
+    d = smax(s, np.maximum(u + 0.003, -u - 0.026), 0.003)
+    d = smax(d, yy - (B.GRILLE_Y - 0.001), 0.0015)
+    # top and bottom rails only
+    frame = _rbox2(Y, Z - zc, B.GRILLE_Y - 0.001, HL_HZ + 0.007, 0.004)
+    inner = np.abs(Z - zc) - (HL_HZ - 0.004)
     fr = smax(frame, -inner, 0.0015)
     fr = np.maximum(fr, np.maximum(u + 0.002, -u - 0.034))
-    back = np.maximum(_rbox2(Y, Z - zc, B.GRILLE_Y, HL_HZ, 0.006), np.abs(u + 0.028) - 0.002)
+    back = np.maximum(_rbox2(Y, Z - zc, B.GRILLE_Y + 0.004, HL_HZ, 0.006), np.abs(u + 0.028) - 0.002)
     return np.minimum(np.minimum(d, fr), back)
 
 
@@ -425,7 +439,10 @@ def underbody(X, Y, Z):
     # kept inside the tucked-in lower flanks so no edge shows past the sills or bumpers
     # the floor pan stops at the engine: from behind and below the engine, rear frame and running
     # gear show, as on the reference car
-    pan = np.maximum(np.abs(Z - 0.215) - 0.006, np.maximum(yy - 0.76, np.maximum(X - 1.80, -0.90 - X)))
+    # at the front it rises to just above the air dam's lip and stays clear of its swept-up corners
+    zp = 0.215 + 0.040 * smoothstep(1.0, 1.5, X)
+    pan = np.maximum(np.abs(Z - zp) - 0.006, np.maximum(yy - 0.76, np.maximum(X - 1.72, -0.90 - X)))
+    pan = np.maximum(pan, np.minimum(yy - 0.55, 1.50 - X))
     pan = smax(pan, -B.arch_cyl(X, Y, Z, 0.02), 0.002)
     # backbone tunnel
     bb = rbox3(X, Y, Z, (0.1, 0, 0.24), (1.5, 0.11, 0.03), 0.02)
