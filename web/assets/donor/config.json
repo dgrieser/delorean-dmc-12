@@ -1,0 +1,298 @@
+{
+  "windshield": {
+    "bx": 0.82,
+    "bz": 0.79,
+    "nx": 0.383,
+    "nz": 0.924,
+    "wrap": 0.2
+  },
+  "lowProfile": false,
+  "tollWindow": {
+    "lean": 34,
+    "travel": 0.19
+  },
+  "tyreRadius": {
+    "F": 0.295,
+    "R": 0.332
+  },
+  "wheelbase": 2.434,
+  "track": 1.56,
+  "dashboard": {
+    "center": [
+      0.318,
+      0.788,
+      -0.369
+    ],
+    "scale": 0.8,
+    "heightScale": 0.8
+  },
+  "materials": {
+    "Donor_DELOREAN:phong10SG1": {
+      "color": [
+        0.1,
+        0.12,
+        0.11
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "kind": "glass"
+    },
+    "Donor_DELOREAN:phong11SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "map": "Engine_D.png",
+      "normalMap": "Car_DMC_DeLorean_1983_Engine_NO.png"
+    },
+    "Donor_DELOREAN:phong12SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "map": "Grille_SetA_D.png",
+      "normalMap": "Car_DMC_DeLorean_1983_Grille_SetA_NO.png"
+    },
+    "Donor_DELOREAN:phong13SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.35,
+      "metalness": 0.9,
+      "map": "Swatches_D.png"
+    },
+    "Donor_DELOREAN:phong14SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.35,
+      "metalness": 0.9,
+      "map": "Swatches_D.png"
+    },
+    "Donor_DELOREAN:phong15SG1": {
+      "color": [
+        0.17000000178813934,
+        0.17000000178813934,
+        0.17000000178813934
+      ],
+      "roughness": 0.55,
+      "metalness": 0
+    },
+    "Donor_DELOREAN:phong16SG1": {
+      "color": [
+        0.65,
+        0.65,
+        0.6
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "normalMap": "Car_DMC_DeLorean_1983_LGlass_SetA_NA.png",
+      "kind": "lamp",
+      "emissive": [
+        1,
+        0.92,
+        0.78
+      ],
+      "opacity": 0.35
+    },
+    "Donor_DELOREAN:phong17SG1": {
+      "color": [
+        0.45,
+        0.008,
+        0.003
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "normalMap": "Car_DMC_DeLorean_1983_LGlass_SetA_NA.png",
+      "kind": "lamp",
+      "emissive": [
+        1,
+        0.015,
+        0.003
+      ]
+    },
+    "Donor_DELOREAN:phong18SG1": {
+      "color": [
+        0.55,
+        0.16,
+        0.003
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "normalMap": "Car_DMC_DeLorean_1983_LGlass_SetA_NA.png",
+      "kind": "lamp",
+      "emissive": [
+        1,
+        0.28,
+        0.005
+      ]
+    },
+    "Donor_DELOREAN:phong19SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "map": "Car_DMC_DeLorean_1983_RimBadge_D.png",
+      "normalMap": "Car_DMC_DeLorean_1983_RimBadge_N.png"
+    },
+    "Donor_DELOREAN:phong1SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "map": "Swatches_D.png"
+    },
+    "Donor_DELOREAN:phong20SG1": {
+      "color": [
+        0.14000000059604645,
+        0.14000000059604645,
+        0.14000000059604645
+      ],
+      "roughness": 0.35,
+      "metalness": 0.9,
+      "normalMap": "Car_DMC_DeLorean_1983_Rim_N.png"
+    },
+    "Donor_DELOREAN:phong2SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "map": "Badge_SetA_D.png",
+      "normalMap": "Car_DMC_DeLorean_1983_Badge_SetA_N.png"
+    },
+    "Donor_DELOREAN:phong3SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.4,
+      "metalness": 0.35,
+      "map": "ai_persona_livery01_dmc_delorean_1983_d.png"
+    },
+    "Donor_DELOREAN:phong4SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.35,
+      "metalness": 0.9,
+      "map": "OEM_BTTFAluminumBrushed_10_Diffuse.png"
+    },
+    "Donor_DELOREAN:phong5SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "map": "Chassis_D.png",
+      "normalMap": "Shared_Car_Chassis_N.png"
+    },
+    "Donor_DELOREAN:phong6SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.24,
+      "metalness": 0.85,
+      "map": "Car_DMC_DeLorean_1983_LBucket_SetA_D.png",
+      "normalMap": "Car_DMC_DeLorean_1983_LBucket_SetA_NO.png"
+    },
+    "Donor_DELOREAN:phong7SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "map": "Swatches_D.png"
+    },
+    "Donor_DELOREAN:phong8SG1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "map": "Interior_D.png",
+      "normalMap": "Car_DMC_DeLorean_1983_Interior_NO.png",
+      "trim": true
+    },
+    "Donor_DELOREAN:phong9SG1": {
+      "color": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "roughness": 0.035,
+      "metalness": 1,
+      "kind": "mirror"
+    },
+    "Donor_Grille": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "map": "grille.png",
+      "normalMap": "Car_DMC_DeLorean_1983_GrilleA_NO.png"
+    },
+    "Donor_Time:BTTF_TimeMachine1_1985_CallipersCalliperA_Zone_Material1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "map": "BTTF_TimeMachine1_1985_CalliperA_Zone_Diffuse.png"
+    },
+    "Donor_Time:BTTF_TimeMachine1_1985_Wheel1A_3D_3DWheel1A_Material1": {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.85,
+      "metalness": 0,
+      "map": "Wheel1A_DiffuseAOSO.png",
+      "normalMap": "BTTF_TimeMachine1_1985_Wheel1A_Normal.png"
+    },
+    "Donor_RearGlass": {
+      "kind": "glass",
+      "color": [
+        0.1,
+        0.12,
+        0.11
+      ]
+    }
+  },
+  "sourceSha256": "9ff4e8a6c1e2d9884f6670d7c20e38ea036275ec17f5ae1e9259297cc536f1b9"
+}

@@ -1,10 +1,9 @@
 # delorean-dmc-12
 
-An interactive, browser-based DeLorean DMC-12. The body, cabin and engine bay are built from
-scratch in code: signed distance fields sculpt them, Blender assembles them and bakes ambient
-occlusion, and three.js renders them with brushed-stainless PBR materials. The wheels and tyres
-are Peter_D's CC BY model (see Credits). Doors, bonnet, engine cover, lights, gauges, wipers and
-the engine are all simulated.
+An interactive, browser-based DeLorean DMC-12 with two selectable models. **Imported** is the
+supplied FBX car, now rigged to the existing controls and shown by default. **Our model** keeps
+the procedural body, cabin and engine built in this repository, including its fitted donor
+mirrors and Peter_D's wheels. Switch between them in the Model section of the control panel.
 
 ## Run it
 
@@ -39,7 +38,40 @@ three.js 0.170 loads from jsDelivr, so the page needs internet access. Add `?env
 Press `?` in the app for the full keyboard map. The control panel has a latch on top: drag it
 to any height, all the way down so only the latch shows, and tap it to fold or unfold.
 
-## How it is built
+## Imported model
+
+The imported car uses its own body, interior, engine, wheels and UV textures. Doors (including
+mirrors, glass and inner cards), bonnet and its liner, engine covers, steering wheel, pedals,
+shifter and handbrake have been separated and parented to the interactive rig. The upper and
+lower engine covers open together. Animated wipers, instruments, displays and door warning
+lamps use the viewer's existing systems. Wheelbase, tyre radii and window travel follow this
+car's geometry.
+
+The default URL opens the imported car. `?model=original` opens our procedural model;
+`?model=donor` selects the imported one explicitly. Switching models reloads the viewer.
+Original assets and the original build pipeline are preserved. The photographic calibration
+and lighting-fit tools still select the original model by default; use `QS='&model=donor'`
+with `tools/ref/shots.mjs` to render the imported car from those cameras.
+
+To rebuild the imported assets, extract `source/FINAL_MODEL_DMC12.zip` from the supplied
+`1981-dmc-delorean.zip`, then extract its FBX and textures into one directory. From the repo root:
+
+```bash
+blender -b --python-exit-code 1 -P tools/model/build_donor.py -- /path/to/FINAL_MODEL_DMC12.fbx
+python3 tools/pack.py tools/out/donor-car.glb web/assets/donor/car
+python3 tools/pack.py tools/out/donor-wheels.glb web/assets/donor/wheels
+```
+
+The importer verifies the source hash, preserves UVs and split normals, translates the source
+Phong materials to PBR, and writes a part-selection audit to `tools/out/donor-rig-audit.json`.
+Its checked-in output is under `web/assets/donor/`. The small procedural warning-lamp extract
+is `tools/model/assets/donor_lamps.npz`; the rest of the moving geometry comes from the FBX.
+Source and texture notes are in `web/assets/donor/README.md`.
+
+With the repo served on port 8123, `node tools/modeltest.mjs` tests both models' controls and
+switching in both directions. Set `CHROME` or `URL` to override the browser executable or page.
+
+## How our procedural model is built
 
 ```
 tools/model/sdf.py, extract.py   SDF primitives, sparse marching cubes, crease refinement,
@@ -186,5 +218,5 @@ radiator and retaining rails; its transparent proxy is excluded from the solid A
   ([Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Delorean_DMC-12_Logo.svg),
   PD-textlogo). Source and geometry-mask details: `tools/model/assets/README.md`.
 
-- Door mirrors: extracted from the user-supplied `1981-dmc-delorean.zip`. Source file,
+- Imported car and the original model’s door mirrors: extracted from the user-supplied `1981-dmc-delorean.zip`. Source file,
   component selection, hashes and material notes: `tools/model/assets/mirrors.json`.

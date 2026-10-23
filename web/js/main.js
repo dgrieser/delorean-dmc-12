@@ -4,6 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { loadPacked } from './loader.js';
+import { loadDonorMaterials } from './donor.js';
 import { createLibrary, materialFor, setTrim, AO, KEY } from './materials.js';
 import { Environment } from './env.js';
 import { Car, Wipers } from './car.js';
@@ -16,6 +17,7 @@ import { bindUI } from './ui.js';
 
 const q = new URLSearchParams(location.search);
 const STILL = q.has('still');
+const MODEL = q.get('model') === 'original' ? 'original' : 'donor';
 // phones / small GPUs: lower resolution, no planar reflection, smaller shadow maps
 const LITE = q.has('lite') || (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900);
 const canvas = document.getElementById('view');
@@ -57,8 +59,8 @@ const road = makeRoad();
 road.visible = false;
 
 // black hide, as on the reference car (ref/studio)
-const state = { env: 'studio', trim: 'black', drive: false, sound: false, cameraMode: 'orbit' };
-let car, lamps, cluster, displays, rig, ui;
+const state = { model: MODEL, env: 'studio', trim: 'black', drive: false, sound: false, cameraMode: 'orbit' };
+let car, lamps, cluster, displays, rig, ui, donor;
 const sim = new VehicleSim();
 const audio = new CarAudio();
 
@@ -67,16 +69,28 @@ function setLoad(p, msg) {
   if (msg) document.getElementById('load-msg').textContent = msg;
 }
 
+for (const button of document.querySelectorAll('[data-model]')) {
+  button.setAttribute('aria-pressed', String(button.dataset.model === MODEL));
+  button.addEventListener('click', () => {
+    if (button.dataset.model === MODEL) return;
+    const url = new URL(location.href); url.searchParams.set('model', button.dataset.model);
+    location.assign(url.href);
+  });
+}
+
 async function init() {
   setLoad(0.02, 'Loading environment…');
   state.env = q.get('env') || 'studio';
   const envReady = env.set(state.env);
-  const make = name => materialFor(lib, name);
-  const body = await loadPacked('assets/car', make, p => setLoad(0.05 + p * 0.75, 'Loading body shell & cabin…'));
+  if (MODEL === 'donor') { setLoad(.03, 'Loading imported car materials…'); donor = await loadDonorMaterials(); }
+  const make = name => donor?.materials[name] || materialFor(lib, name);
+  const body = await loadPacked(MODEL === 'donor' ? 'assets/donor/car' : 'assets/car', make, p => setLoad(0.05 + p * 0.75, 'Loading body shell & cabin…'));
   setLoad(0.82, 'Loading wheels…');
-  const wheels = await loadPacked('assets/wheels', make, p => setLoad(0.82 + p * 0.1));
+  const wheels = await loadPacked(MODEL === 'donor' ? 'assets/donor/wheels' : 'assets/wheels', make, p => setLoad(0.82 + p * 0.1));
   carRoot.add(body);
-  const manifest = { windshield: { bx: 0.700, bz: 0.858, nx: 0.35754824, nz: 0.93389467, wrap: 0.15 } };  // tools/model/body.py WS_*
+  const manifest = donor?.config || { windshield: { bx: 0.700, bz: 0.858, nx: 0.35754824, nz: 0.93389467, wrap: 0.15 } };  // tools/model/body.py WS_*
+  sim.tyreRadius = manifest.tyreRadius?.R ?? .299;
+  sim.wheelbase = manifest.wheelbase ?? 2.413;
   car = new Car(body, wheels, manifest, lib);
   car.wipers = new Wipers(car.body, manifest.windshield, lib);
   const INTERIOR = /^(seat|dash|stack|end_vents|console|column|door_card|door_liner|body_trim|carpet|sills|sill_plates|parcel|bulkhead|rear_mirror|visor|buckles|belt|door_strap|steering|pedal|shift|handbrake|rear_window)/;
@@ -95,9 +109,9 @@ async function init() {
   doorGlass.side = THREE.DoubleSide;
   doorGlass.onBeforeCompile = lib.Glass.onBeforeCompile;
   doorGlass.customProgramCacheKey = lib.Glass.customProgramCacheKey;
-  body.traverse(o => { if (o.isMesh && /^(glass_door_|glass_toll_)/.test(o.name)) o.material = doorGlass; });
+  body.traverse(o => { if (!donor && o.isMesh && /^(glass_door_|glass_toll_)/.test(o.name)) o.material = doorGlass; });
   // decals: normalise their (metre) box UVs into 0..1
-  for (const nm of ['eng_decal', 'bay_panel', 'plate']) {
+  for (const nm of (donor ? [] : ['eng_decal', 'bay_panel', 'plate'])) {
     let mesh = null; body.traverse(o => { if (o.isMesh && o.name === nm) mesh = o; });
     const uv = mesh?.geometry.attributes.uv;
     if (!uv) continue;
@@ -151,7 +165,7 @@ async function init() {
     if (!g.attributes.ao2) g.setAttribute('ao2', g.attributes.ao);
   });
   lamps = new Lamps(car, scene);
-  cluster = new Cluster(car.nodes.gauge, lib);
+  cluster = new Cluster(car.nodes.gauge, lib, manifest.dashboard);
   displays = new ConsoleDisplays(car.nodes.clock, car.nodes.radio);
   rig = new CameraRig(camera, canvas, car);
   env.contact.attach(carRoot);
@@ -197,7 +211,7 @@ function applyEnvPreset() {
   bloom.threshold = state.env === 'night' ? 1.4 : 2.4;
   KEY.spec.value = P.keySpec ?? 1;
 }
-function setTrimColor(name) { state.trim = name; setTrim(lib, name); }
+function setTrimColor(name) { state.trim = name; setTrim(lib, name); donor?.setTrim(name); }
 function setDrive(on) {
   state.drive = on;
   sim.drive = on;

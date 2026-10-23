@@ -145,7 +145,8 @@ export class Car {
     // --- wheels
     this.wheels = {};
     const asmF = wheels.getObjectByName('WheelAsm_F'), asmR = wheels.getObjectByName('WheelAsm_R');
-    for (const [k, R] of Object.entries(TYRE_R)) lowProfile(wheels.getObjectByName('Tyre_' + k), R, BEAD_R[k]);
+    const tyreR = manifest?.tyreRadius || TYRE_R;
+    if (manifest?.lowProfile !== false) for (const [k, R] of Object.entries(tyreR)) lowProfile(wheels.getObjectByName('Tyre_' + k), R, BEAD_R[k]);
     for (const [k, asm] of [['FL', asmF], ['FR', asmF], ['RL', asmR], ['RR', asmR]]) {
       const pos = get('WheelPos_' + k);
       const steer = new THREE.Group();
@@ -164,9 +165,9 @@ export class Car {
       }
       steer.add(w);
       const spin = w.getObjectByName(k[0] === 'F' ? 'Wheel_F' : 'Wheel_R');
-      this.wheels[k] = { pos, steer, spin, dir: right ? -1 : 1, radius: TYRE_R[k[0]], angle: 0 };
+      this.wheels[k] = { pos, steer, spin, dir: right ? -1 : 1, radius: tyreR[k[0]], angle: 0 };
     }
-    this.track = 1.59; this.wheelbase = 2.413;
+    this.track = manifest?.track ?? 1.59; this.wheelbase = manifest?.wheelbase ?? 2.413;
 
     // --- state
     this.steerWheelAngle = 0;     // steering wheel angle (rad), + = left
@@ -180,12 +181,13 @@ export class Car {
     this.windshield = manifest?.windshield;
 
     // toll windows: small power panes in the lower door glass, sliding down along the glass plane
-    const c50 = Math.cos(50 * DEG), s50 = Math.sin(50 * DEG);
+    const lean = (manifest?.tollWindow?.lean ?? 50) * DEG;
+    const c50 = Math.cos(lean), s50 = Math.sin(lean);
     this.toll = {};
     for (const [k, dir] of [['L', new THREE.Vector3(0, -c50, -s50)], ['R', new THREE.Vector3(0, -c50, s50)]]) {
       let mesh = null;
       root.traverse(o => { if (!mesh && o.isMesh && o.name === 'glass_toll_' + k) mesh = o; });
-      if (mesh) this.toll[k] = { mesh, base: mesh.position.clone(), dir, pos: 0, target: 0, travel: 0.085 };
+      if (mesh) this.toll[k] = { mesh, base: mesh.position.clone(), dir, pos: 0, target: 0, travel: manifest?.tollWindow?.travel ?? 0.085 };
     }
     this.addDoorStrut(this.doorL, 1, 'L');
     this.addDoorStrut(this.doorR, -1, 'R');

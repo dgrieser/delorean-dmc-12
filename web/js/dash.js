@@ -38,7 +38,7 @@ function px(x) { return (x + FACE_W / 2) * PX; }
 function py(y) { return (FACE_H / 2 - y) * PX; }
 
 export class Cluster {
-  constructor(pivotNode, lib) {
+  constructor(pivotNode, lib, options = {}) {
     // glTF converts the pivot's local frame too: its local +Y is the face normal (toward the
     // driver) and local -Z is "up" on the dial. Work in a child frame with +Z = normal, +Y = up.
     const pivot = new THREE.Group();
@@ -47,8 +47,10 @@ export class Cluster {
     // centre the dial in the binnacle window (body coords: x 0.512, y 0.727, z -0.37)
     const body = pivotNode.parent;
     body.updateMatrixWorld(true);
-    const want = body.localToWorld(new THREE.Vector3(0.505, 0.727, -0.37));
+    const want = body.localToWorld(new THREE.Vector3(...(options.center || [0.505, 0.727, -0.37])));
     pivot.position.copy(pivotNode.worldToLocal(want));
+    pivot.scale.setScalar(options.scale ?? 1);
+    pivot.scale.y *= options.heightScale ?? 1;
     this.pivot = pivot;
     this.base = document.createElement('canvas');
     this.glow = document.createElement('canvas');

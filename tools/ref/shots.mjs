@@ -13,7 +13,13 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME || '/
   args: ['--headless=new', '--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=vulkan', '--enable-features=Vulkan'] });
 const page = await browser.newPage({ viewport: { width: 1024, height: 683 } });
 page.on('pageerror', e => console.log('[pageerror]', e.message));
-await page.goto((process.env.URL || 'http://localhost:8123/web/index.html') + '?still=1' + (process.env.QS || ''));
+// Calibration and material fitting target our procedural model by default.
+// QS='&model=donor' selects the imported car for a visual comparison.
+const url = new URL(process.env.URL || 'http://localhost:8123/web/index.html');
+url.searchParams.set('still', '1');
+for (const [key, value] of new URLSearchParams((process.env.QS || '').replace(/^&/, ''))) url.searchParams.set(key, value);
+if (!url.searchParams.has('model')) url.searchParams.set('model', 'original');
+await page.goto(url.href);
 await page.waitForFunction(() => document.title === 'READY', null, { timeout: 300000 });
 await page.evaluate(() => {
   window.app.rig.update = () => {};

@@ -24,6 +24,8 @@ function wot(rpm) {
 
 export class VehicleSim {
   constructor() {
+    this.tyreRadius = R_TYRE;
+    this.wheelbase = 2.413;
     this.ignition = 0;          // 0 OFF, 1 ACC, 2 ON, 3 START (momentary)
     this.engine = 'off';        // off | cranking | running | stalling
     this.rpm = 0;
@@ -85,7 +87,7 @@ export class VehicleSim {
     const ig = this.ignition;
     // ---------------- engine speed
     const ratio = GEARS[this.gear] * FINAL;
-    const wheelRpm = (this.speed / R_TYRE) * 60 / (2 * Math.PI);
+    const wheelRpm = (this.speed / this.tyreRadius) * 60 / (2 * Math.PI);
     const engaged = this.drive && ratio !== 0 && this.clutch < 0.5;
     if (this.engine === 'cranking') {
       this.crankT += dt;
@@ -158,7 +160,7 @@ export class VehicleSim {
         const fric = 9 + this.rpm / 1000 * 3.2 + (1 - this.throttle) * this.rpm / 6000 * 22;
         let T = wot(this.rpm) * this.throttle - fric;
         if (this.limiterCut) T = 0;
-        Fx = T * ratio * 0.86 / R_TYRE * (1 - this.clutch);
+        Fx = T * ratio * 0.86 / this.tyreRadius * (1 - this.clutch);
         // launch: clutch slip lets the engine hold revs; limit by rear-axle traction (62% rear, mu 0.95)
         Fx = Math.max(-0.95 * 9.81 * MASS * 0.62, Math.min(0.95 * 9.81 * MASS * 0.62, Fx));
       }
@@ -170,7 +172,7 @@ export class VehicleSim {
       if (Math.abs(v0) < 0.05 && Math.abs(a) < bdec) { this.speed = 0; a = 0; }
       else { a -= Math.sign(v0 || a) * bdec; this.speed += a * dt; if (v0 !== 0 && Math.sign(this.speed) !== Math.sign(v0) && bdec > 0) this.speed = 0; }
       // kinematic bicycle model with a speed-dependent understeer gradient
-      const L = 2.413;
+      const L = this.wheelbase;
       const k = 1 / (1 + this.speed * this.speed / 420);
       this.yawRate = this.speed / L * Math.tan(this.steer) * k;
       this.yaw += this.yawRate * dt;
@@ -187,7 +189,7 @@ export class VehicleSim {
   }
 
   // engine speed the wheels would force through the current gear with the clutch engaged
-  get lockedRpm() { return Math.abs((this.speed / R_TYRE) * 60 / (2 * Math.PI) * GEARS[this.gear] * FINAL); }
+  get lockedRpm() { return Math.abs((this.speed / this.tyreRadius) * 60 / (2 * Math.PI) * GEARS[this.gear] * FINAL); }
 
   get speedMph() { return Math.abs(this.speed) * 2.23694; }
   get coolantF() { return this.coolant * 9 / 5 + 32; }

@@ -10,7 +10,9 @@ const errors = [];
 try {
   const page = await browser.newPage({ viewport: { width: 1024, height: 683 } });
   page.on('pageerror', e => errors.push(e.message));
-  await page.goto((process.env.URL || 'http://localhost:8123/web/index.html') + '?still=1');
+  const url = new URL(process.env.URL || 'http://localhost:8123/web/index.html');
+  url.searchParams.set('still', '1'); url.searchParams.set('model', 'original');
+  await page.goto(url.href);
   await page.waitForFunction(() => document.title === 'READY', null, { timeout: 300000 });
   const result = await page.evaluate(() => {
     const a = window.app, root = a.car.root;
