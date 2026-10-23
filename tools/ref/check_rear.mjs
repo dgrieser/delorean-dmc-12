@@ -15,12 +15,12 @@ try {
   const result = await page.evaluate(() => {
     const a = window.app, root = a.car.root;
     const parts = [
-      'rear_band', 'tl_bezel', 'tl_gasket', 'tl_reflectors', 'plate_border',
+      'bumper_letters', 'rear_logo_border', 'rear_band', 'tl_bezel', 'tl_gasket', 'tl_reflectors', 'plate_border',
       'rear_bumper_seal', 'rear_apron_seal', 'rear_timing_cover', 'rear_sump',
       'rear_pulleys', 'rear_belt', 'rear_mechanical_bolts', 'rear_lower_fasteners',
       'rear_suspension', 'rear_dampers', 'rear_damper_rods', 'rear_springs',
       'rear_hoses', 'rear_hose_fittings', 'exhaust_liners', 'rear_logo_border',
-      'lid_fasteners', 'lid_seal',
+      'lid_fasteners', 'lid_seal', 'quarter_vent_frame', 'quarter_vent_fins', 'quarter_vent_back',
     ];
     const meshes = new Map();
     root.traverse(o => {

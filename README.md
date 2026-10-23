@@ -65,7 +65,7 @@ web/js/                          viewer: materials, environment, car rig, lamps,
                                  vehicle simulation, procedural engine audio, cameras, UI
 ```
 
-To rebuild the assets (needs Blender 4 or 5, Python with numpy/scipy/scikit-image/trimesh, and
+To rebuild the assets (needs Blender 4 or 5, Python with numpy/scipy/scikit-image/trimesh/Pillow, and
 `npm install` in `tools/`):
 
 ```bash
@@ -124,14 +124,25 @@ the twin exhausts pass through a shared central cutout, with the engine and fram
 underneath. Each louvre blade is a continuous, slightly crowned solid. The rear grilles have cross braces
 and perimeter lips. Their surfaces use shorter triangles
 for the vertex AO bake so shadows do not break into large triangular patches.
-The rear quarter windows follow straight rails with rounded tips and blend into a curved
-shoulder. The tail-panel seams have a consistent rake and a slight convex bow. The front
+The rear quarter windows have four curved fins at each aft tip, a recessed black backing,
+and glass ending at a curved divider. The windows follow straight rails with rounded tips and blend into a curved
+shoulder. The upper sail edge continues straight in plan across the tail-panel seam;
+the raked rear return blends in below the lower window rail. The shoulder meets that rail
+with a continuous surface. Both wheel-arch flares grow towards their crowns to keep the
+overhead outlines smooth; their liners follow the widened lips without changing the openings.
+The front arches have a narrow pressed lip blended into the broader wing flare, and the
+rubbing-strip ends follow the opening with a small reveal. Finer stainless grain keeps these
+contours visible at the reference viewing distances. The tail-panel seams have a consistent rake and a slight convex bow. The front
 bumper and steel strip are level across the car, with sloping side returns. The lower rear
 apron follows the quarter-panel edge, with a rolled bottom, hose reliefs and a separate seal.
 The thin silver band below the bumper has six rounded slots and a central exhaust cutout.
-Rear lamps have separate gaskets, raised bezels, recessed fluted lenses and reflector bowls.
+Rear lamps have separate gaskets, rounded grille ribs standing 8 mm ahead of the recessed
+fluted lenses, perimeter screw lips and reflector bowls. The fascia rolls into its upper
+deck and lower ledge; the bumper and silver band share their rounded corner outline. The
+lower apron is a continuous curved shell through the rear corners and side returns.
 The plate cassette includes raised pads, a border, fasteners and downward-facing lamps that
-follow the parking lights. The bumper lettering has a shallow moulded border.
+follow the parking lights. The bumper wordmark follows the original vector letter outlines, with recessed faces,
+rounded moulded bevels and a fine surrounding groove.
 
 `tools/model/rear.py` adds the visible underside fittings from studio views 05/06: a ribbed
 casting and sump, pulley faces and belt, engine-cradle plates, suspension links, dampers,
@@ -152,3 +163,7 @@ radiator and retaining rails; its transparent proxy is excluded from the solid A
   Hansaplatz); see `web/assets/env/NOTES.md`. The studio environment is generated.
 - Brushed stainless, leather and carpet maps: CC0 scans from [ambientCG](https://ambientcg.com)
   (Metal009, Leather026, Carpet012), converted by `tools/tex/import_cc0.py`.
+
+- Rear bumper wordmark: DeLorean Motor Company, vector reproduction by Kilyann Le Hen
+  ([Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Delorean_DMC-12_Logo.svg),
+  PD-textlogo). Source and geometry-mask details: `tools/model/assets/README.md`.

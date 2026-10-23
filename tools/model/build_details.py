@@ -34,7 +34,7 @@ for i, (a, b) in enumerate(B.HL_Y):
     ]
 
 BUDGET = {'badge_dmc': 6000, 'antenna': 3000, 'turn_bezel': 4000, 'turn_refl': 4000, 'intake_mesh': 2000, 'radiator': 2000, 'rear_frame': 8000, 'driveshafts': 4000, 'plate': 1500, 'cowl_vent': 30000, 'antenna_base': 1500, 'hl_rim_Hi': 6000, 'hl_rim_Lo': 6000, 'hl_bulb_Hi': 1200, 'hl_bulb_Lo': 1200, 'door_handle_L': 2000, 'door_handle_R': 2000,
-          'bumper_letters': 9000, 'grille': 30000, 'lid_slats': 26000, 'underbody': 12000, 'liner_f': 14000, 'liner_r': 14000,
+          'bumper_letters': 16000, 'grille': 30000, 'lid_slats': 26000, 'underbody': 12000, 'liner_f': 14000, 'liner_r': 14000,
           'tl_housing': 22000, 'lid_frame': 16000, 'hl_bezel_Hi': 10000, 'hl_bezel_Lo': 10000, 'exhaust': 9000,
           'hl_refl_Hi': 12000, 'hl_refl_Lo': 12000, 'tl_tail': 26000, 'mirror_L': 14000, 'mirror_R': 14000,
           'mirror_glass_L': 2000, 'mirror_glass_R': 2000, 'bpillar_vent': 6000, 'turn_front': 6000,
@@ -60,12 +60,15 @@ PARTS = HLs + [
     P('lid_frame', D.lid_frame, (-1.94, -0.62, 0.76), (-0.89, 0.62, 1.15), 0.003, 0.8, False, 1),
     P('lid_slats', D.lid_slats, (-1.93, -0.60, 0.82), (-0.90, 0.60, 1.15), 0.002, 0.85, False, 1),
     P('lid_under', D.lid_under, (-1.93, -0.60, 0.76), (-0.90, 0.60, 1.10), 0.004, 0.95, False, 0),
+    P('quarter_vent_frame', D.quarter_vent_frame, (-1.79, 0.63, 0.80), (-1.59, 0.77, 0.94), 0.0012, 0.6, True),
+    P('quarter_vent_fins', D.quarter_vent_fins, (-1.79, 0.63, 0.80), (-1.59, 0.77, 0.94), 0.0010, 0.6, True),
+    P('quarter_vent_back', D.quarter_vent_back, (-1.79, 0.61, 0.80), (-1.59, 0.77, 0.94), 0.002, 0.6, True),
     P('bpillar_vent', D.bpillar_insert, (-0.94, 0.48, 0.80), (-0.76, 0.86, 1.09), 0.0018, 0.6, True),
     P('mirror_L', lambda X, Y, Z: D.mirror_housing(X, Y, Z, 1), (0.22, 0.73, 0.74), (0.50, 1.01, 0.91), 0.0025, 0.7),
     P('mirror_glass_L', lambda X, Y, Z: D.mirror_glass(X, Y, Z, 1), (0.22, 0.76, 0.75), (0.45, 1.00, 0.89), 0.0015, 0.5),
     P('mirror_R', lambda X, Y, Z: D.mirror_housing(X, Y, Z, -1), (0.22, -1.01, 0.74), (0.50, -0.73, 0.91), 0.0025, 0.7),
     P('mirror_glass_R', lambda X, Y, Z: D.mirror_glass(X, Y, Z, -1), (0.22, -1.00, 0.75), (0.45, -0.76, 0.89), 0.0015, 0.5),
-    P('liner_f', lambda X, Y, Z: D.well_liner(X, Y, Z, True), (0.82, 0.50, 0.22), (1.60, 0.93, 0.70), 0.004, 0.8, True),
+    P('liner_f', lambda X, Y, Z: D.well_liner(X, Y, Z, True), (0.82, 0.50, 0.22), (1.60, 0.96, 0.70), 0.004, 0.8, True),
     P('liner_r', lambda X, Y, Z: D.well_liner(X, Y, Z, False), (-1.62, 0.50, 0.24), (-0.79, 0.94, 0.77), 0.004, 0.8, True),
     P('rear_frame', R.frame, (-1.95, -0.80, 0.17), (-0.55, 0.80, 0.52), 0.004, 0.8),
     P('driveshafts', R.driveshafts, (-1.30, -0.70, 0.27), (-1.11, 0.70, 0.42), 0.003, 0.7),
@@ -80,7 +83,7 @@ PARTS = HLs + [
     P('sill_details', D.sill_details, (-0.80, 0.78, 0.16), (0.70, 0.92, 0.23), 0.0015, 0.6, True),
     P('door_handle_L', lambda X, Y, Z: D.door_handle(X, Y, Z, 1), (-0.62, 0.86, 0.49), (-0.42, 0.95, 0.57), 0.0012, 0.6),
     P('door_handle_R', lambda X, Y, Z: D.door_handle(X, Y, Z, -1), (-0.62, -0.95, 0.49), (-0.42, -0.86, 0.57), 0.0012, 0.6),
-    P('bumper_letters', D.bumper_letters, (-2.11, 0.24, 0.48), (-2.04, 0.76, 0.555), 0.0008, 0.6),
+    P('bumper_letters', D.bumper_letters, (-2.11, 0.27, 0.49), (-2.04, 0.76, 0.55), 0.00045, 0.6),
 ]
 
 PARTS += [
@@ -104,7 +107,7 @@ PARTS += [
     P('rear_hoses',R.braided_hoses,(-2.04,-.56,.28),(-1.85,.56,.40),.002,.7),
     P('rear_hose_fittings',R.hose_fittings,(-2.02,-.57,.27),(-1.85,.57,.40),.0018,.6),
     P('exhaust_liners',R.exhaust_liners,(-2.13,-.09,.35),(-1.97,.09,.44),.0012,.7),
-    P('rear_logo_border',R.logo_border,(-2.12,.26,.48),(-2.03,.73,.56),.0012,.6),
+    P('rear_logo_border',R.logo_border,(-2.12,.27,.49),(-2.03,.76,.55),.00045,.6),
     P('lid_fasteners',R.louvre_fasteners,(-1.91,-.61,.87),(-.91,.61,1.12),.0015,.6),
     P('lid_seal',R.lid_seal,(-1.95,-.60,.85),(-.89,.60,1.12),.002,.6),
 ]

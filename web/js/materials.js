@@ -109,7 +109,7 @@ function rearLensNormal() {
     const img = g.createImageData(w, h);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const nx = Math.sin((x / 32 % 1 - 0.5) * Math.PI) * 0.65;
-      const ny = Math.sin((y / 16 % 1 - 0.5) * Math.PI) * 0.35;
+      const ny = Math.sin((y / 16 % 1 - 0.5) * Math.PI) * 0.10;
       const i = (y * w + x) * 4;
       img.data[i] = (nx * 0.5 + 0.5) * 255;
       img.data[i + 1] = (ny * 0.5 + 0.5) * 255;
@@ -365,10 +365,11 @@ export function setTrim(lib, name) {
 export function createLibrary(opts = {}) {
   const T = 'assets/tex/';
   // brushed stainless: a CC0 scan (ambientCG Metal009, tools/tex/import_cc0.py), one tile per
-  // 0.5 m; the UVs are metres with U along the car (web/js/main.js), the grain runs along U
-  const steelC = tex(T + 'stainless_c.jpg', { srgb: true, repeat: 2 });
-  const steelN = tex(T + 'stainless_n.jpg', { repeat: 2 });
-  const steelR = tex(T + 'stainless_r.jpg', { repeat: 2 });
+  // 1/6 m; finer grain keeps the wing contours readable at the studio reference distance.
+  // The UVs are metres with U along the car (web/js/main.js); the grain runs along U
+  const steelC = tex(T + 'stainless_c.jpg', { srgb: true, repeat: 6 });
+  const steelN = tex(T + 'stainless_n.jpg', { repeat: 6 });
+  const steelR = tex(T + 'stainless_r.jpg', { repeat: 6 });
   const grainN = tex(T + 'plastic_grain_n.png', { repeat: 6 });
   const flute = fluteNormal();
   const prism = prismNormal();
@@ -380,7 +381,7 @@ export function createLibrary(opts = {}) {
     // flank gradient the reference photos show
     // the maps are centred on 0.5: colour and roughness here are twice the mean values
     name: 'Stainless', color: lin(1.24, 1.21, 1.17), metalness: 1, roughness: 0.50,
-    map: steelC, roughnessMap: steelR, normalMap: steelN, normalScale: new THREE.Vector2(0.2, 0.2),
+    map: steelC, roughnessMap: steelR, normalMap: steelN, normalScale: new THREE.Vector2(0.06, 0.06),
     side: THREE.DoubleSide, envMapIntensity: 1.0,
   });
   lib.Urethane = new THREE.MeshPhysicalMaterial({
@@ -390,10 +391,12 @@ export function createLibrary(opts = {}) {
     name: 'Urethane', color: lin(0.052, 0.057, 0.080), metalness: 0, roughness: 0.55,
     normalMap: grainN, normalScale: new THREE.Vector2(0.2, 0.2), clearcoat: 0.35, clearcoatRoughness: 0.35,
   });
+  lib.BumperLetter = new THREE.MeshPhysicalMaterial({ name: 'BumperLetter', color: lin(0.044, 0.048, 0.067),
+    roughness: 0.42, clearcoat: 0.2, clearcoatRoughness: 0.3 });
   // Smooth painted rear fascia, distinct from the brushed stainless quarters.
   lib.FasciaPaint = new THREE.MeshPhysicalMaterial({ name: 'FasciaPaint', color: lin(0.52, 0.53, 0.54),
     metalness: 0.95, roughness: 0.28, clearcoat: 0.2, clearcoatRoughness: 0.3 });
-  lib.TailFrame = new THREE.MeshPhysicalMaterial({ name: 'TailFrame', color: lin(0.026, 0.028, 0.030),
+  lib.TailFrame = new THREE.MeshPhysicalMaterial({ name: 'TailFrame', color: lin(0.040, 0.043, 0.046),
     roughness: 0.38, clearcoat: 0.25, clearcoatRoughness: 0.3 });
   lib.Lamp_RearRefl = new THREE.MeshStandardMaterial({ name: 'Lamp_RearRefl', color: lin(0.65, 0.64, 0.60), metalness: 1, roughness: 0.27 });
   lib.FrameCoat = new THREE.MeshStandardMaterial({ name: 'FrameCoat', color: lin(0.085, 0.090, 0.092), metalness: 0.25, roughness: 0.62 });

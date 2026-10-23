@@ -5,6 +5,7 @@ body floor, since the low rear photograph looks up at their exposed lower faces.
 """
 import numpy as np
 import body as B
+import wordmark as W
 import details as D
 from sdf import smin, smax, poly2d, smoothstep
 from details import cap_x, rbox3
@@ -33,7 +34,7 @@ def fasteners(X,Y,Z):
     # Separate lamp screws on the perimeter, rather than floating on the lens cells.
     for y in [.300,.438,.582]:
         for side in [-1,1]:
-            for z in [.652,.805]:
+            for z in [.654,.800]:
                 d=np.minimum(d,screw(X,Y,Z,B.x_tail(z)+.006,side*y,z,.003))
     for y in [-.264,.264]:
         for z in [.654,.800]:
@@ -220,9 +221,8 @@ def louvre_fasteners(X,Y,Z):
 
 
 def logo_border(X,Y,Z):
-    rim=np.maximum(_rbox2(Y-D.DEL_YC,Z-D.DEL_ZC,.225,.033,.003),
-                   -_rbox2(Y-D.DEL_YC,Z-D.DEL_ZC,.223,.031,.002))
-    return np.maximum(rim,np.abs(X-B.x_rbump(np.abs(Y))+.0007)-.0012)
+    return np.maximum(W.border(Y,Z)+0.00015,
+                      np.abs(X-B.rear_bumper_face(Y,Z)-0.0018)-0.0006)
 
 
 def lid_seal(X,Y,Z):

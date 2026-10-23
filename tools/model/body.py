@@ -18,6 +18,9 @@ Stance: the reference car sits lower than a stock US car, on low-profile tyres (
 car by STANCE so the tyres stand on z = 0.
 """
 import numpy as np
+import wordmark as W
+from functools import lru_cache
+from scipy.ndimage import map_coordinates
 from sdf import smin, smax, interp, cubic_interp, cyl_y, poly2d, box, smoothstep
 
 DEG = np.pi / 180
@@ -95,10 +98,10 @@ def x_nose(Z, yy=0.0):
 
 def x_tail(Z):
     # The fascia swells into a narrow rolled ledge above the bumper.
-    return -2.022 - (0.80 - Z) * 0.05 + 0.25 * np.maximum(Z - 0.590, 0.0) - 0.009*np.exp(-((Z-0.618)/0.022)**2)
+    return -2.022 - (0.80 - Z) * 0.05 + 0.25 * np.maximum(Z - 0.590, 0.0) - 0.014*np.exp(-((Z-0.618)/0.028)**2)
 
 
-CORNER_R = 0.016             # the flanks meet the tail in a crisp vertical crease
+CORNER_R = 0.045             # moulded rear fascia rolls smoothly into the side returns
 NOSE_CORNER_R = 0.08         # the nose panel wraps round its corners without a fold (front photo)
 
 
@@ -164,9 +167,15 @@ def quarter_rails(X):
 
 
 def _quarter_tan(X):
-    # Continue the last plane into the rounded tail; no flare back out at the tip.
     lower_y, upper_y, upper_z = quarter_rails(np.clip(X, -1.75, -0.925))
-    return (lower_y - upper_y) / (upper_z - 0.812)
+    window = (lower_y - upper_y) / (upper_z - 0.812)
+    # The sail's upper edge continues straight in plan through the tail-panel seam.
+    # Use that rail to set the aft surface, rather than freezing the last window angle.
+    aft_x = np.clip(X, -1.96, -1.40)
+    rail_y = 0.6165 - 0.165 * (aft_x + 1.50)
+    rail_tan = (quarter_rails(aft_x)[0] - rail_y) / (z_fb(aft_x) - 0.812)
+    aft = smoothstep(-1.40, -1.60, X)
+    return window * (1 - aft) + rail_tan * aft
 
 
 def gs_y0(X):
@@ -250,7 +259,18 @@ def arch_flare(X, Z):
     for cx, cz, r, a in ((X_FA, ARCH_ZF, ARCH_F, FLARE_F), (X_RA, ARCH_ZR, ARCH_R, FLARE_R)):
         d = np.sqrt((X - cx) ** 2 + (Z - cz) ** 2) - r
         t = np.clip(1 - d / 0.13, 0, 1)
-        out = np.maximum(out, a * t * t * (3 - 2 * t) * np.clip((Z - cz + 0.05) / 0.15, 0, 1))
+        if cx == X_RA:
+            # Crown flare keeps the rear arch from dipping inward in plan.
+            profile = (a + 0.024 * smoothstep(0.56, 0.67, Z)) * t*t*(3 - 2*t)
+        else:
+            # A narrow pressed lip stands above the broader wing flare (studio 04/07).
+            # Keep its land nearly flat, then roll the outer edge into the wing.
+            broad = (a + 0.012 * smoothstep(0.53, 0.62, Z)) * t*t*(3 - 2*t)
+            lip = 0.007 * (1 - smoothstep(0.012, 0.026, d))
+            profile = broad + lip
+        fade = smoothstep(cz - 0.05, cz + 0.10, Z) if cx == X_FA else np.clip((Z - cz + 0.05) / 0.15, 0, 1)
+        out = np.maximum(out, profile * fade)
+
     return out
 
 
@@ -265,7 +285,7 @@ def flanks(X, Y, Z):
     # A tangent-continuous shoulder joins the flank to the quarter-window plane.
     # Clipping these planes together left a pinched ridge behind the wheel arch.
     rear = smoothstep(-1.0, -1.50, X)
-    lo, hi = 0.64, 0.84
+    lo, hi = 0.64, 0.80
     tl = np.maximum(lo - zc, 0.0)
     w0 = wc - tl * np.tan(a) - CONVEX * tl * tl
     m0 = -np.tan(a) - 2 * CONVEX * tl
@@ -275,7 +295,11 @@ def flanks(X, Y, Z):
     shoulder = ((2*u**3 - 3*u*u + 1) * w0 + (u**3 - 2*u*u + u) * (hi-lo) * m0
                 + (-2*u**3 + 3*u*u) * w1 + (u**3 - u*u) * (hi-lo) * m1)
     sail = d_glass_side(X, yy, Z)
-    rounded = np.where(Z < lo, d, np.where(Z > hi, sail, (yy - shoulder) * 0.65))
+    # Match the distance scale at both joins as well as the surface tangent.
+    # A fixed 0.65 scale jumped to cos(glass lean) at hi, leaving a horizontal
+    # crease where the rounded rear corner intersects this shoulder.
+    scale = np.cos(a) + (np.cos(gs_lean(X)) - np.cos(a)) * u*u*(3 - 2*u)
+    rounded = np.where(Z < lo, d, np.where(Z > hi, sail, (yy - shoulder) * scale))
     flank = smax(d, sail, 0.010) * (1 - rear) + rounded * rear
     # Ruled tail corner: one continuous rake, with only 3.5 mm of convex bow.
     # Extending the shoulder's cubic through this narrow panel made both vertical
@@ -283,6 +307,11 @@ def flanks(X, Y, Z):
     u_tail = np.clip((Z - 0.60) / 0.27, 0.0, 1.0)
     tail_width = 0.840 + 0.20 * (X + 1.89) - 0.57 * (Z - 0.60) + 0.014 * u_tail * (1 - u_tail)
     tail = smoothstep(-1.68, -1.82, X) * smoothstep(0.57, 0.60, Z)
+    # The raked lamp-panel return blends into the sail below its upper rail.
+    # Carrying this return all the way up created a hump above the window fins.
+    # Finish below the lower glass rail too, including its rubber seal. Letting
+    # this blend cross the window bottom bent the last section under the fins.
+    tail *= 1 - smoothstep(0.70, 0.790, Z)
     return flank * (1 - tail) + (yy - tail_width) * 0.86 * tail
 
 
@@ -305,7 +334,7 @@ def lower_body(X, Y, Z):
     yy = np.abs(Y)
     d = nose_plan(X, Y, Z)
     d = smax(d, (x_tail(Z) - X) * 0.999, CORNER_R)
-    d = smax(d, (Z - (z_top_c(X) - crown(X, yy))) * 0.994, 0.009)
+    d = smax(d, (Z - (z_top_c(X) - crown(X, yy))) * 0.994, 0.009 + 0.020*smoothstep(-1.84,-1.96,X))
     return smax(d, z_bot(X, yy) - Z, 0.015)
 
 
@@ -314,8 +343,9 @@ def body_solid(X, Y, Z):
     plan = nose_plan(X, Y, Z)
     plan = smax(plan, (x_tail(Z) - X) * 0.999, CORNER_R)
     top = smin((Z - (z_top_c(X) - crown(X, yy))) * 0.994, cabin_top(X, Y, Z), 0.012)
-    # the nose panel's brow over the lamps is rolled a little rounder than the shoulders
-    d = smax(plan, top, 0.009 + 0.031 * smoothstep(1.88, 1.93, X))
+    # Both moulded end panels roll over their top edges into the flatter deck.
+    roll = 0.009 + 0.031*smoothstep(1.88,1.93,X) + 0.020*smoothstep(-1.84,-1.96,X)
+    d = smax(plan, top, roll)
     return smax(d, z_bot(X, yy) - Z, 0.015)
 
 
@@ -419,7 +449,7 @@ def cowl_recess(X, Y, Z):
 def shell(X, Y, Z):
     d = body_solid(X, Y, Z)
     d = smax(d, -cowl_recess(X, Y, Z), 0.004)
-    d = smax(d, -arch_cyl(X, Y, Z), 0.006)
+    d = smax(d, -arch_cyl(X, Y, Z), 0.006 - 0.002 * smoothstep(0.5, 0.8, X))
     d = smax(d, -nose_recesses(X, Y, Z), 0.007)          # the panel rolls into the lamp opening
     d = smax(d, -tail_recess(X, Y, Z), 0.016)
     d = smax(d, -bpillar_vents(X, Y, Z), 0.004)
@@ -536,7 +566,7 @@ def r_nose(X, Y, Z):
 
 def r_tail(X, Y, Z):
     d = np.maximum(X - x_tail_seam(Z), Z - TAIL_TOP)
-    d = np.maximum(d, (RB_Z[1] - 0.02) - Z)
+    d = np.maximum(d, (RB_Z[1] - 0.002) - Z)
     return np.maximum(d, -r_lid(X, Y, Z))
 
 
@@ -587,12 +617,18 @@ def r_door_glass(X, Y, Z, side=1):
 
 def _quarter_poly():
     from patch import round_poly
-    xs = np.linspace(-0.925, -1.70, 9)
+    xs = np.linspace(-0.925, -1.765, 10)
     top = [(x, float(quarter_rails(x)[2])) for x in xs]
-    return round_poly(top + [(-1.765, 0.835), (-1.70, 0.812), (-0.93, 0.812)], 0.035, seg=4)
+    return round_poly(top + [(-1.765, 0.812), (-0.93, 0.812)], 0.025, seg=6)
 
 
 QUARTER_POLY = _quarter_poly()
+
+
+def quarter_vent_split(Z):
+    """Curved glass/vent divider at the tail of each quarter light (studio 05/07/08)."""
+    t = np.clip((Z - 0.812) / 0.11, 0, 1)
+    return -1.644 + 0.028 * t - 0.009 * np.sin(np.pi * t)
 
 
 def r_quarter(X, Y, Z):
@@ -662,7 +698,7 @@ def x_rbump(yy):
     return RB_X0 + 0.04 * (yy / 0.85) ** 2
 
 
-def rear_bumper(X, Y, Z):
+def rear_bumper_blank(X, Y, Z):
     yy = np.abs(Y)
     wc = w_crease(X)
     zc = z_crease(X)
@@ -673,14 +709,53 @@ def rear_bumper(X, Y, Z):
     d_front = X - RB_X_SIDE
     bottom = RB_Z[0] - 0.025 * smoothstep(0.60, 0.82, yy) * smoothstep(-2.04, -1.90, X)
     d_bot = bottom - Z
-    d = smax(d_rear, d_side, 0.08)
-    d = smax(d, d_top, 0.030)
-    d = smax(d, d_bot, 0.012)
-    d = smax(d, d_front, 0.012)
+    d = smax(d_rear, d_side, 0.12)
+    d = smax(d, d_top, 0.045)
+    d = smax(d, d_bot, 0.025)
+    d = smax(d, d_front, 0.020)
     d = smax(d, -np.maximum(cyl_y(X, Y, Z, X_RA, ARCH_ZR, ARCH_R), 0.55 - yy), 0.006)
     # The reference's central twin outlets interrupt the bumper's lower edge.
     cutout = _rbox2(Y + 0.003, Z - EXHAUST_Z, 0.090, 0.045, 0.018)
-    return smax(d, -cutout, 0.003)
+    d = smax(d, -cutout, 0.003)
+    return d
+
+
+@lru_cache(maxsize=1)
+def _bumper_face_grid():
+    """Frontmost bumper surface beneath the logo, including its curved outer corner."""
+    ys = np.linspace(0.27, 0.77, 501)
+    zs = np.linspace(0.48, 0.56, 81)
+    Y, Z = np.meshgrid(ys, zs)
+    lo = x_rbump(Y)-0.005
+    hi = x_rbump(Y)+0.040
+    for _ in range(18):
+        mid = (lo+hi)/2
+        outside = rear_bumper_blank(mid,Y,Z) > 0
+        lo = np.where(outside,mid,lo)
+        hi = np.where(outside,hi,mid)
+    return (lo+hi)/2
+
+
+def rear_bumper_face(Y, Z):
+    Y, Z = np.broadcast_arrays(Y,Z)
+    coords = np.stack([(Z.ravel()-0.48)*1000, (Y.ravel()-0.27)*1000])
+    return map_coordinates(_bumper_face_grid(),coords,order=1,mode='nearest').reshape(Y.shape)
+
+
+def rear_bumper(X, Y, Z):
+    d = np.asarray(rear_bumper_blank(X,Y,Z)).copy()
+    X,Y,Z = np.broadcast_arrays(X,Y,Z)
+    sel = ((np.abs(Y-W.YC) < W.WIDTH/2+0.008) &
+           (np.abs(Z-W.ZC) < W.HEIGHT/2+0.008) &
+           (np.abs(X-x_rbump(np.abs(Y))) < 0.040))
+    if np.any(sel):
+        # Recess depth is measured from the rounded bumper, not its flatter centre plane.
+        face = rear_bumper_face(Y[sel],Z[sel])
+        text = np.maximum(W.letters(Y[sel],Z[sel]),X[sel]-face-W.DEPTH)
+        frame = np.maximum(W.border(Y[sel],Z[sel]),X[sel]-face-0.0015)
+        d[sel] = smax(smax(d[sel],-text,0.0035),-frame,0.0008)
+    return d
+
 
 
 FBUMP_BMIN = (1.76, -0.98, 0.37)
@@ -692,7 +767,7 @@ RBUMP_BMAX = (-1.80, 0.99, 0.62)
 def rear_bumper_plan(X, Y, Z):
     yy = np.abs(Y)
     side = (yy - arch_flare(X, Z) - (w_crease(X)+0.008))*np.cos(TUCK) - np.minimum(Z-z_crease(X),0)*np.sin(TUCK)
-    return smax(smax(x_rbump(yy)-X, side, 0.08), X-RB_X_SIDE, 0.012)
+    return smax(smax(x_rbump(yy)-X, side, 0.12), X-RB_X_SIDE, 0.020)
 
 
 def rear_band(X, Y, Z):
@@ -713,23 +788,22 @@ def x_rear_valance(Z, yy=0.0):
 
 
 def rear_valance(X, Y, Z):
-    """Moulded lower apron with a rolled bottom lip and swept quarter-panel returns."""
-    yy=np.abs(Y)
-    face_x=x_rear_valance(Z,yy)
-    d=np.maximum(face_x-X, X-face_x-0.045)
-    d=smax(d, yy-(w_crease(X)-0.025),0.035)
-    top=0.417-0.015*smoothstep(0.58,0.83,yy)
-    bottom=0.329+0.028*smoothstep(0.56,0.82,yy)
-    d=smax(d,np.maximum(Z-top,bottom-Z),0.012)
-    outlet=_rbox2(Y+0.003,Z-EXHAUST_Z,0.092,0.046,0.018)
-    relief=np.sqrt((yy-0.535)**2+(Z-0.340)**2)-0.055
-    d=smax(d,-np.minimum(outlet,relief),0.005)
-    face=w_crease(X)-(z_crease(X)-Z)*np.tan(TUCK)-0.006-0.014*smoothstep(0.38,0.26,Z)
-    skirt=np.maximum(yy-face,face-0.030-yy)
-    skirt=smax(skirt,np.maximum(Z-rear_lower_edge(X)+0.001,rear_lower_edge(X)-0.070-Z),0.021)
-    skirt=smax(skirt,np.maximum(-1.965-X,X+1.48),0.018)
-    skirt=smax(skirt,-arch_cyl(X,Y,Z,0.008),0.006)
-    return smin(d,skirt,0.020)
+    """Continuous moulded apron: rolled rear face flowing into tucked side returns."""
+    yy = np.abs(Y)
+    side = (w_crease(X) - (z_crease(X)-Z)*np.tan(TUCK)
+            - 0.006 - 0.014*smoothstep(0.38,0.26,Z))
+    # A single rounded plan avoids the fins left by joining separate rear/side slabs.
+    plan = smax(x_rear_valance(Z,yy)-X, yy-side, 0.105)
+    skin = np.maximum(plan, -plan-0.035)
+    blend = smoothstep(-2.01,-1.88,X)
+    top = (0.417-0.015*smoothstep(0.58,0.83,yy))*(1-blend) + (rear_lower_edge(X)-0.001)*blend
+    bottom = 0.329*(1-blend) + (rear_lower_edge(X)-0.070)*blend
+    d = smax(skin, np.maximum(Z-top,bottom-Z), 0.015)
+    d = smax(d, X+1.48, 0.018)
+    d = smax(d, -arch_cyl(X,Y,Z,0.008), 0.006)
+    outlet = _rbox2(Y+0.003,Z-EXHAUST_Z,0.092,0.046,0.018)
+    relief = np.sqrt((yy-0.535)**2+(Z-0.340)**2)-0.055
+    return smax(d, -np.minimum(outlet,relief), 0.005)
 
 
 RVAL_BMIN = (-2.10, -0.90, 0.22)

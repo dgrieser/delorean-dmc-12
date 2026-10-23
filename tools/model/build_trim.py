@@ -2,7 +2,8 @@
 import os, sys, time
 import numpy as np
 import body as B
-from patch import patch, region_outline, offset_poly
+from patch import patch, region_outline, offset_poly, project, resample_poly
+from extract import clip_level, sdf_normals
 
 OUT = os.environ.get('OUT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'out'))
 os.makedirs(OUT, exist_ok=True)
@@ -64,9 +65,30 @@ def quarter_glass():
     pts = B.QUARTER_POLY
     for side, tag in [(1, 'L'), (-1, 'R')]:
         V, F, N = patch(shell, offset_poly(pts, 0.006), ('X', 'Z'), 'Y', side, offset=-0.003, step=0.02)
+        # Glass ends under the curved divider; the rear tip is a recessed finned insert.
+        V, F = clip_level(V, F, lambda x, y, z: x - B.quarter_vent_split(z) + 0.001)
+        N = sdf_normals(shell, V)
         save(f'glass_quarter_{tag}', V, F, N)
         V, F, N = patch(shell, offset_poly(pts, 0.012), ('X', 'Z'), 'Y', side, offset=-0.0008, step=0.008,
                         holes=[offset_poly(pts, -0.007)], thickness=0.004)
+        # Line the inner opening too: its rolled steel edge was visible through the glass.
+        ring = project(shell, resample_poly(offset_poly(pts, -0.007), 0.008), ('X', 'Z'), 'Y', side)
+        normals = sdf_normals(shell, ring)
+        outer, inner = ring - normals * 0.0008, ring - normals * 0.020
+        k = np.arange(len(ring))
+        j = (k + 1) % len(ring)
+        walls = np.concatenate([np.stack([k, j, j + len(ring)], 1),
+                                np.stack([k, j + len(ring), k + len(ring)], 1)])
+        wall_v = np.concatenate([outer, inner])
+        wall_n = np.cross(np.roll(outer, -1, axis=0) - outer, inner - outer)
+        wall_n /= np.maximum(np.linalg.norm(wall_n, axis=1, keepdims=True), 1e-12)
+        # Face the lining into the opening on either side of the car.
+        if np.mean(np.sum(wall_n * (outer.mean(axis=0) - outer), axis=1)) < 0:
+            walls = walls[:, [0, 2, 1]]
+            wall_n = -wall_n
+        F = np.concatenate([F, walls + len(V)])
+        V = np.concatenate([V, wall_v])
+        N = np.concatenate([N, wall_n, wall_n])
         save(f'gasket_quarter_{tag}', V, F, N)
 
 
@@ -96,8 +118,18 @@ def strips():
     for side, tag in [(1, 'L'), (-1, 'R')]:
         for k, (a, b) in segs.items():
             pts = band(min(a, b), max(a, b), None)
+            if k in ('fender', 'nose'):
+                # The ends beside the front opening follow its arc instead of
+                # stopping square, leaving a constant reveal around the pressed lip.
+                near = b if k == 'fender' else a
+                zc = float(B.z_crease(np.array(near)))
+                zs = np.linspace(zc - 0.0125, zc + 0.0125, 9)
+                radius = B.ARCH_F + 0.020
+                dx = np.sqrt(np.maximum(radius**2 - (zs - B.ARCH_ZF)**2, 0.0))
+                arc = np.column_stack([B.X_FA + (-dx if k == 'fender' else dx), zs])
+                pts = np.vstack([pts[0], arc, pts[3]]) if k == 'fender' else np.vstack([arc[0], pts[1], pts[2], arc[:0:-1]])
             from patch import round_poly
-            V, F, N = patch(shell, round_poly(pts, 0.008), ('X', 'Z'), 'Y', side, offset=0.0035, step=0.01,
+            V, F, N = patch(shell, round_poly(pts, 0.003 if k in ('fender', 'nose') else 0.008), ('X', 'Z'), 'Y', side, offset=0.0035, step=0.01,
                             thickness=0.006)
             save(f'strip_{k}_{tag}', V, F, N)
 

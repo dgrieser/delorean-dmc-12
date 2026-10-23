@@ -50,9 +50,9 @@ def fixed(X, Y, Z):
     # Keep this cut at that seam, beyond the wing, to avoid overlapping steel surfaces.
     front = np.maximum(B.x_nose_seam(Z) - X, Z - (B.FB_Z[1] + 0.005))
     d = smax(d, -front, 0.004)
-    # The lower rear apron owns this surface; do not leave a second steel wall
-    # behind its exhaust opening and curved lower edge.
-    rear = np.maximum(X - B.x_tail_seam(Z), Z - (B.RB_Z[0] + 0.009))
+    # The bumper and lower apron own the surface below the fascia. Remove the
+    # hidden steel skin too, so rounding their corners cannot expose steel fragments.
+    rear = np.maximum(X - B.x_tail_seam(Z), Z - (B.RB_Z[1] + 0.004))
     d = smax(d, -rear, 0.004)
     # Open underside of the engine bay; the fixed shell must not leave a steel
     # floor crossing the crankcase when the rear apron is viewed from below.
@@ -86,7 +86,7 @@ PARTS = {
 }
 
 
-BUDGET = {'body': 240000, 'hood': 40000, 'nose': 30000, 'tail': 30000, 'bumper_f': 40000, 'bumper_r': 42000, 'rocker': 10000, 'lid_skin': 1000,
+BUDGET = {'body': 240000, 'hood': 40000, 'nose': 30000, 'tail': 30000, 'bumper_f': 40000, 'bumper_r': 120000, 'rocker': 10000, 'lid_skin': 1000,
           'door_L': 45000, 'door_R': 45000, 'airdam': 24000, 'rvalance': 16000, 'fstrip': 12000}
 
 
@@ -97,13 +97,15 @@ SPLIT = {'body', 'door_L', 'door_R', 'hood', 'nose', 'tail', 'fstrip', 'rvalance
 def build(name, reduction=0.86):
     f, a, b, skin = PARTS[name]
     t = time.time()
-    V, F = extract(f, a, b, H, verbose=False)
+    # Resolve the vent slots and sub-millimetre wordmark bevels before refinement.
+    h = min(H, {'rear_band': 0.003, 'bumper_r': 0.0009}.get(name, H))
+    V, F = extract(f, a, b, h, verbose=False)
     if skin:
         # skin down to DEPTH (the rolled edge walls) and nothing under the floor line, cut exactly
         # stop at the sill line and turn only ARCH_LIP into the wheel arches (black liners beyond)
         V, F = clip_level(V, F, lambda x, y, z: np.minimum(np.minimum(B.shell(x, y, z) + DEPTH, z - B.SILL_Z),
                                                            np.maximum(B.flanks(x, y, z) + B.ARCH_LIP, B.arch_cyl(x, y, z, 0.01))))
-    V, F, N = finish4(f, V, F, BUDGET.get(name, 30000), int(os.environ.get('REFINE', '3')), max_edge=0.05 if name in SPLIT else None)
+    V, F, N = finish4(f, V, F, BUDGET.get(name, 30000), int(os.environ.get('REFINE', '3')), max_edge=0.01 if name == 'bumper_r' else 0.05 if name in SPLIT else None)
     np.savez_compressed(f'{OUT}/{name}.npz', V=V.astype(np.float32), F=F.astype(np.int32), N=N.astype(np.float32))
     print(f'{name}: {len(V)} verts {len(F)} faces {time.time() - t:.1f}s', flush=True)
     return V, F, N

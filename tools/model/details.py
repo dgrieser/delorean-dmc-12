@@ -2,6 +2,7 @@
 import numpy as np
 from sdf import smin, smax, interp, cyl_y, poly2d, box, smoothstep
 import body as B
+import wordmark as W
 from body import _rbox2
 
 DEG = np.pi / 180
@@ -238,7 +239,7 @@ def side_marker_rear(X, Y, Z):
 # Tail lamps: 3 rows x 6 columns per side in one black tail panel (measured on the reference car:
 # inner white reverse column, three red tail/stop columns, two amber indicator columns whose
 # outer edge leans in with the body corner); the licence-plate panel between them
-TL_ROWS = [(0.659, 0.7025), (0.7065, 0.7505), (0.7545, 0.798)]
+TL_ROWS = [(0.659, 0.7025), (0.7065, 0.7505), (0.7545, 0.793)]
 TL_COLS = [('Reverse', 0.286, 0.337), ('Tail', 0.342, 0.428), ('Tail', 0.432, 0.518), ('Tail', 0.522, 0.607),
            ('Turn', 0.611, 0.668), ('Turn', 0.672, 0.741)]
 
@@ -259,7 +260,7 @@ def tail_cells(X, Y, Z, kind):
         for z0, z1 in TL_ROWS:
             u = (np.abs(Y) - (a+b)/2) / ((b-a)/2)
             v = (Z - (z0+z1)/2) / ((z1-z0)/2)
-            dome = 0.0012 * np.clip(1-u*u, 0, 1) * np.clip(1-v*v, 0, 1)
+            dome = 0.0020 * np.clip(1-u*u, 0, 1) * np.clip(1-v*v, 0, 1)
             depth = np.maximum(face + 0.012 - dome - X, X - face - 0.017)
             d = np.minimum(d, smax(tail_cell_outline(Y, Z, a, b, z0, z1), depth, 0.0008))
     return d
@@ -286,13 +287,15 @@ def tail_bezel(X, Y, Z):
     holes = np.full(np.shape(X), 1.0)
     for _, a, b in TL_COLS:
         for z0, z1 in TL_ROWS:
-            holes = np.minimum(holes, tail_cell_outline(Y, Z, a, b, z0, z1, -0.0003))
+            holes = np.minimum(holes, tail_cell_outline(Y, Z, a, b, z0, z1, 0.0002))
     grille = np.maximum(outline, -holes)
-    grille = np.maximum(grille, np.maximum(face+0.008-X, X-face-0.032))
+    # Rounded, raised moulded ribs stand 8 mm ahead of the lens faces.
+    # The old flush, square-edged grid disappeared against the dark lenses.
+    grille = smax(grille, np.maximum(face+0.004-X, X-face-0.032), 0.0018)
     # Perimeter lip round the centre cassette; 3 mm seams separate it from both lamps.
     rim = np.maximum(_rbox2(Y, Z-0.727, 0.276, 0.079, 0.008),
                      -_rbox2(Y, Z-0.727, 0.270, 0.073, 0.005))
-    rim = np.maximum(rim, np.maximum(face+0.012-X, X-face-0.034))
+    rim = smax(rim, np.maximum(face+0.007-X, X-face-0.034), 0.0015)
     return np.minimum(grille, rim)
 
 
@@ -396,7 +399,36 @@ LID_HINGE = (B.LID_X0 + 0.02, float(_fb_z(B.LID_X0 + 0.02)) - 0.012)
 
 
 # ======================================================================================
-# B-pillar vent inserts: a black liner with a centre divider inside each slot
+# Rear quarter-window inserts: four curved, swept vanes inside the rounded tail tip.
+def _quarter_vent_region(X, Z):
+    return np.maximum(poly2d(X, Z, B.QUARTER_POLY) + 0.004, X - B.quarter_vent_split(Z))
+
+
+def quarter_vent_frame(X, Y, Z):
+    gs = B.shell(X, Y, Z)
+    region = _quarter_vent_region(X, Z)
+    rim = np.maximum(region, -region - 0.0035)
+    return smax(rim, np.maximum(gs - 0.002, -gs - 0.025), 0.001)
+
+
+def quarter_vent_fins(X, Y, Z):
+    gs = B.shell(X, Y, Z)
+    d = np.full(np.shape(X), 1.0)
+    for offset in [0.025, 0.050, 0.075, 0.100]:
+        # Each vane sweeps aft as it turns inboard: thin edges from the side,
+        # broad curved faces from the rear and overhead reference cameras.
+        u = X - B.quarter_vent_split(Z) + offset - 0.35 * gs
+        vane = smax(np.abs(u) * 0.94 - 0.0017, np.maximum(gs - 0.0015, -gs - 0.016), 0.0012)
+        d = np.minimum(d, vane)
+    return smax(d, _quarter_vent_region(X, Z), 0.0008)
+
+
+def quarter_vent_back(X, Y, Z):
+    gs = B.shell(X, Y, Z)
+    return np.maximum(_quarter_vent_region(X, Z), np.abs(gs + 0.030) - 0.003)
+
+
+# # B-pillar vent inserts: a black liner with a centre divider inside each slot
 def bpillar_insert(X, Y, Z):
     yy = np.abs(Y)
     u = X - B.BV_X + (Z - B.BV_Z) * 0.124
@@ -613,50 +645,9 @@ def door_handle(X, Y, Z, side=1):
 
 
 # ======================================================================================
-# "DeLorean" lettering embossed on the rear bumper (left side)
-def _delorean_glyphs():
-    # glyph boxes in a 1.0-high em; each glyph = list of rounded boxes (cx, cy, hx, hy) to union,
-    # minus list of slots. DMC typeface: square, rounded, with horizontal slits.
-    G = {
-        'D': ([(0.0, 0.0, 0.33, 0.5)], [(-0.10, 0.0, 0.24, 0.17)]),
-        'e': ([(0.0, -0.13, 0.33, 0.37)], [(0.05, -0.02, 0.29, 0.045), (0.15, -0.30, 0.20, 0.06)]),
-        'L': ([(-0.20, 0.0, 0.13, 0.5), (0.0, -0.40, 0.33, 0.10)], []),
-        'o': ([(0.0, -0.13, 0.33, 0.37)], [(0.0, -0.13, 0.17, 0.13)]),
-        'r': ([(-0.20, -0.13, 0.13, 0.37), (0.0, 0.14, 0.30, 0.10)], []),
-        'a': ([(0.0, -0.13, 0.33, 0.37)], [(-0.05, -0.06, 0.29, 0.045), (0.0, -0.32, 0.17, 0.06)]),
-        'n': ([(0.0, -0.13, 0.33, 0.37)], [(0.0, -0.25, 0.17, 0.30)]),
-    }
-    text = 'DeLorean'
-    adv = 0.78
-    out = []
-    x = 0.0
-    for ch in text:
-        adds, subs = G[ch]
-        out.append(([(x + a, b, c, d) for a, b, c, d in adds], [(x + a, b, c, d) for a, b, c, d in subs]))
-        x += adv
-    return out, x - adv
-
-
-DEL_GLYPHS, DEL_W = _delorean_glyphs()
-
-
-DEL_YC, DEL_ZC, DEL_HU, DEL_HV = 0.495, 0.518, 0.0735, 0.055     # 0.45 m wide, 55 mm tall on the left
-
-
+# Recessed "DeLorean" wordmark on the rear bumper (left side)
 def bumper_letters(X, Y, Z):
-    H = DEL_HV
-    u = (-(Y - DEL_YC)) / DEL_HU + DEL_W / 2         # reads left->right when seen from behind
-    v = (Z - DEL_ZC) / H
-    d = np.full(np.shape(X), 1.0)
-    for adds, subs in DEL_GLYPHS:
-        g = np.full(np.shape(X), 1.0)
-        for cx, cy, hx, hy in adds:
-            g = np.minimum(g, _rbox2(u - cx, v - cy, hx, hy, 0.09))
-        for cx, cy, hx, hy in subs:
-            g = np.maximum(g, -_rbox2(u - cx, v - cy, hx, hy, 0.04))
-        d = np.minimum(d, g)
-    # Shallow outlined embossing, rather than solid raised block letters.
-    d = np.abs(d * min(DEL_HU, DEL_HV)) - 0.0008
-    xb = B.x_rbump(np.abs(Y))
-    slab = np.maximum((xb - 0.0008) - X, X - (xb + 0.003))
-    return smax(d, slab, 0.0006)
+    """Inset letter floors; the bumper itself supplies their moulded bevels."""
+    xb = B.rear_bumper_face(Y,Z)
+    floor = np.abs(X-xb-(W.DEPTH-0.0004))-0.0005
+    return smax(W.letters(Y,Z)+0.0010, floor, 0.0002)
