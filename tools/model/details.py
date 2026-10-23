@@ -441,56 +441,6 @@ def bpillar_insert(X, Y, Z):
 
 
 # ======================================================================================
-# Mirrors: black wedge housings on the door's front-top corner, just behind the A-pillar base
-# (outer-top corner measured at x 0.29, |y| 0.98, z 0.87)
-# Measured on the calibrated front and top views: a rounded black housing ~18 x 10.5 x 6 cm,
-# swept back ~30 deg, its inboard end on a flat triangular sail that covers the door window's
-# front lower corner (no stalk).
-MIRROR_P0 = np.array([0.405, 0.800])        # inboard end of the housing axis (x, |y|)
-MIRROR_P1 = np.array([0.300, 0.968])        # outboard end
-MIRROR_Z = (0.765, 0.870)                   # housing bottom / top
-MIRROR_D = 0.060                            # housing depth (fore-aft)
-
-
-def _mirror_local(X, Y, Z, side):
-    Ys = Y * side
-    a = MIRROR_P1 - MIRROR_P0
-    L = np.linalg.norm(a)
-    a = a / L
-    n = np.array([a[1], -a[0]])                      # plan normal pointing forward (+x)
-    if n[0] < 0:
-        n = -n
-    dx, dy = X - MIRROR_P0[0], Ys - MIRROR_P0[1]
-    s = dx * a[0] + dy * a[1]                         # along the housing, 0 = inboard end
-    t = dx * n[0] + dy * n[1]                         # fore-aft across it, + = forward
-    return s, t, Z - 0.5 * (MIRROR_Z[0] + MIRROR_Z[1]), L
-
-
-def mirror_housing(X, Y, Z, side=1):
-    s, t, w, L = _mirror_local(X, Y, Z, side)
-    hh = 0.5 * (MIRROR_Z[1] - MIRROR_Z[0])
-    # rounded box; the front half rounder than the flat back that carries the glass
-    head = rbox3(s, t, w, (0.5 * L, 0.0, 0.0), (0.5 * L + 0.012, 0.5 * MIRROR_D, hh), 0.020)
-    nose = rbox3(s, t, w, (0.5 * L, 0.012, 0.0), (0.5 * L + 0.006, 0.5 * MIRROR_D - 0.008, hh - 0.004), 0.030)
-    head = smin(head, nose, 0.006)
-    cavity = rbox3(s, t, w, (0.5 * L + 0.002, -0.5 * MIRROR_D - 0.004, 0.0), (0.5 * L - 0.008, 0.010, hh - 0.013), 0.008)
-    head = smax(head, -cavity, 0.002)
-    # sail: a flat triangle lying on the window's front lower corner, joined to the housing's end
-    Ys = Y * side
-    tri = poly2d(X, Z, np.array([(0.470, 0.805), (0.370, 0.805), (0.395, 0.885)]))
-    gs = B.d_glass_side(X, np.abs(Y), Z)
-    sail = np.maximum(tri - 0.004, np.maximum(-gs - 0.004, gs - 0.016))
-    sail = np.maximum(sail, 0.795 - Z)
-    return smin(head, sail, 0.012)
-
-
-def mirror_glass(X, Y, Z, side=1):
-    s, t, w, L = _mirror_local(X, Y, Z, side)
-    hh = 0.5 * (MIRROR_Z[1] - MIRROR_Z[0])
-    return rbox3(s, t, w, (0.5 * L + 0.002, -0.5 * MIRROR_D + 0.004, 0.0), (0.5 * L - 0.012, 0.0022, hh - 0.017), 0.006)
-
-
-# ======================================================================================
 # Wheel-well liners and underbody
 def well_liner(X, Y, Z, front=True):
     yy = np.abs(Y)

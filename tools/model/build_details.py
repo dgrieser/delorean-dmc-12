@@ -36,8 +36,8 @@ for i, (a, b) in enumerate(B.HL_Y):
 BUDGET = {'badge_dmc': 6000, 'antenna': 3000, 'turn_bezel': 4000, 'turn_refl': 4000, 'intake_mesh': 2000, 'radiator': 2000, 'rear_frame': 8000, 'driveshafts': 4000, 'plate': 1500, 'cowl_vent': 30000, 'antenna_base': 1500, 'hl_rim_Hi': 6000, 'hl_rim_Lo': 6000, 'hl_bulb_Hi': 1200, 'hl_bulb_Lo': 1200, 'door_handle_L': 2000, 'door_handle_R': 2000,
           'bumper_letters': 16000, 'grille': 30000, 'lid_slats': 26000, 'underbody': 12000, 'liner_f': 14000, 'liner_r': 14000,
           'tl_housing': 22000, 'lid_frame': 16000, 'hl_bezel_Hi': 10000, 'hl_bezel_Lo': 10000, 'exhaust': 9000,
-          'hl_refl_Hi': 12000, 'hl_refl_Lo': 12000, 'tl_tail': 26000, 'mirror_L': 14000, 'mirror_R': 14000,
-          'mirror_glass_L': 2000, 'mirror_glass_R': 2000, 'bpillar_vent': 6000, 'turn_front': 6000,
+          'hl_refl_Hi': 12000, 'hl_refl_Lo': 12000, 'tl_tail': 26000,
+          'bpillar_vent': 6000, 'turn_front': 6000,
           'marker_front': 4000, 'marker_rear': 4000, 'tl_turn': 10000, 'tl_rev': 10000, 'hl_lens_Hi': 10000, 'hl_lens_Lo': 10000}
 
 PARTS = HLs + [
@@ -64,10 +64,6 @@ PARTS = HLs + [
     P('quarter_vent_fins', D.quarter_vent_fins, (-1.79, 0.63, 0.80), (-1.59, 0.77, 0.94), 0.0010, 0.6, True),
     P('quarter_vent_back', D.quarter_vent_back, (-1.79, 0.61, 0.80), (-1.59, 0.77, 0.94), 0.002, 0.6, True),
     P('bpillar_vent', D.bpillar_insert, (-0.94, 0.48, 0.80), (-0.76, 0.86, 1.09), 0.0018, 0.6, True),
-    P('mirror_L', lambda X, Y, Z: D.mirror_housing(X, Y, Z, 1), (0.22, 0.73, 0.74), (0.50, 1.01, 0.91), 0.0025, 0.7),
-    P('mirror_glass_L', lambda X, Y, Z: D.mirror_glass(X, Y, Z, 1), (0.22, 0.76, 0.75), (0.45, 1.00, 0.89), 0.0015, 0.5),
-    P('mirror_R', lambda X, Y, Z: D.mirror_housing(X, Y, Z, -1), (0.22, -1.01, 0.74), (0.50, -0.73, 0.91), 0.0025, 0.7),
-    P('mirror_glass_R', lambda X, Y, Z: D.mirror_glass(X, Y, Z, -1), (0.22, -1.00, 0.75), (0.45, -0.76, 0.89), 0.0015, 0.5),
     P('liner_f', lambda X, Y, Z: D.well_liner(X, Y, Z, True), (0.82, 0.50, 0.22), (1.60, 0.96, 0.70), 0.004, 0.8, True),
     P('liner_r', lambda X, Y, Z: D.well_liner(X, Y, Z, False), (-1.62, 0.50, 0.24), (-0.79, 0.94, 0.77), 0.004, 0.8, True),
     P('rear_frame', R.frame, (-1.95, -0.80, 0.17), (-0.55, 0.80, 0.52), 0.004, 0.8),
@@ -142,3 +138,13 @@ if __name__ == '__main__':
     for p in PARTS:
         if not sel or any(p['name'].startswith(s) for s in sel):
             build(p)
+    # Generate the left mirror once; reflect vertices, winding and normals for
+    # the right side so the pair cannot diverge through separate extraction.
+    mirror_names = ['mirror_L', 'mirror_R', 'mirror_glass_L', 'mirror_glass_R']
+    if not sel or any(n.startswith(s) for n in mirror_names for s in sel):
+        import mirrors
+        for name, (V, F, N) in mirrors.build().items():
+            if not sel or any(name.startswith(s) for s in sel):
+                np.savez_compressed(f'{OUT}/{name}.npz', V=V.astype(np.float32),
+                                    F=F.astype(np.int32), N=N.astype(np.float32))
+                print(f'{name}: {len(V)} v {len(F)} f (lofted)', flush=True)

@@ -91,8 +91,10 @@ def x_nose(Z, yy=0.0):
     rake = 0.12 + 0.48 * smoothstep(0.70, 0.79, yy)
     # Carry the rounded cheek forward below the brow. The plan fillet otherwise pulls
     # this surface back, exposing the centre of the brow as a hook in the side silhouette.
-    cheek = smoothstep(0.66, 0.75, yy) * cubic_interp(
-        Z, [0.54, 0.60, 0.65, 0.68], [0.030, 0.040, 0.045, 0.0])
+    # Carry the cheek through the brow instead of dropping it 45 mm at Z=0.68.
+    # That abrupt retreat pinched the corner; a full upper cheek also removes the side-view hook.
+    # Use the brow's continuous plan curvature, not a local bulge beside the outer lamp.
+    cheek = 0.040 * (yy / 0.736) ** 2 * smoothstep(0.760, 0.690, Z)
     return NOSE_EDGE[0] - NOSE_EDGE[1] * (yy / 0.736) ** 2 + (0.672 - np.maximum(Z, 0.540)) * rake + cheek
 
 
@@ -322,11 +324,22 @@ def nose_plan(X, Y, Z):
     The small inset follows the bumper's rolled top edge, with a narrow seam.
     """
     plan = smax(flanks(X, Y, Z), (X - x_nose(Z, np.abs(Y))) * 0.985, corner_r(X))
+    if not np.any(X > 1.78):
+        return plan
+    # Preserve the wing and its bumper seam outside the moulded nose panel.
     lip = (smoothstep(0.595, 0.540, Z) * smoothstep(0.518, 0.528, Z)
            * smoothstep(1.78, 1.815, X))
-    if not np.any(lip):
-        return plan
-    return plan * (1 - lip) + (front_bumper_plan(X, Y, FB_Z[1]) + 0.0045) * lip
+    perimeter = front_bumper_plan(X, Y, FB_Z[1]) + 0.0045
+    base = plan * (1 - lip) + perimeter * lip
+    # One concave fillet joins the cheek to the ledge at the lamp opening's
+    # floor. A height blend alone produced an S-shaped double ridge.
+    cheek = smax(plan, perimeter, 0.040)
+    ledge = smax(perimeter, Z - (HL_Z[0] + 0.002), 0.008)
+    refined = smin(cheek, ledge, 0.035)
+    # Confine the return to the fascia. Extending it below bumper height or
+    # behind the panel seam changes the lower wing and its marker-strip mount.
+    blend = smoothstep(1.835, 1.890, X) * smoothstep(0.518, 0.528, Z)
+    return base * (1 - blend) + refined * blend
 
 
 def lower_body(X, Y, Z):
@@ -343,8 +356,8 @@ def body_solid(X, Y, Z):
     plan = nose_plan(X, Y, Z)
     plan = smax(plan, (x_tail(Z) - X) * 0.999, CORNER_R)
     top = smin((Z - (z_top_c(X) - crown(X, yy))) * 0.994, cabin_top(X, Y, Z), 0.012)
-    # Both moulded end panels roll over their top edges into the flatter deck.
-    roll = 0.009 + 0.031*smoothstep(1.88,1.93,X) + 0.020*smoothstep(-1.84,-1.96,X)
+    # The nose has a defined brow edge; retain the softer roll at the rear deck.
+    roll = 0.009 + 0.003*smoothstep(1.88,1.93,X) + 0.020*smoothstep(-1.84,-1.96,X)
     d = smax(plan, top, roll)
     return smax(d, z_bot(X, yy) - Z, 0.015)
 
@@ -603,7 +616,13 @@ def _door_glass_poly():
         x, _ = pillar_x(z)
         pts.append((float(x) - 0.075, z))
     x, _ = pillar_x(1.075)
-    pts += [(float(x) - 0.10, 1.068), (-0.50, 1.068), (-0.585, 1.052), (-0.628, 0.99), (-0.635, 0.87), (-0.61, 0.824)]
+    pts += [(float(x) - 0.10, 1.068), (-0.49, 1.068)]
+    # Tangent-continuous upper rear corner, shared by the steel reveal, glass,
+    # gasket and inner liner. The old three straight segments read as a chamfer.
+    a, b, c, d = np.array([[-0.49, 1.068], [-0.585, 1.068], [-0.626, 1.025], [-0.630, 0.940]])
+    for t in np.linspace(0, 1, 19)[1:]:
+        pts.append((1-t)**3*a + 3*(1-t)**2*t*b + 3*(1-t)*t*t*c + t**3*d)
+    pts += [(-0.633, 0.876), (-0.61, 0.824)]
     return np.array(pts)
 
 

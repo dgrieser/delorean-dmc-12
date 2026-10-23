@@ -177,4 +177,8 @@ def offset_poly(pts, dist):
     for i in range(1, len(out)):
         if np.linalg.norm(out[i] - out[keep[-1]]) > 0.004:
             keep.append(i)
+    # A contour passing exactly through a grid vertex can repeat its start
+    # after thinning. The zero-length closing edge makes polygon distances NaN.
+    while len(keep) > 3 and np.linalg.norm(out[keep[-1]] - out[keep[0]]) < 1e-9:
+        keep.pop()
     return out[keep]

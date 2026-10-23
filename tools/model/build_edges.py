@@ -54,6 +54,9 @@ def jamb_solid(side):
         d = smax(d, -(s + JAMB_D), 0.002)
         # only a band around the aperture (measured on the skin), ending in a clean wall under the trim
         d = smax(d, B.r_door(*SX.to_skin(X, Y, Z), side) - BAND, 0.0015)
+        # The aperture flange must stop behind the windscreen reveal, not extend
+        # through its glass at the shallow upper A-pillar junction.
+        d = smax(d, -(B.r_windshield(X, Y, Z) - 0.004), 0.002)
         return smax(d, B.SILL_Z + 0.005 - Z, 0.0015)
     return f
 

@@ -47,7 +47,9 @@ tools/model/sdf.py, extract.py   SDF primitives, sparse marching cubes, crease r
 tools/model/body.py              body shell: crease line, leaned flanks, wedge nose, fastback,
                                  wheel arches, panel regions (doors, bonnet, cover, glass)
 tools/model/details.py           quad sealed-beam headlamps, grille + DMC badge, tail-lamp grid,
-                                 louvres, mirrors, markers, liners, exhaust, lettering
+                                 louvres, markers, liners, exhaust, lettering
+tools/model/mirrors.py           lofted mirror shells, recessed glass and swept mounts;
+                                 exact reflected mesh for the opposite door
 tools/model/interior.py          seats, dash + binnacle, console, door cards, steering wheel,
                                  pedals, shifter, handbrake, carpets, seals
 tools/model/engine.py            PRV V6 engine bay, front luggage compartment
@@ -114,12 +116,25 @@ brushed-steel grain. The bumpers and rear valance are graphite grey, with a dark
 finish on the air dam. At the front, the wing, lower steel strip and air dam share a continuous
 rising edge (`front_lower_edge` in `body.py`); the nose cheeks slope forward beneath the rounded
 brow, and the recessed chin has rolled corners. These profiles follow the side and front
-three-quarter studio views.
+three-quarter studio views. The upper nose corners taper smoothly into the brow without a
+local bulge above the outer lamps. A defined upper edge and a single rounded lower return
+join the nose to the bumper ledge. Mirrors have tapered housings, slanted pivot joints,
+rounded mounting covers and triangular sails that follow the door skin. Their extraction
+bounds include the complete inboard mounting surface.
 
 The open doors include latch plates, front amber and rear red warning lamps, pull loops,
 speaker recesses and aperture seals. Their visible gas struts track both mounting points
 through the full opening motion. Roof panel corners share the same rounded outline in the
-skin, trim and jambs. Rear bumper and vent-strip heights follow the calibrated low rear view;
+skin, trim and jambs. The windscreen glass and frit extend to the roof header; the builder
+rejects a truncated sampling outline. Door-window seals sit above the steel edge; the upper
+rear window corners use a shared continuous curve in the steel, glass, seal and inner frame.
+The mirrors use separate lofted shells, recessed glass, curved pedestals, lower pivots and
+triangular mounting plates sampled on the door skin. Both sides come from one mesh, reflected
+with corrected winding and normals. Studio front, rear, overhead and raised-door crops guide
+the profiles; `python tools/model/test_mirrors.py` checks closed solids, attachment, glass
+clearance and exact reflection.
+The front jambs stop outside the windscreen opening. Closed-door strut mounts stay under the
+sail skin. Rear bumper and vent-strip heights follow the calibrated low rear view;
 the twin exhausts pass through a shared central cutout, with the engine and frame exposed
 underneath. Each louvre blade is a continuous, slightly crowned solid. The rear grilles have cross braces
 and perimeter lips. Their surfaces use shorter triangles

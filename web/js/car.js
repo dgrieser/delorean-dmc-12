@@ -193,7 +193,8 @@ export class Car {
 
   addDoorStrut(panel, side, tag) {
     // Rear-quarter ball mount and the door's rear inner frame, measured in the body frame.
-    const a = Car.b2t(-0.81, side * 0.57, 1.055);
+    // Recess the fixed ball under the sail skin; it must not pierce the closed exterior.
+    const a = Car.b2t(-0.81, side * 0.53, 1.035);
     const mount = Car.b2t(-0.697, side * 0.31, 1.093);
     this.body.updateWorldMatrix(true, true);
     const local = panel.node.worldToLocal(this.body.localToWorld(mount));

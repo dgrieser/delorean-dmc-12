@@ -22,7 +22,11 @@ def mirror(V, F, N):
 
 
 def windshield():
-    out = region_outline(shell, B.r_windshield, ('X', 'Y'), 'Z', 1, (0.20, -0.85), (0.90, 0.85), res=0.004)
+    # Include the full raked pane up to the roof; the old X=0.20 bound cut its header off.
+    lo, hi = (-0.15, -0.85), (0.95, 0.85)
+    out = region_outline(shell, B.r_windshield, ('X', 'Y'), 'Z', 1, lo, hi, res=0.004)
+    if np.any(out.min(0) < np.asarray(lo) + 0.008) or np.any(out.max(0) > np.asarray(hi) - 0.008):
+        raise ValueError('Windscreen outline reaches its sampling bounds; enlarge them before building glass')
     glass = offset_poly(out, 0.006)
     V, F, N = patch(shell, glass, ('X', 'Y'), 'Z', 1, offset=-0.0035, step=0.02)
     save('glass_windshield', V, F, N)
@@ -33,7 +37,7 @@ def windshield():
     # black ceramic frit band round the glass (~4.5 cm along the pillars and header, as the top
     # view shows), printed on the inside face
     frit_in = region_outline(shell, lambda X, Y, Z: B.r_windshield(X, Y, Z) + 0.045, ('X', 'Y'), 'Z', 1,
-                             (0.20, -0.85), (0.90, 0.85), res=0.004)
+                             lo, hi, res=0.004)
     V, F, N = patch(shell, glass, ('X', 'Y'), 'Z', 1, offset=-0.0042, step=0.012, holes=[frit_in])
     save('frit_windshield', V, F, N)
     return out
@@ -56,7 +60,8 @@ def door_glass():
         V, F, N = patch(shell, offset_poly(toll, 0.011), ('X', 'Z'), 'Y', side, offset=-0.002, step=0.006,
                         holes=[offset_poly(toll, 0.0015)], thickness=0.003)
         save(f'toll_frame_{tag}', V, F, N)
-        V, F, N = patch(shell, offset_poly(pts, 0.013), ('X', 'Z'), 'Y', side, offset=-0.0008, step=0.008,
+        # The rubber seal sits proud of the rolled steel edge, including the curved header.
+        V, F, N = patch(shell, offset_poly(pts, 0.013), ('X', 'Z'), 'Y', side, offset=0.002, step=0.008,
                         holes=[offset_poly(pts, -0.008)], thickness=0.004)
         save(f'gasket_door_{tag}', V, F, N)
 
