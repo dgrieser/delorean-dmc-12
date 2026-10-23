@@ -7,3 +7,4 @@ tools/tex/__pycache__/
 web/assets/dmc12_raw.glb
 web/assets/dmc12.glb
 *.pyc
+screenshots/
