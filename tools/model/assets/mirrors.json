@@ -1,0 +1,91 @@
+{
+  "source_archive": "1981-dmc-delorean.zip (supplied by user)",
+  "archive_sha256": "7b4d01a7a130bc47cc4cd4340300e12eb7207b6a35ac2869f2b2b68fe8cdcec2",
+  "source_fbx": "source/FINAL_MODEL_DMC12.zip / FINAL_MODEL_DMC12.fbx",
+  "fbx_sha256": "9ff4e8a6c1e2d9884f6670d7c20e38ea036275ec17f5ae1e9259297cc536f1b9",
+  "selection": {
+    "housing": {
+      "object": "DELOREAN:M_Opaque_PlasticRoughBlack_Max",
+      "components": [
+        1067,
+        1068,
+        1069,
+        1070,
+        1071,
+        1072,
+        1073,
+        1074,
+        1075,
+        1076,
+        1077,
+        1078,
+        1079,
+        1080,
+        1081,
+        1082,
+        1083,
+        1084,
+        1085,
+        1086,
+        1122,
+        1123,
+        1124,
+        1125,
+        1126,
+        1127,
+        1128,
+        1129,
+        1130,
+        1131,
+        1132,
+        1133,
+        1134,
+        1135,
+        1136,
+        1137,
+        1138,
+        1139,
+        1140,
+        1141,
+        1142,
+        1143,
+        1144,
+        1145,
+        1146,
+        1147,
+        1148,
+        1149,
+        1150,
+        1151,
+        1152,
+        1153,
+        1154,
+        1155,
+        1156
+      ],
+      "triangles": 2797
+    },
+    "glass": {
+      "object": "DELOREAN:M_GlassOpaque_Mirror_Max",
+      "components": [
+        4,
+        5,
+        6
+      ],
+      "triangles": 112
+    }
+  },
+  "coordinates": "Body metres: X forward, Y left, Z up; source world vertices rotated (-Y,X,Z) and multiplied by 100.",
+  "texture": {
+    "file": "Swatches_D.png",
+    "mirror_srgb": [
+      18,
+      18,
+      18
+    ],
+    "note": "All housing UV samples use one constant swatch. Material colour replaces the atlas; source UVs retained. Glass has no image texture."
+  },
+  "fitting": "Assembly aligned rigidly to the window, with only the base contact surface deformed. Housing and glass retain source geometry. Right side reflected from left.",
+  "provenance": "No author or license document was included in the supplied archive.",
+  "glass_shading": "Source normals retained in NPZ. The build uses planar normals on the broad optical face to avoid reflections rippling across the smoothed rim."
+}

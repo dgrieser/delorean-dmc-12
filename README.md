@@ -48,7 +48,7 @@ tools/model/body.py              body shell: crease line, leaned flanks, wedge n
                                  wheel arches, panel regions (doors, bonnet, cover, glass)
 tools/model/details.py           quad sealed-beam headlamps, grille + DMC badge, tail-lamp grid,
                                  louvres, markers, liners, exhaust, lettering
-tools/model/mirrors.py           lofted mirror shells, recessed glass and swept mounts;
+tools/model/mirrors.py           extracted donor mirrors fitted to the window mounts;
                                  exact reflected mesh for the opposite door
 tools/model/interior.py          seats, dash + binnacle, console, door cards, steering wheel,
                                  pedals, shifter, handbrake, carpets, seals
@@ -128,11 +128,14 @@ through the full opening motion. Roof panel corners share the same rounded outli
 skin, trim and jambs. The windscreen glass and frit extend to the roof header; the builder
 rejects a truncated sampling outline. Door-window seals sit above the steel edge; the upper
 rear window corners use a shared continuous curve in the steel, glass, seal and inner frame.
-The mirrors use separate lofted shells, recessed glass, curved pedestals, lower pivots and
-triangular mounting plates sampled on the door skin. Both sides come from one mesh, reflected
-with corrected winding and normals. Studio front, rear, overhead and raised-door crops guide
-the profiles; `python tools/model/test_mirrors.py` checks closed solids, attachment, glass
-clearance and exact reflection.
+The mirrors are extracted from the user-supplied `1981-dmc-delorean.zip`: housing,
+glass, pivot and mounting base only (2,909 triangles per side). The assembly is aligned
+to the window edge and its contact surface fitted to the curved door. Housing and glass
+geometry retain the donor dimensions; the broad glass face uses planar reflection normals.
+Both sides come from one mesh, reflected with corrected winding and normals.
+`python tools/model/test_mirrors.py` checks extraction bounds, geometry, preserved head shape,
+door contact, glass clearance and exact reflection. Source meshes, UVs and extraction
+provenance live in `tools/model/assets/`; normal builds do not need the donor archive.
 The front jambs stop outside the windscreen opening. Closed-door strut mounts stay under the
 sail skin. Rear bumper and vent-strip heights follow the calibrated low rear view;
 the twin exhausts pass through a shared central cutout, with the engine and frame exposed
@@ -182,3 +185,6 @@ radiator and retaining rails; its transparent proxy is excluded from the solid A
 - Rear bumper wordmark: DeLorean Motor Company, vector reproduction by Kilyann Le Hen
   ([Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Delorean_DMC-12_Logo.svg),
   PD-textlogo). Source and geometry-mask details: `tools/model/assets/README.md`.
+
+- Door mirrors: extracted from the user-supplied `1981-dmc-delorean.zip`. Source file,
+  component selection, hashes and material notes: `tools/model/assets/mirrors.json`.

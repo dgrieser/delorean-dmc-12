@@ -423,8 +423,9 @@ export function createLibrary(opts = {}) {
   // deep bowls read silver all over instead of mirroring the dark studio walls at their centres
   lib.Lamp_HeadRefl = new THREE.MeshStandardMaterial({ name: 'Lamp_HeadRefl', color: lin(0.90, 0.90, 0.90), metalness: 1, roughness: 0.32, side: THREE.DoubleSide });
   lib.Chrome = new THREE.MeshStandardMaterial({ name: 'Chrome', color: lin(0.92, 0.92, 0.92), metalness: 1, roughness: 0.06, side: THREE.DoubleSide });
-  // Satin moulded mirror shell: finer grain than the bumper and cabin plastics.
-  lib.MirrorHousing = triplanar(new THREE.MeshPhysicalMaterial({ name: 'MirrorHousing', color: lin(0.022, 0.023, 0.024), roughness: 0.42, clearcoat: 0.08, clearcoatRoughness: 0.40 }),
+  // Donor mirror atlas uses a single #121212 swatch; no texture image is needed.
+  // Keep a fine satin grain and use live reflections for the separate glass.
+  lib.MirrorHousing = triplanar(new THREE.MeshPhysicalMaterial({ name: 'MirrorHousing', color: 0x121212, roughness: 0.55, clearcoat: 0.08, clearcoatRoughness: 0.40 }),
     { normal: grainN, scale: 18, normalScale: 0.10 });
   lib.MirrorGlass = new THREE.MeshStandardMaterial({ name: 'MirrorGlass', color: lin(0.55, 0.56, 0.58), metalness: 1, roughness: 0.0 });
   lib.BadgeAlu = new THREE.MeshPhysicalMaterial({ name: 'BadgeAlu', color: lin(0.80, 0.80, 0.82), metalness: 1, roughness: 0.26, clearcoat: 0.4 });

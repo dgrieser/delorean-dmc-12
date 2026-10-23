@@ -61,8 +61,9 @@ def door_glass():
                         holes=[offset_poly(toll, 0.0015)], thickness=0.003)
         save(f'toll_frame_{tag}', V, F, N)
         # The rubber seal sits proud of the rolled steel edge, including the curved header.
-        V, F, N = patch(shell, offset_poly(pts, 0.013), ('X', 'Z'), 'Y', side, offset=0.002, step=0.008,
-                        holes=[offset_poly(pts, -0.008)], thickness=0.004)
+        V, F, N = patch(shell, offset_poly(pts, B.DOOR_SEAL_OUTSET), ('X', 'Z'), 'Y', side,
+                        offset=B.DOOR_SEAL_OFFSET, step=0.008,
+                        holes=[offset_poly(pts, -B.DOOR_SEAL_INSET)], thickness=0.004)
         save(f'gasket_door_{tag}', V, F, N)
 
 

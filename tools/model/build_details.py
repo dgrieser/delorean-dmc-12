@@ -138,7 +138,7 @@ if __name__ == '__main__':
     for p in PARTS:
         if not sel or any(p['name'].startswith(s) for s in sel):
             build(p)
-    # Generate the left mirror once; reflect vertices, winding and normals for
+    # Fit the extracted donor mirror; reflect vertices, winding and normals for
     # the right side so the pair cannot diverge through separate extraction.
     mirror_names = ['mirror_L', 'mirror_R', 'mirror_glass_L', 'mirror_glass_R']
     if not sel or any(n.startswith(s) for n in mirror_names for s in sel):
@@ -147,4 +147,4 @@ if __name__ == '__main__':
             if not sel or any(name.startswith(s) for s in sel):
                 np.savez_compressed(f'{OUT}/{name}.npz', V=V.astype(np.float32),
                                     F=F.astype(np.int32), N=N.astype(np.float32))
-                print(f'{name}: {len(V)} v {len(F)} f (lofted)', flush=True)
+                print(f'{name}: {len(V)} v {len(F)} f (donor mesh)', flush=True)

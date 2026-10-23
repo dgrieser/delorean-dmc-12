@@ -627,6 +627,9 @@ def _door_glass_poly():
 
 
 DOOR_GLASS_POLY = _door_glass_poly()
+DOOR_SEAL_INSET = 0.008
+DOOR_SEAL_OUTSET = 0.013
+DOOR_SEAL_OFFSET = 0.002
 
 
 def r_door_glass(X, Y, Z, side=1):
