@@ -65,7 +65,12 @@ export function bindUI(ctx) {
     wipe: v => { car.wipers.setMode(v); audio.switchClick(); refresh(); },
     env: async v => { await ctx.setEnv(v); refresh(); },
     trim: v => { ctx.setTrimColor(v); refresh(); },
-    turn: d => { lamps.state.turn = lamps.state.turn === d ? 0 : d; audio.switchClick(); refresh(); },
+    turn: d => {
+      lamps.state.turn = lamps.state.turn === d ? 0 : d;
+      if (lamps.state.turn && !sim.electrics && !lamps.state.hazard)
+        flashNote('Indicators need ignition On. Hazards work with ignition off.');
+      audio.switchClick(); refresh();
+    },
     hazard: () => { lamps.state.hazard = !lamps.state.hazard; audio.switchClick(); refresh(); },
     handbrake: () => { sim.handbrake = sim.handbrake > 0.5 ? 0 : 1; audio.click(0.3, 900, 0.05); refresh(); },
     drive: () => { ctx.setDrive(!state.drive); refresh(); },

@@ -70,6 +70,10 @@ Source and texture notes are in `web/assets/donor/README.md`.
 
 With the repo served on port 8123, `node tools/modeltest.mjs` tests both models' controls and
 switching in both directions. Set `CHROME` or `URL` to override the browser executable or page.
+`node tools/lighttest.mjs` checks lighting through the UI on both models, including rendered
+lens brightness, indicator cycles and sides, hazards with ignition off, brake/reverse lamps,
+and cabin/door controls. Use `URL='http://localhost:8123/web/?lite=1'` to check phone rendering.
+Indicators require **Ignition → On**; the engine can remain stopped. Hazards also work with ignition off.
 
 ## How our procedural model is built
 

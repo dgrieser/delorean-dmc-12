@@ -7,6 +7,7 @@ python tools/pack.py tools/out/donor-wheels.glb web/assets/donor/wheels
 import sys, json, hashlib, shutil
 from pathlib import Path
 import bpy
+import bmesh
 import numpy as np
 from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
@@ -209,6 +210,32 @@ def make_mesh(name,v,n,uv,parent,mat):
     o.parent=nodes[parent];o.matrix_parent_inverse=o.parent.matrix_world.inverted()
     return o
 
+def round_steering_wheel(o):
+    """Refine the donor's faceted wheel without splitting its UV seams open."""
+    me = o.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    # Export corners are split by normals and UVs. Subdivision needs connected
+    # geometry; UVs remain per loop, so welding positions preserves the atlas.
+    bmesh.ops.remove_doubles(bm, verts=list(bm.verts), dist=0.00001)
+    bmesh.ops.join_triangles(bm, faces=list(bm.faces),
+        angle_face_threshold=np.deg2rad(40), angle_shape_threshold=np.deg2rad(60),
+        cmp_uvs=True)
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    # Discard the source's hard facet normals; let the refined surface shade
+    # continuously across the rim and padded spoke junctions.
+    me.normals_split_custom_set([(0, 0, 0)] * len(me.loops))
+    for poly in me.polygons:
+        poly.use_smooth = True
+    bpy.context.view_layer.objects.active = o
+    modifier = o.modifiers.new('Rounded steering wheel', 'SUBSURF')
+    modifier.levels = 2
+    modifier.render_levels = 2
+    bpy.ops.object.modifier_apply(modifier=modifier.name)
+
 buckets={};audit=[]
 wheel_names={
  'DELOREAN:M_Rim_Main_Max1':('F','rim'), 'DELOREAN:M_RimBadge_Max1':('F','badge'), 'polySurface1':('F','tyre'), 'polySurface500':('F','caliper'),
@@ -251,7 +278,9 @@ for name,s in sources.items():
 for (parent,name,mat),triangles in buckets.items():
     v,n,uv=(np.concatenate([t[i]for t in triangles])for i in range(3))
     pn=parent+'_Pivot' if parent not in ['Body'] else parent
-    make_mesh(name,v,n,uv,pn,mat)
+    o = make_mesh(name,v,n,uv,pn,mat)
+    if parent == 'SteeringWheel':
+        round_steering_wheel(o)
 # Door warning lamps are a frozen extract of our procedural car. All other
 # moving geometry, including the pedals, comes from the donor.
 lamps=np.load(ROOT/'tools/model/assets/donor_lamps.npz')

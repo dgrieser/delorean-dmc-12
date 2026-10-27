@@ -12,6 +12,9 @@ It preserves the source geometry, UVs and split normals, separates moving panels
 existing surface seams, and copies the diffuse and normal maps used by `config.json`.
 The missing right front marker lens is reflected from the left. Wipers and live dashboard
 faces are supplied by the viewer; warning lamps are extracted from our procedural model.
+The steering wheel is welded across export seams, reconstructed into quads where possible,
+and subdivided twice in Blender. Smooth normals round the rim and padded spokes while
+retaining the source UV atlas and steering pivot. Other donor geometry keeps its source normals.
 
 Phong materials are mapped to PBR by surface type. The steel's material/opacity image is not
 used as a normal map (the FBX connects it incorrectly). Glass and mirror shading are assigned
