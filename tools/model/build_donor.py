@@ -90,6 +90,12 @@ for m in bpy.data.materials:
     if 'phong18SG' in name: spec.update(kind='lamp',color=[.55,.16,.003],emissive=[1,.28,.005])
     if 'Wheel1A_3D' in name: spec.update(roughness=.85)
     if 'phong8SG' in name: spec['trim']=True
+    # These atlases use alpha to cut out decal backgrounds and grille holes.
+    # Their zero-alpha RGB pixels are white, so treating them as opaque creates
+    # white rectangles around cabin controls, pedals, badges and engine details.
+    # The body livery's alpha is a paint mask, not a geometry cutout.
+    if spec.get('map') in ['Interior_D.png', 'Engine_D.png', 'Chassis_D.png', 'Badge_SetA_D.png']:
+        spec['alphaTest']=.5
     for kind in ['map', 'normalMap']:
         if kind in spec:
             file = texture_files[spec[kind]]

@@ -46,7 +46,8 @@
       "roughness": 0.55,
       "metalness": 0,
       "map": "Engine_D.png",
-      "normalMap": "Car_DMC_DeLorean_1983_Engine_NO.png"
+      "normalMap": "Car_DMC_DeLorean_1983_Engine_NO.png",
+      "alphaTest": 0.5
     },
     "Donor_DELOREAN:phong12SG1": {
       "color": [
@@ -177,7 +178,8 @@
       "roughness": 0.55,
       "metalness": 0,
       "map": "Badge_SetA_D.png",
-      "normalMap": "Car_DMC_DeLorean_1983_Badge_SetA_N.png"
+      "normalMap": "Car_DMC_DeLorean_1983_Badge_SetA_N.png",
+      "alphaTest": 0.5
     },
     "Donor_DELOREAN:phong3SG1": {
       "color": [
@@ -208,7 +210,8 @@
       "roughness": 0.55,
       "metalness": 0,
       "map": "Chassis_D.png",
-      "normalMap": "Shared_Car_Chassis_N.png"
+      "normalMap": "Shared_Car_Chassis_N.png",
+      "alphaTest": 0.5
     },
     "Donor_DELOREAN:phong6SG1": {
       "color": [
@@ -241,7 +244,8 @@
       "metalness": 0,
       "map": "Interior_D.png",
       "normalMap": "Car_DMC_DeLorean_1983_Interior_NO.png",
-      "trim": true
+      "trim": true,
+      "alphaTest": 0.5
     },
     "Donor_DELOREAN:phong9SG1": {
       "color": [
