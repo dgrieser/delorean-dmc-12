@@ -68,10 +68,10 @@ export class Lamps {
     const find = n => { let r = null; root.traverse(o => { if (!r && o.isMesh && o.name === n) r = o; }); return r || root.getObjectByName(n); };
     // split shared-material meshes into sides
     this.mats = {};
-    for (const name of ['turn_front', 'marker_front', 'tl_turn', 'marker_rear', 'hl_bulb_Lo', 'hl_bulb_Hi', 'tl_tail', 'tl_rev', 'plate_lenses', 'courtesy_L', 'courtesy_R', 'courtesy_rear_L', 'courtesy_rear_R']) {
+    for (const name of ['turn_front', 'marker_front', 'tl_turn', 'marker_rear', 'hl_bulb_Lo', 'hl_bulb_Hi', 'tl_tail', 'tl_rev', 'plate_lenses', 'cabin_lens', 'courtesy_L', 'courtesy_R', 'courtesy_rear_L', 'courtesy_rear_R']) {
       const m = find(name);
       if (!m || !m.isMesh) continue;
-      if (name.startsWith('courtesy')) { m.material = m.material.clone(); this.mats[name] = m.material; continue; }
+      if (name === 'cabin_lens' || name.startsWith('courtesy')) { m.material = m.material.clone(); this.mats[name] = m.material; continue; }
       const [L, R] = splitBySide(m);
       this.mats[name + '_L'] = L.material; this.mats[name + '_R'] = R.material;
     }
@@ -111,8 +111,17 @@ export class Lamps {
     addPoint('turnFL', 'LP_TurnF_L', 0xff8a14, 4, fwd); addPoint('turnFR', 'LP_TurnF_R', 0xff8a14, 4, fwd);
     addPoint('turnRL', 'LP_TurnR_L', 0xff8a14, 4, back); addPoint('turnRR', 'LP_TurnR_R', 0xff8a14, 4, back);
     // cabin courtesy light (roof spine) + door edge lamps
-    const cab = new THREE.PointLight(0xfff0d8, 0, 2.2, 2);
-    cab.position.set(-0.1, 1.04, 0);
+    const cabinMarker = find('LP_Cabin');
+    const cab = cabinMarker
+      ? new THREE.SpotLight(0xfff0d8, 0, 2.2, Math.PI / 2.4, .75, 2)
+      : new THREE.PointLight(0xfff0d8, 0, 2.2, 2);
+    if (cabinMarker) {
+      cab.position.copy(body.worldToLocal(posOf('LP_Cabin')));
+      // The roof housing directs light down into the cabin, not up through
+      // the headliner or forward onto the rear-view mirror.
+      cab.target.position.copy(cab.position).add(new THREE.Vector3(0, -.8, 0));
+      body.add(cab.target);
+    } else cab.position.set(-0.1, 1.04, 0);
     body.add(cab);
     this.lights.cabin = cab;
     // dashboard illumination spill onto the wheel / driver
@@ -184,7 +193,9 @@ export class Lamps {
     // interior: courtesy light follows doors (or forced on / off)
     const doorOpen = this.car.doorL.theta > 0.05 || this.car.doorR.theta > 0.05;
     const cabOn = s.interior === 'on' || (s.interior === 'door' && doorOpen);
-    this.lights.cabin.intensity = b.cab.step(cabOn ? 1 : 0, dt) * 0.8;
+    const cabin = b.cab.step(cabOn ? 1 : 0, dt);
+    this.lights.cabin.intensity = cabin * 0.8;
+    set('cabin_lens', cabin * 3);
     set('courtesy_L', b.courtL.step(this.car.doorL.theta > 0.05 ? 1 : 0, dt) * 5);
     set('courtesy_R', b.courtR.step(this.car.doorR.theta > 0.05 ? 1 : 0, dt) * 5);
     set('courtesy_rear_L', this.car.doorL.theta > 0.05 ? 3 : 0);

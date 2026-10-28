@@ -19,6 +19,7 @@ export async function loadDonorMaterials() {
     const m = new THREE.MeshPhysicalMaterial({ name, color: new THREE.Color().setRGB(...spec.color),
       roughness: spec.roughness ?? .5, metalness: spec.metalness ?? 0, alphaTest: spec.alphaTest ?? 0 });
     if (spec.map) m.map = await texture(spec.map, true);
+    if (spec.emissiveMap) m.emissiveMap = await texture(spec.emissiveMap, true);
     if (spec.normalMap) { m.normalMap = await texture(spec.normalMap, false); m.normalScale.set(.6, .6); }
     if (spec.kind === 'glass') Object.assign(m, { transparent: true, opacity: .22, roughness: .07, depthWrite: false, envMapIntensity: .7 });
     if (spec.kind === 'mirror') { m.metalness = 1; m.roughness = .035; }

@@ -25,6 +25,9 @@ The interior, engine, chassis and badge atlases use alpha cutouts (`alphaTest: 0
 including the transparent white backgrounds around knobs, pedals and decals. These
 materials retain opaque depth writes; glass uses blending separately. The body's livery
 alpha is a paint mask and is not used to cut holes in the fascia.
+The native roof diffuser has its own `cabin_lens` material, using the interior atlas as
+an emission map so its lens pattern and dark border remain visible. Dome On/Off/Door
+drives both the diffuser and a downward light at the fixture, avoiding ceiling and mirror glare.
 `node tools/donor-materialtest.mjs` checks rendered transparent and opaque texels from all
 four atlases, including white cabin lettering, against the viewer's live materials.
 

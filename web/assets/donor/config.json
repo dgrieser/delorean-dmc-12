@@ -296,6 +296,26 @@
         0.12,
         0.11
       ]
+    },
+    "Donor_DomeLens": {
+      "color": [
+        0.65,
+        0.65,
+        0.6
+      ],
+      "roughness": 0.55,
+      "metalness": 0,
+      "map": "Interior_D.png",
+      "normalMap": "Car_DMC_DeLorean_1983_Interior_NO.png",
+      "trim": false,
+      "alphaTest": 0.5,
+      "kind": "lamp",
+      "emissive": [
+        1,
+        0.88,
+        0.65
+      ],
+      "emissiveMap": "Interior_D.png"
     }
   },
   "sourceSha256": "9ff4e8a6c1e2d9884f6670d7c20e38ea036275ec17f5ae1e9259297cc536f1b9"

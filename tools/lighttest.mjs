@@ -18,7 +18,8 @@ try {
     await page.evaluate(() => {
       const { app: a, THREE: T } = window;
       window.lightPixels = name => {
-        const mesh = a.car.root.getObjectByName(name);
+        let mesh;
+        a.car.root.traverse(o => { if (o.isMesh && o.name === name) mesh = o; });
         if (!mesh?.isMesh) throw new Error('Missing lens ' + name);
         a.scene.updateMatrixWorld(true);
         const g = mesh.geometry, p = g.attributes.position, center = new T.Vector3();
@@ -26,10 +27,12 @@ try {
         for (const i of ids) center.add(new T.Vector3().fromBufferAttribute(p, i));
         center.multiplyScalar(1 / ids.length).applyMatrix4(mesh.matrixWorld);
         const rear = /^(tl_|plate_|marker_rear)/.test(name);
-        const offset = name.startsWith('marker') ? new T.Vector3(0, 0, name.endsWith('_L') ? -1 : 1)
+        const offset = name === 'cabin_lens' ? new T.Vector3(0, -.3, 0)
+          : name.startsWith('marker') ? new T.Vector3(0, 0, name.endsWith('_L') ? -1 : 1)
           : new T.Vector3(rear ? -1 : 1, name.startsWith('plate') ? -.35 : 0, 0);
         const halfWidth = name.startsWith('plate') ? .04 : .15;
         const camera = new T.OrthographicCamera(-halfWidth, halfWidth, halfWidth * .75, -halfWidth * .75, .01, 5);
+        if (name === 'cabin_lens') camera.up.set(0, 0, -1);
         camera.position.copy(center).add(offset); camera.lookAt(center);
         const rt = new T.WebGLRenderTarget(96, 72, { type: T.FloatType }), renderer = a.renderer;
         const oldTarget = renderer.getRenderTarget(), maskScene = new T.Scene();
@@ -61,8 +64,9 @@ try {
     const park = sides(['turn_front', 'marker_front', 'marker_rear', 'tl_tail', 'plate_lenses']);
     const heads = sides(['hl_bulb_Lo', 'hl_bulb_Hi']);
     const reverse = sides(['tl_rev']);
+    const dome = model === 'donor' ? ['cabin_lens'] : [];
     await tick(120);
-    const dark = await pixels([...new Set([...turns, ...park, ...heads, ...reverse])]);
+    const dark = await pixels([...new Set([...turns, ...park, ...heads, ...reverse, ...dome])]);
     const visible = async (names, baseline = dark) => {
       const lit = await pixels(names);
       for (const name of names) assert(lit[name] > baseline[name] + .02,
@@ -109,16 +113,25 @@ try {
     await click('[data-gear="N"]'); await tick(120);
     for (const n of reverse) assert((await intensity(n)) < .01, 'Reverse stayed on in neutral');
     await click('[data-cabin="on"]'); await tick(90);
+    await visible(dome);
     assert(await page.evaluate(() => window.app.lamps.lights.cabin.intensity > .7));
     await click('[data-cabin="off"]'); await tick(90);
     assert(await page.evaluate(() => window.app.lamps.lights.cabin.intensity < .01));
+    for (const n of dome) assert((await intensity(n)) < .01, 'Dome lens stayed lit with switch off');
     await click('[data-cabin="door"]');
     for (const [panel, side] of [['doorL','L'],['doorR','R']]) {
       await click(`[data-panel="${panel}"]`); await tick(180);
       for (const n of ['courtesy_', 'courtesy_rear_']) assert((await intensity(n+side)) > 2, 'Door lamp failed');
       assert(await page.evaluate(() => window.app.lamps.lights.cabin.intensity > .7));
+      await visible(dome);
+      await click('[data-cabin="off"]'); await tick(90);
+      assert(await page.evaluate(() => window.app.lamps.lights.cabin.intensity < .01), 'Dome off ignored with door open');
+      for (const n of dome) assert((await intensity(n)) < .01, 'Dome lens ignored forced off');
+      assert((await intensity('courtesy_'+side)) > 2, 'Dome switch disabled door warning lamp');
+      await click('[data-cabin="door"]'); await tick(90);
       await click(`[data-panel="${panel}"]`); await tick(180);
       for (const n of ['courtesy_', 'courtesy_rear_']) assert((await intensity(n+side)) < .01, 'Door lamp stayed on');
+      for (const n of dome) assert((await intensity(n)) < .01, 'Dome lens stayed lit with doors shut');
     }
     assert.deepEqual(errors, []);
     console.log(`${model}: rendered indicators, hazards, parking/markers/plate, low/high/flash, brake and reverse passed; cabin/door controls passed`);

@@ -104,6 +104,11 @@ for m in bpy.data.materials:
             shutil.copyfile(file, WEB/file.name)
     materials['Donor_'+name] = spec
 materials['Donor_RearGlass'] = dict(kind='glass',color=[.10,.12,.11])
+# The roof diffuser is a separate UV island in the interior atlas. Keep its
+# lens pattern and dark border, but give it an independently driven emission.
+interior_material = next(s for s in materials.values() if s.get('trim'))
+materials['Donor_DomeLens'] = dict(interior_material, trim=False, kind='lamp',
+    color=[.65,.65,.60], emissive=[1,.88,.65], emissiveMap=interior_material['map'])
 
 # Match material-separated trim to the original door skin, not to an arbitrary
 # rectangular selection that would take chunks of the roof or dashboard along.
@@ -143,6 +148,7 @@ def classify(name, cid, center, lo, hi):
     if 'GlassOpaque' in name:
         return ('Door_'+side if abs(y)>.7 else 'Body'),None
     if 'Interior' in name:
+        if cid==41:return 'Body','cabin_lens'
         if cid in [99,105]:return 'Pedal_Clutch',None
         if cid in [96,106]:return 'Pedal_Brake',None
         if cid in [97,107]:return 'Pedal_Gas',None
@@ -174,6 +180,8 @@ def node(name,loc=(0,0,0),parent=None,rot=None):
     if parent:o.parent=nodes[parent]
     nodes[name]=o;return o
 node('Car');node('Body',parent='Car')
+# Source roof lens centre, with the light just below the diffuser (Z up here).
+node('LP_Cabin',(.038745,-.000233,1.06223),'Body')
 for side,sign in [('L',1),('R',-1)]:node('Door_'+side+'_Pivot',(0,sign*.135,1.147),'Body')
 node('Hood_Pivot',(.745,0,.810),'Body');node('EngineLid_Pivot',(-.902,0,1.146),'Body')
 node('SteeringWheel_Pivot',(.192,.367,.715),'Body')
@@ -267,6 +275,7 @@ for name,s in sources.items():
                 if a[0]>-1.91 and b[0]<-.89 and a[2]>.885 and np.max(ay)<.61:pp='EngineLid'
             mat='Donor_'+s['materials'][s['mats'][i]]
             if semantic=='rear_window':mat='Donor_RearGlass'
+            if semantic=='cabin_lens':mat='Donor_DomeLens'
             label=('turn_front_bulb' if semantic=='turn_front' and 'phong16' in mat else semantic) or ('donor_'+name.split(':')[-1]+'_'+pp)
             key=(pp,label,mat)
             buckets.setdefault(key,[]).append((v,s['n'][loops],s['uv'][loops]))
