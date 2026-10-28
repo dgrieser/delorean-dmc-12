@@ -104,6 +104,8 @@ for m in bpy.data.materials:
             shutil.copyfile(file, WEB/file.name)
     materials['Donor_'+name] = spec
 materials['Donor_RearGlass'] = dict(kind='glass',color=[.10,.12,.11])
+materials['Donor_InstrumentBacking'] = dict(color=[.008,.009,.009],roughness=.8,metalness=0)
+materials['Donor_ConsoleTrim'] = dict(color=[.014,.016,.014],roughness=.78,metalness=0)
 # The roof diffuser is a separate UV island in the interior atlas. Keep its
 # lens pattern and dark border, but give it an independently driven emission.
 interior_material = next(s for s in materials.values() if s.get('trim'))
@@ -149,11 +151,18 @@ def classify(name, cid, center, lo, hi):
         return ('Door_'+side if abs(y)>.7 else 'Body'),None
     if 'Interior' in name:
         if cid==41:return 'Body','cabin_lens'
+        if cid==121:return 'Body','gauge_backplate'  # erase baked gauges behind the live instrument face
+        if cid in [15,53,56]:return 'Body','console_trim'
+        if cid==177:return 'SKIP',None  # rounded knob and engraved shift pattern in console.js
+        if cid in [84,85,86,87,92,93]:return 'SKIP',None  # replaced by the high-resolution radio face and controls
+        # Exact disconnected control assemblies, rebuilt with rounded geometry
+        # and high-resolution printing in console.js. Keep the surrounding trim.
+        if cid in [60,61,62,63,64,65,66,67,80,81,82,83,89,90,91,100,101,102,103,104,178,179,180,181]:return 'SKIP',None
         if cid in [99,105]:return 'Pedal_Clutch',None
         if cid in [96,106]:return 'Pedal_Brake',None
         if cid in [97,107]:return 'Pedal_Gas',None
         if cid==50:return 'SteeringWheel',None
-        if cid in [68,177]:return 'Shifter',None
+        if cid==68:return 'Shifter','gear_boot'
         if cid in [124,125]:return 'Handbrake',None
         if lo[0]<-.738 or hi[0]>.700 or lo[2]<.305 or lo[0]>.52:return 'Body',None
         if hi[2]<.40 and max(abs(lo[1]),abs(hi[1]))<.70:return 'Body',None
@@ -193,9 +202,9 @@ for name,y in [('Clutch',.44),('Brake',.315),('Gas',.21)]:node('Pedal_'+name+'_P
 node('GaugeFace_Pivot',(.318,.369,.773),'Body')
 angle=np.deg2rad(14)
 nodes['GaugeFace_Pivot'].rotation_euler=Matrix(((0,-1,0),(np.sin(angle),0,np.cos(angle)),(-np.cos(angle),0,np.sin(angle)))).transposed().to_euler()
-node('ClockFace_Pivot',(.02,0,.55),'Body')
-node('RadioFace_Pivot',(.373,0,.619),'Body')
-nodes['RadioFace_Pivot'].rotation_euler=Matrix(((0,-1,0),(0,0,1),(-1,0,0))).transposed().to_euler()
+node('ClockFace_Pivot',(.273,-.036,.521),'Body')
+node('RadioFace_Pivot',(.364,.0107,.6406),'Body')
+nodes['RadioFace_Pivot'].rotation_euler=Matrix(((0,-1,0),(.224,0,.97459),(-.97459,0,.224))).transposed().to_euler()
 for k,loc in {'FL':(1.243,.78,.295),'FR':(1.243,-.78,.295),'RL':(-1.191,.79,.332),'RR':(-1.191,-.79,.332)}.items():node('WheelPos_'+k,loc,'Car')
 for side,sign in [('L',1),('R',-1)]:
     for name,loc in {'HeadLo':(2.003,.638,.594),'HeadHi':(2.014,.454,.596),'TurnF':(2.045,.504,.461),'TurnR':(-2.015,.67,.78),'Tail':(-2.02,.47,.78),'Rev':(-2.025,.308,.78)}.items():node('LP_'+name+'_'+side,(loc[0],sign*loc[1],loc[2]),'Body')
@@ -276,6 +285,8 @@ for name,s in sources.items():
             mat='Donor_'+s['materials'][s['mats'][i]]
             if semantic=='rear_window':mat='Donor_RearGlass'
             if semantic=='cabin_lens':mat='Donor_DomeLens'
+            if semantic=='gauge_backplate':mat='Donor_InstrumentBacking'
+            if semantic=='console_trim':mat='Donor_ConsoleTrim'
             label=('turn_front_bulb' if semantic=='turn_front' and 'phong16' in mat else semantic) or ('donor_'+name.split(':')[-1]+'_'+pp)
             key=(pp,label,mat)
             buckets.setdefault(key,[]).append((v,s['n'][loops],s['uv'][loops]))
@@ -290,6 +301,8 @@ for (parent,name,mat),triangles in buckets.items():
     o = make_mesh(name,v,n,uv,pn,mat)
     if parent == 'SteeringWheel':
         round_steering_wheel(o)
+    if parent == 'Shifter':
+        round_steering_wheel(o)
 # Door warning lamps are a frozen extract of our procedural car. All other
 # moving geometry, including the pedals, comes from the donor.
 lamps=np.load(ROOT/'tools/model/assets/donor_lamps.npz')
@@ -301,7 +314,7 @@ for name,parent in [('courtesy_L','Door_L_Pivot'),('courtesy_R','Door_R_Pivot'),
 
 
 config=dict(windshield=dict(bx=.82,bz=.79,nx=.383,nz=.924,wrap=.20),lowProfile=False,tollWindow=dict(lean=34,travel=.19),tyreRadius=dict(F=.295,R=.332),wheelbase=2.434,track=1.56,
-    dashboard=dict(center=[.318,.788,-.369],scale=.80,heightScale=.80),materials=materials,sourceSha256=FBX_SHA256)
+    dashboard=dict(center=[.35,.773,-.369],scale=.80,heightScale=.90),radio=dict(detailed=True),materials=materials,sourceSha256=FBX_SHA256)
 (WEB/'config.json').write_text(json.dumps(config,indent=2)+'\n')
 (OUT/'donor-rig-audit.json').write_text(json.dumps(audit,indent=2))
 

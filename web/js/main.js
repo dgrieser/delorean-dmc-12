@@ -10,6 +10,7 @@ import { Environment } from './env.js';
 import { Car, Wipers } from './car.js';
 import { Lamps } from './lamps.js';
 import { Cluster, ConsoleDisplays } from './dash.js';
+import { createConsole } from './console.js';
 import { VehicleSim } from './sim.js';
 import { CarAudio } from './audio.js';
 import { CameraRig } from './cameras.js';
@@ -166,7 +167,8 @@ async function init() {
   });
   lamps = new Lamps(car, scene);
   cluster = new Cluster(car.nodes.gauge, lib, manifest.dashboard);
-  displays = new ConsoleDisplays(car.nodes.clock, car.nodes.radio);
+  displays = new ConsoleDisplays(car.nodes.clock, car.nodes.radio, manifest.radio);
+  if (manifest.radio?.detailed) displays.controls = createConsole(car.body, car.nodes.shifter);
   rig = new CameraRig(camera, canvas, car);
   env.contact.attach(carRoot);
   wirePanelEvents();
@@ -319,6 +321,7 @@ function update(dt) {
     }, lst.panel && on);
     cluster.update(dt, sim, lst);
     displays.update(sim, true);
+    displays.controls?.update(sim, lst);
     rig.update(dt);
     const strut = Object.values(car.panels).reduce((a, p) => a + (p.moving ? Math.min(1, Math.abs(p.omega)) : 0), 0);
     const doorOpen = Math.max(car.doorL.amount, car.doorR.amount);

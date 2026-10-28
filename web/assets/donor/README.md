@@ -16,6 +16,29 @@ The steering wheel is welded across export seams, reconstructed into quads where
 and subdivided twice in Blender. Smooth normals round the rim and padded spokes while
 retaining the source UV atlas and steering pivot. Other donor geometry keeps its source normals.
 
+The gear boot receives the same smoothing while retaining its folded leather atlas; its
+knob is replaced by a rounded runtime mesh attached to the existing moving shifter pivot.
+The console deck retains its geometry with a matte vinyl finish and fine-scale grain.
+
+Dashboard artwork is redrawn from the user-supplied `US CLUSTER.jpg`,
+`DSC01135-HDR-1-1200x800.jpg`, `1981-delorean-dmc-12-6.avif` and
+`car_100002_14.webp` / `car_100002_15.webp` references, with the metric cluster
+photos used to cross-check panel construction. The viewer keeps its existing US units.
+The baked instrument quad (interior component 121) becomes a plain backing; live gauges
+sit in front. Interior components 84–87 and 92–93 are replaced by the detailed radio at
+the corrected `RadioFace_Pivot`. Its face is generated from vectors, not enlarged atlas pixels.
+The radio retains its existing power-dependent display; the added knobs and buttons are visual details.
+
+`web/js/console.js` replaces the native low-resolution HVAC, vent, lighter, switch,
+mirror-control and ashtray detail assemblies. It uses the studio interior close-ups
+(`10_interior_radio_hvac.jpg`, `11_interior_console_gauge.jpg`), the supplied stock-radio
+photo, and `ref/Delorean_early_1981_clock.jpg`. The existing stock lighter/clock layout is
+retained rather than adopting the studio car's aftermarket boost gauge. HVAC artwork is
+drawn at 2000 × 1060; molded controls and vent slats are geometry, batched by material.
+The green segmented clock now sits beside the lighter. Its ignition behavior is preserved,
+and the HVAC legends follow the panel illumination/dimmer. These control meshes are visual;
+they do not add a new HVAC or mirror-adjustment simulation.
+
 Phong materials are mapped to PBR by surface type. The steel's material/opacity image is not
 used as a normal map (the FBX connects it incorrectly). Glass and mirror shading are assigned
 explicitly. The engine's lower service cover and upper louvres open together through the

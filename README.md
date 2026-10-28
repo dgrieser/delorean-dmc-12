@@ -74,6 +74,16 @@ switching in both directions. Set `CHROME` or `URL` to override the browser exec
 lens brightness, indicator cycles and sides, hazards with ignition off, brake/reverse lamps,
 and cabin/door controls. Use `URL='http://localhost:8123/web/?lite=1'` to check phone rendering.
 Indicators require **Ignition → On**; the engine can remain stopped. Hazards also work with ignition off.
+`node tools/dashtest.mjs` checks all six moving needles, odometer updates, warning/backlight
+textures and radio power on both models. The reference-drawn US cluster uses a 4096-pixel
+canvas; the imported car's cassette radio has a 2048-pixel face, physical knobs/buttons and
+a 1024-pixel segmented display. Artwork lives in `web/js/instrument-face.js` and `web/js/radio.js`.
+The imported car's centre console is rebuilt in `web/js/console.js`: a 2000-pixel HVAC face,
+dished knobs, recessed vent slats, lighter, mirror joystick, window/defrost switch bank,
+ashtray and rounded gear knob. The clock uses a 1024-pixel segmented display in the recess
+beside the lighter. HVAC printing follows the existing panel lighting and dimmer;
+`dashtest.mjs` checks this and clock power. The extra physical controls are visual details;
+the existing viewer controls still operate the car.
 
 ## How our procedural model is built
 
