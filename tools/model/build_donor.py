@@ -13,6 +13,7 @@ from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
 sys.path.insert(0, str(Path(__file__).parent))
 from import_mirrors import components, Reporter, FBX_SHA256
+from donor_doors import skin_geometry, contains_outline, door_shell, edge_details
 from io_scene_fbx import import_fbx
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -106,6 +107,9 @@ for m in bpy.data.materials:
 materials['Donor_RearGlass'] = dict(kind='glass',color=[.10,.12,.11])
 materials['Donor_InstrumentBacking'] = dict(color=[.008,.009,.009],roughness=.8,metalness=0)
 materials['Donor_ConsoleTrim'] = dict(color=[.014,.016,.014],roughness=.78,metalness=0)
+materials['Donor_DoorSteel'] = dict(color=[.43,.44,.42],roughness=.42,metalness=.85)
+materials['Donor_DoorLatch'] = dict(color=[.15,.16,.15],roughness=.34,metalness=.8)
+materials['Donor_DoorRecess'] = dict(color=[.006,.007,.006],roughness=.7,metalness=0)
 # The roof diffuser is a separate UV island in the interior atlas. Keep its
 # lens pattern and dark border, but give it an independently driven emission.
 interior_material = next(s for s in materials.values() if s.get('trim'))
@@ -116,6 +120,8 @@ materials['Donor_DomeLens'] = dict(interior_material, trim=False, kind='lamp',
 # rectangular selection that would take chunks of the roof or dashboard along.
 paint = sources['DELOREAN:M_CarPaint_Max']
 paint_faces = paint['loops'][paint['tris']]
+door_vertices, _, _, door_outer = skin_geometry(paint, 2)
+door_outline = door_vertices[door_outer]
 def tree(ids):
     faces = paint_faces[np.isin(paint['comp'][paint_faces[:,0]],ids)]
     return BVHTree.FromPolygons(paint['v'].tolist(),faces.tolist(),all_triangles=True)
@@ -150,6 +156,9 @@ def classify(name, cid, center, lo, hi):
     if 'GlassOpaque' in name:
         return ('Door_'+side if abs(y)>.7 else 'Body'),None
     if 'Interior' in name:
+        # Seat-belt anchors, seat adjusters and dashboard end trim stay in the
+        # cabin even where they sit close to the outer door skin.
+        if cid in [31,32,33,34,69,70,71,72,79,94,126,148,149,152,153,182]:return 'Body',None
         if cid==41:return 'Body','cabin_lens'
         if cid==121:return 'Body','gauge_backplate'  # erase baked gauges behind the live instrument face
         if cid in [15,53,56]:return 'Body','console_trim'
@@ -253,7 +262,7 @@ def round_steering_wheel(o):
     modifier.render_levels = 2
     bpy.ops.object.modifier_apply(modifier=modifier.name)
 
-buckets={};audit=[]
+buckets={};audit=[];outline_membership={}
 wheel_names={
  'DELOREAN:M_Rim_Main_Max1':('F','rim'), 'DELOREAN:M_RimBadge_Max1':('F','badge'), 'polySurface1':('F','tyre'), 'polySurface500':('F','caliper'),
  'DELOREAN:M_Rim_Main_Max':('R','rim'), 'DELOREAN:M_RimBadge_Max':('R','badge'), 'polySurface333':('R','tyre'), 'polySurface668':('R','caliper')}
@@ -274,12 +283,20 @@ for name,s in sources.items():
             # surface rigid; per-triangle spatial cuts leave sawteeth when open.
             if 'Interior' in name and cid==0:
                 island=int(s['islands'][s['loops'][loops[0]]])
+                # Thin atlas strips at the old open skin perimeter are replaced
+                # by the continuous steel box; retaining both creates overlaps.
+                if (1366<=island<=1380 or 1387<=island<=1421 or
+                    1477<=island<=1509 or 1525<=island<=1541 or island in
+                    [1547,1863,1905,1909,1910,1913,1914,2194,2195,2199,2200,2203,2204]):continue
                 ip=s['v'][s['islands']==island]
                 a,b=ip.min(0),ip.max(0); c=ip.mean(0)
                 ay=np.abs(ip[:,1]); z=ip[:,2]
                 inner=np.where(z<.79,.635,np.where(z<1.02,.45,.13))
+                if island not in outline_membership:
+                    outline_membership[island] = bool(np.all(contains_outline(ip, door_outline)))
                 moving=(a[0]>-.738 and b[0]<.700 and a[2]>.305 and b[2]<1.17
-                        and np.all(ay>inner) and not (b[0]>.52 and a[2]<.73))
+                        and np.all(ay>inner) and not (b[0]>.52 and a[2]<.73)
+                        and outline_membership[island])
                 pp='Door_'+('L' if c[1]>=0 else 'R') if moving else 'Body'
                 if a[0]>-1.91 and b[0]<-.89 and a[2]>.885 and np.max(ay)<.61:pp='EngineLid'
             mat='Donor_'+s['materials'][s['mats'][i]]
@@ -303,14 +320,15 @@ for (parent,name,mat),triangles in buckets.items():
         round_steering_wheel(o)
     if parent == 'Shifter':
         round_steering_wheel(o)
-# Door warning lamps are a frozen extract of our procedural car. All other
-# moving geometry, including the pedals, comes from the donor.
-lamps=np.load(ROOT/'tools/model/assets/donor_lamps.npz')
-for name,parent in [('courtesy_L','Door_L_Pivot'),('courtesy_R','Door_R_Pivot'),('courtesy_rear_L','Door_L_Pivot'),('courtesy_rear_R','Door_R_Pivot')]:
-    v,f,n=(lamps[name+'_'+key] for key in ['V','F','N'])
-    v=v.copy();v[:,1]-=.06*(1 if name.endswith('_L') else -1)
-    make_mesh(name,v[f].reshape(-1,3),n[f].reshape(-1,3),np.zeros((f.size,2)),parent,
-              'Lamp_MarkerRear' if 'rear' in name else 'Lamp_Courtesy')
+for side, component in [('L', 2), ('R', 1)]:
+    v, n, skin = door_shell(paint, component)
+    make_mesh('door_box_'+side, v, n, np.zeros((len(v),2)),
+              'Door_'+side+'_Pivot', 'Donor_DoorSteel')
+    for part,(v,n) in edge_details(skin).items():
+        name = ('courtesy_' if part=='amber' else 'courtesy_rear_' if part=='red' else 'door_'+part+'_')+side
+        mat = {'amber':'Lamp_Courtesy','red':'Lamp_MarkerRear','steel':'Donor_DoorSteel',
+               'latch':'Donor_DoorLatch','housing':'Donor_DoorRecess','recess':'Donor_DoorRecess','seal':'Donor_DoorRecess'}[part]
+        make_mesh(name,v,n,np.zeros((len(v),2)),'Door_'+side+'_Pivot',mat)
 
 
 config=dict(windshield=dict(bx=.82,bz=.79,nx=.383,nz=.924,wrap=.20),lowProfile=False,tollWindow=dict(lean=34,travel=.19),tyreRadius=dict(F=.295,R=.332),wheelbase=2.434,track=1.56,

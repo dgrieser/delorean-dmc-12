@@ -63,14 +63,17 @@ python3 tools/pack.py tools/out/donor-wheels.glb web/assets/donor/wheels
 
 The importer verifies the source hash, preserves UVs and split normals, translates the source
 Phong materials to PBR, and writes a part-selection audit to `tools/out/donor-rig-audit.json`.
-Its checked-in output is under `web/assets/donor/`. The small procedural warning-lamp extract
-is `tools/model/assets/donor_lamps.npz`; the rest of the moving geometry comes from the FBX.
+Its checked-in output is under `web/assets/donor/`. `tools/model/donor_doors.py` adds closed
+steel door returns, seals, latch plates and warning lamps fitted to the donor skin outline.
+Whole trim patches outside the door outline and fixed cabin hardware stay on the body.
 Source and texture notes are in `web/assets/donor/README.md`.
 
 With the repo served on port 8123, `node tools/modeltest.mjs` tests both models' controls via
 their URLs. Set `CHROME` or `URL` to override the browser executable or page.
 `node tools/cameratest.mjs` sends real browser touch gestures to check free movement,
 pinch zoom, gesture cancellation, seat/orbit behavior and desktop camera controls.
+`node tools/doortest.mjs` checks that both door boxes block views into their cavities while
+leaving the window openings clear, at closed, half-open and open poses.
 `node tools/lighttest.mjs` checks lighting through the UI on both models, including rendered
 lens brightness, indicator cycles and sides, hazards with ignition off, brake/reverse lamps,
 and cabin/door controls. Use `URL='http://localhost:8123/web/?lite=1'` to check phone rendering.

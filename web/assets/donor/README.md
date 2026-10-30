@@ -11,7 +11,7 @@ Source: user-supplied `1981-dmc-delorean.zip`, nested `source/FINAL_MODEL_DMC12.
 It preserves the source geometry, UVs and split normals, separates moving panels along the
 existing surface seams, and copies the diffuse and normal maps used by `config.json`.
 The missing right front marker lens is reflected from the left. Wipers and live dashboard
-faces are supplied by the viewer; warning lamps are extracted from our procedural model.
+faces are supplied by the viewer.
 The steering wheel is welded across export seams, reconstructed into quads where possible,
 and subdivided twice in Blender. Smooth normals round the rim and padded spokes while
 retaining the source UV atlas and steering pivot. Other donor geometry keeps its source normals.
@@ -19,6 +19,21 @@ retaining the source UV atlas and steering pivot. Other donor geometry keeps its
 The gear boot receives the same smoothing while retaining its folded leather atlas; its
 knob is replaced by a rounded runtime mesh attached to the existing moving shifter pivot.
 The console deck retains its geometry with a matte vinyl finish and fine-scale grain.
+
+Door trim is assigned as whole UV patches inside the actual painted door outline. Seat-belt
+anchors, seat adjusters, dashboard end trim and patches extending beyond that outline stay
+on the body. `tools/model/donor_doors.py` closes each painted skin with a steel backing and
+continuous front, rear, lower and roof returns, preserving the glass opening and exterior
+seam. The old overlapping return strips are omitted. The skin plus generated backing must
+form a closed two-manifold mesh before export. Section-based offsets avoid spikes caused
+by extruding the source's tiny folded lips.
+
+Studio views 03, 05, 06 and 07 guide the exposed steel ends, thin rubber perimeter seal,
+latch plates and warning-light placement. Front and bottom amber lights and the rear red
+light mount directly on each donor door's returns and retain the existing lamp controls.
+The latch hardware is visual geometry, not a mechanical latch simulation.
+`node tools/doortest.mjs` checks cavity-blocking rays and clear window apertures on both
+doors at closed, half-open and fully open poses.
 
 Dashboard artwork is redrawn from the user-supplied `US CLUSTER.jpg`,
 `DSC01135-HDR-1-1200x800.jpg`, `1981-delorean-dmc-12-6.avif` and

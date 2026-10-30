@@ -318,6 +318,33 @@
       "roughness": 0.78,
       "metalness": 0
     },
+    "Donor_DoorSteel": {
+      "color": [
+        0.43,
+        0.44,
+        0.42
+      ],
+      "roughness": 0.42,
+      "metalness": 0.85
+    },
+    "Donor_DoorLatch": {
+      "color": [
+        0.15,
+        0.16,
+        0.15
+      ],
+      "roughness": 0.34,
+      "metalness": 0.8
+    },
+    "Donor_DoorRecess": {
+      "color": [
+        0.006,
+        0.007,
+        0.006
+      ],
+      "roughness": 0.7,
+      "metalness": 0
+    },
     "Donor_DomeLens": {
       "color": [
         0.65,
