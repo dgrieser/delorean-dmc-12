@@ -23,6 +23,12 @@ try {
    for(const angle of [0,35,69]) {
     panel.theta=angle*Math.PI/180;panel.apply();a.car.root.updateMatrixWorld(true);
     if(!visors.matrixWorld.equals(visorMatrix))throw new Error('Sun visors moved with door');
+    for(const [anchorName,ballName]of [['StrutBody_','strut_ball_body_'],['StrutDoor_','strut_ball_door_']]) {
+     const anchor=a.car.root.getObjectByName(anchorName+side),ball=a.car.root.getObjectByName(ballName+side);
+     if(!anchor||!ball)throw new Error('Missing strut mount '+side);
+     if(anchor.getWorldPosition(new T.Vector3()).distanceTo(ball.getWorldPosition(new T.Vector3()))>.0001)
+      throw new Error(`Detached strut ${side} at ${angle}°`);
+    }
     for(const [name,start,direction]of [
      ['sill',[0,.78,.20],[0,0,1]],['rear jamb',[-.3,.78,.55],[-1,0,0]]]) {
      const convert=([x,y,z])=>new T.Vector3(x,z,-y*sign);
@@ -43,5 +49,5 @@ try {
   return results;
  });
  for(const c of checks)assert.equal(c.hit,c.solid,`${c.side} ${c.angle}° ${c.name}: ${c.solid?'open cavity':'blocked window'}`);
- assert.deepEqual(errors,[]);console.log('Both doors: caps, backing, sills and rear jambs block cavity rays at 0°, 35°, 69°; windows stay clear and sun visors stay fixed.');
+ assert.deepEqual(errors,[]);console.log('Both doors at 0°, 35°, 69°: strut ends meet mounts, cavities stay closed, windows stay clear and visors stay fixed.');
 }finally{await browser.close();}

@@ -265,15 +265,43 @@ def body_jamb(skin):
     tri=verts[f]
     if np.sum(tri[:,0]*np.cross(tri[:,1],tri[:,2]))<0:f=f[:,::-1]
     parts['seal']=(verts[f].reshape(-1,3),norm[f].reshape(-1,3))
+    # Bare metal flange beside the rear weatherstrip, visible in studio 03/04.
+    flange=[]
+    for i in range(len(path)):
+        j=(i+1)%len(path)
+        if not (path[[i,j],0].max()<-.30 and path[[i,j],1].min()*np.sign(path[0,1])>.45
+                and path[[i,j],2].max()<1.135 and path[[i,j],2].min()>.33):continue
+        a,b=lip[[i,j]]-radial[[i,j]]*.001
+        c=b+inward[j]*.028;d=a+inward[i]*.028
+        tris=np.array([[a,b,c],[a,c,d]])
+        norm=np.cross(tris[:,1]-tris[:,0],tris[:,2]-tris[:,0])
+        if np.dot(norm[0],radial[i])>0:tris=tris[:,::-1];norm=-norm
+        norm/=np.maximum(np.linalg.norm(norm,axis=1,keepdims=True),1e-12)
+        flange.append((tris.reshape(-1,3),np.repeat(norm,3,axis=0)))
+    if flange:parts['flange']=(np.concatenate([v for v,n in flange]),np.concatenate([n for v,n in flange]))
     hardware=[]
     for front in [True,False]:
         c,u,z=end_frame(skin,.57,front)
         # Face toward the opening, opposing the corresponding door latch.
         n=-np.cross(u,z)
-        c=c-n*.014
+        c=c+n*(.024 if not front else -.014)
+        if not front:parts['housing']=plate(c-n*.018,u,-z,.078,.095,.032,.008)
         hardware.append(plate(c,u,-z,.045,.066,.003,.006))
         hardware.append(plate(c+n*.009,u,-z,.009,.026,.016,.004))
         for offset in [-.024,.024]:
             hardware.append(plate(c+z*offset+n*.002,u,-z,.006,.006,.003,.003))
     parts['striker']=(np.concatenate([v for v,n in hardware]),np.concatenate([n for v,n in hardware]))
+    screws=[]
+    for height in [.42,.68,.82,.95,1.06]:
+        for i in range(len(path)):
+            j=(i+1)%len(path)
+            if path[[i,j],0].max()>-.3 or not min(path[i,2],path[j,2])<height<=max(path[i,2],path[j,2]):continue
+            t=(height-path[i,2])/(path[j,2]-path[i,2])
+            p=lip[i]*(1-t)+lip[j]*t
+            u=inward[i]*(1-t)+inward[j]*t;u/=np.linalg.norm(u)
+            v=tangent[i]*(1-t)+tangent[j]*t;v-=u*np.dot(u,v);v/=np.linalg.norm(v)
+            if np.dot(np.cross(u,v),radial[i])>0:v=-v
+            screws.append(plate(p+u*.014+np.cross(u,v)*.002,u,v,.006,.006,.002,.003))
+    if screws:
+        pv,pn=parts['striker'];parts['striker']=(np.concatenate([pv]+[v for v,n in screws]),np.concatenate([pn]+[n for v,n in screws]))
     return parts

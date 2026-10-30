@@ -90,3 +90,12 @@ with a continuous rubber seal and front/rear striker plates. These fixed pieces
 bridge the exterior edge to the cabin trim, closing gaps below the sill and
 behind the rear jamb. `tools/doortest.mjs` checks both openings and verifies that
 the visors stay fixed while the doors move.
+
+`donor_hinges.py` builds paired roof hinges, interleaved knuckles, mounting leaves,
+bolts, the roof channel and torsion-bar detail. Their axis follows the roof slope
+and matches the door pivot. Dedicated `StrutBody_L/R` and `StrutDoor_L/R` anchors
+place the animated gas springs on physical brackets; the original model retains
+its existing anchor positions. The rear jamb includes a bare-metal flange with
+fasteners and a raised striker housing, following the open-door studio photos.
+The door test also checks that both strut ends meet their mounts throughout the
+tested opening poses. Hardware is visual; no mechanical stress model is implied.

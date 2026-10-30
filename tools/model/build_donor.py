@@ -14,6 +14,7 @@ from mathutils.bvhtree import BVHTree
 sys.path.insert(0, str(Path(__file__).parent))
 from import_mirrors import components, Reporter, FBX_SHA256
 from donor_doors import skin_geometry, contains_outline, door_shell, edge_details, body_jamb
+from donor_hinges import attachments, BODY_BALL, DOOR_BALL, HINGE_Z, HINGE_SLOPE
 from io_scene_fbx import import_fbx
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -222,7 +223,14 @@ def node(name,loc=(0,0,0),parent=None,rot=None):
 node('Car');node('Body',parent='Car')
 # Source roof lens centre, with the light just below the diffuser (Z up here).
 node('LP_Cabin',(.038745,-.000233,1.06223),'Body')
-for side,sign in [('L',1),('R',-1)]:node('Door_'+side+'_Pivot',(0,sign*.135,1.147),'Body')
+for side,sign in [('L',1),('R',-1)]:
+    node('Door_'+side+'_Pivot',(0,sign*.135,HINGE_Z),'Body',(0,np.arctan(HINGE_SLOPE),0))
+bpy.context.view_layer.update()
+for side,sign in [('L',1),('R',-1)]:
+    node('StrutBody_'+side,BODY_BALL*[1,sign,1],'Body')
+    parent='Door_'+side+'_Pivot'
+    local=nodes[parent].matrix_world.inverted()@Vector(DOOR_BALL*[1,sign,1])
+    node('StrutDoor_'+side,local,parent)
 node('Hood_Pivot',(.745,0,.810),'Body');node('EngineLid_Pivot',(-.902,0,1.146),'Body')
 node('SteeringWheel_Pivot',(.192,.367,.715),'Body')
 angle=np.deg2rad(18)
@@ -350,8 +358,14 @@ for (parent,name,mat),triangles in buckets.items():
         round_steering_wheel(o)
 for side, component in [('L', 2), ('R', 1)]:
     v, n, skin = door_shell(paint, component)
+    if side=='L':hinge_skin=skin
+    for (parent,finish),(hv,hn) in attachments(hinge_skin,1 if side=='L' else -1).items():
+        mat='Donor_DoorSteel' if finish=='steel' else 'Donor_DoorRecess'
+        make_mesh('hinge_'+parent+'_'+finish+'_'+side,hv,hn,np.zeros((len(hv),2)),
+                  'Body' if parent=='Body' else 'Door_'+side+'_Pivot',mat)
     for part,(jv,jn) in body_jamb(skin).items():
-        mat={'shell':'Donor_Jamb','seal':'Donor_DoorRecess','striker':'Donor_DoorLatch'}[part]
+        mat={'shell':'Donor_Jamb','seal':'Donor_DoorRecess','striker':'Donor_DoorLatch',
+             'housing':'Donor_DoorRecess','flange':'Donor_DoorSteel'}[part]
         make_mesh('jamb_'+part+'_'+side,jv,jn,np.zeros((len(jv),2)),'Body',mat)
     make_mesh('door_box_'+side, v, n, np.zeros((len(v),2)),
               'Door_'+side+'_Pivot', 'Donor_DoorSteel')

@@ -196,16 +196,22 @@ export class Car {
   addDoorStrut(panel, side, tag) {
     // Rear-quarter ball mount and the door's rear inner frame, measured in the body frame.
     // Recess the fixed ball under the sail skin; it must not pierce the closed exterior.
-    const a = Car.b2t(-0.81, side * 0.53, 1.035);
-    const mount = Car.b2t(-0.697, side * 0.31, 1.093);
     this.body.updateWorldMatrix(true, true);
-    const local = panel.node.worldToLocal(this.body.localToWorld(mount));
+    const fixedAnchor = this.root.getObjectByName('StrutBody_' + tag);
+    const doorAnchor = this.root.getObjectByName('StrutDoor_' + tag);
+    const a = fixedAnchor
+      ? this.body.worldToLocal(fixedAnchor.getWorldPosition(new THREE.Vector3()))
+      : Car.b2t(-0.81, side * 0.53, 1.035);
+    const local = doorAnchor
+      ? panel.node.worldToLocal(doorAnchor.getWorldPosition(new THREE.Vector3()))
+      : panel.node.worldToLocal(this.body.localToWorld(Car.b2t(-0.697, side * 0.31, 1.093)));
     const group = new THREE.Group(); group.name = 'door_strut_' + tag;
     this.body.add(group);
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 12), this.lib.PlasticBlack);
     const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 1, 10), this.lib.Chrome);
     const ballA = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 6), this.lib.MetalDark);
     const ballB = ballA.clone();
+    ballA.name = 'strut_ball_body_' + tag; ballB.name = 'strut_ball_door_' + tag;
     group.add(barrel, rod, ballA, ballB);
     for (const mesh of group.children) { mesh.castShadow = true; mesh.receiveShadow = true; }
     const b = new THREE.Vector3(), dir = new THREE.Vector3(), joint = new THREE.Vector3();
