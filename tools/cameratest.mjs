@@ -38,6 +38,12 @@ try {
   const inward=after.p.map((v,i)=>v-before.p[i]);
   before=after;await gesture([[105,180],[275,180]],[[140,180],[240,180]]);after=await state();
   assert(after.p.reduce((sum,v,i)=>sum+(v-before.p[i])*inward[i],0)<0,'Reverse pinch did not move farther');
+  // Looking after moving must rotate at the new position, even with residual drift.
+  before=after;
+  await page.evaluate(()=>window.app.rig.vel.set(.2,0,.1));
+  await gesture([[150,180]],[[200,200]]);after=await state();
+  assert(distance(before.p,after.p)<.001,'Rotation drifted away from the current position');
+  assert(distance(before.q,after.q)>.03,'Rotation after pan and pinch failed');
   await touch('touchStart',[[130,170],[230,170]]);await touch('touchCancel',[]);assert.equal((await state()).pointers,0);
   before=await state();await gesture([[150,180]],[[170,180]]);after=await state();
   assert(Math.abs(after.yaw-before.yaw)>.02 && Math.abs(after.yaw-before.yaw)<.2,'Fresh drag jumped after cancellation');

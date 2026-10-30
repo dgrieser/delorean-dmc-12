@@ -205,3 +205,75 @@ def edge_details(skin):
     parts['seal'].append((vertices[faces].reshape(-1,3),normals[faces].reshape(-1,3)))
     return {name:(np.concatenate([p[0] for p in pieces]),np.concatenate([p[1] for p in pieces]))
             for name,pieces in parts.items()}
+
+
+def body_jamb(skin):
+    """Fixed doorway returns, sill, weatherstrip and striker plates.
+
+    Follow the donor's seam in 3D. The return bridges the outer body edge to
+    cabin trim instead of leaving a view through the sill or rear quarter.
+    """
+    outer, inner, ids = skin
+    path = outer[ids]
+    inward = inner[ids] - path
+    inward /= np.linalg.norm(inward, axis=1, keepdims=True)
+    tangent = np.roll(path,-1,axis=0) - np.roll(path,1,axis=0)
+    tangent /= np.linalg.norm(tangent,axis=1,keepdims=True)
+    radial = np.cross(tangent,inward)
+    radial /= np.maximum(np.linalg.norm(radial,axis=1,keepdims=True),1e-12)
+    # The source has opposite winding on the two sides.
+    if np.sum(radial*(path-path.mean(0)))<0:radial=-radial
+    width = np.interp(path[:,2],[.31,.65,.90,1.10,1.16],[.20,.19,.13,.055,.025])
+    lip = path + radial*.009 + inward*.006
+    # Rounded step into the cabin. Narrow raised lip carries the rubber seal.
+    rings = [lip, lip+inward*.025, lip+inward*(width[:,None]*.75)-radial*.020,
+             lip+inward*width[:,None]-radial*.035]
+    # Closed wall under the visible return, so both inside and outside views
+    # show a physical jamb instead of a one-sided patch.
+    rings += [rings[-1]+radial*.012, rings[0]+radial*.012]
+    v=np.stack(rings,axis=1)
+    faces=[]
+    for i in range(len(path)):
+        ni=(i+1)%len(path)
+        for j in range(len(rings)):
+            nj=(j+1)%len(rings)
+            faces.extend([(i*6+j,ni*6+j,ni*6+nj),(i*6+j,ni*6+nj,i*6+nj)])
+    v=v.reshape(-1,3);faces=np.array(faces)
+    tri=v[faces]
+    # Mirrored source loops may wind differently. Keep the closed return's
+    # outward faces visible from above the sill as well as from the cabin.
+    if np.sum(tri[:,0]*np.cross(tri[:,1],tri[:,2]))<0:
+        faces=faces[:,::-1];tri=v[faces]
+    normals=np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0])
+    normals/=np.maximum(np.linalg.norm(normals,axis=1,keepdims=True),1e-12)
+    # Smooth along the doorway, retain the cross-section's fold lines.
+    smooth=np.zeros_like(v)
+    for j in range(3):np.add.at(smooth,faces[:,j],normals)
+    smooth/=np.maximum(np.linalg.norm(smooth,axis=1,keepdims=True),1e-12)
+    parts={'shell':(tri.reshape(-1,3),smooth[faces].reshape(-1,3))}
+    # A continuous compression seal runs along the return, just inside the lip.
+    center=lip+inward*.045-radial*.004
+    angles=np.arange(10)*np.pi/5
+    radius=inward[:,None,:]*np.cos(angles)[None,:,None]+radial[:,None,:]*np.sin(angles)[None,:,None]
+    verts=(center[:,None,:]+radius*.006).reshape(-1,3);norm=radius.reshape(-1,3)
+    f=[]
+    for i in range(len(path)):
+        for j in range(10):
+            a=i*10+j;b=i*10+(j+1)%10;c=((i+1)%len(path))*10+(j+1)%10;d=((i+1)%len(path))*10+j
+            f.extend([(a,b,c),(a,c,d)])
+    f=np.array(f)
+    tri=verts[f]
+    if np.sum(tri[:,0]*np.cross(tri[:,1],tri[:,2]))<0:f=f[:,::-1]
+    parts['seal']=(verts[f].reshape(-1,3),norm[f].reshape(-1,3))
+    hardware=[]
+    for front in [True,False]:
+        c,u,z=end_frame(skin,.57,front)
+        # Face toward the opening, opposing the corresponding door latch.
+        n=-np.cross(u,z)
+        c=c-n*.014
+        hardware.append(plate(c,u,-z,.045,.066,.003,.006))
+        hardware.append(plate(c+n*.009,u,-z,.009,.026,.016,.004))
+        for offset in [-.024,.024]:
+            hardware.append(plate(c+z*offset+n*.002,u,-z,.006,.006,.003,.003))
+    parts['striker']=(np.concatenate([v for v,n in hardware]),np.concatenate([n for v,n in hardware]))
+    return parts

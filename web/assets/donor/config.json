@@ -345,6 +345,63 @@
       "roughness": 0.7,
       "metalness": 0
     },
+    "Donor_Jamb": {
+      "color": [
+        0.025,
+        0.028,
+        0.027
+      ],
+      "roughness": 0.64,
+      "metalness": 0.05
+    },
+    "Donor_ExhaustSteel": {
+      "color": [
+        0.1,
+        0.105,
+        0.11
+      ],
+      "roughness": 0.48,
+      "metalness": 0.85
+    },
+    "Donor_ChassisGrey": {
+      "color": [
+        0.12,
+        0.125,
+        0.13
+      ],
+      "roughness": 0.68,
+      "metalness": 0.12
+    },
+    "Donor_ZincBrackets": {
+      "color": [
+        0.38,
+        0.32,
+        0.19
+      ],
+      "roughness": 0.44,
+      "metalness": 0.9
+    },
+    "Donor_RearBacking": {
+      "color": [
+        0.025,
+        0.028,
+        0.03
+      ],
+      "roughness": 0.72,
+      "metalness": 0.12
+    },
+    "Donor_Drivetrain": {
+      "color": [
+        0.38,
+        0.39,
+        0.4
+      ],
+      "roughness": 0.65,
+      "metalness": 0.65,
+      "map": "Engine_D.png",
+      "normalMap": "Car_DMC_DeLorean_1983_Engine_NO.png",
+      "alphaTest": 0.5
+    },
     "Donor_DomeLens": {
       "color": [
         0.65,

@@ -29,6 +29,12 @@ export class CameraRig {
     const down = e => {
       if (this.mode === 'orbit' || this.mode === 'cinematic') return;
       if (e.button !== 0 && e.pointerType === 'mouse') return;
+      if (this.mode === 'free' && this.pointers.size === 0) {
+        // Start looking from the displayed pose, including interrupted transitions.
+        const look = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ');
+        this.yaw = look.y; this.pitch = look.x;
+        this.vel.set(0, 0, 0);
+      }
       this.tween = null;
       this.pointers.set(e.pointerId, [e.clientX, e.clientY]);
       dom.setPointerCapture?.(e.pointerId);

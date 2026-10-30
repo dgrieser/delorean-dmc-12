@@ -13,7 +13,7 @@ from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
 sys.path.insert(0, str(Path(__file__).parent))
 from import_mirrors import components, Reporter, FBX_SHA256
-from donor_doors import skin_geometry, contains_outline, door_shell, edge_details
+from donor_doors import skin_geometry, contains_outline, door_shell, edge_details, body_jamb
 from io_scene_fbx import import_fbx
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -110,6 +110,13 @@ materials['Donor_ConsoleTrim'] = dict(color=[.014,.016,.014],roughness=.78,metal
 materials['Donor_DoorSteel'] = dict(color=[.43,.44,.42],roughness=.42,metalness=.85)
 materials['Donor_DoorLatch'] = dict(color=[.15,.16,.15],roughness=.34,metalness=.8)
 materials['Donor_DoorRecess'] = dict(color=[.006,.007,.006],roughness=.7,metalness=0)
+materials['Donor_Jamb'] = dict(color=[.025,.028,.027],roughness=.64,metalness=.05)
+materials['Donor_ExhaustSteel'] = dict(color=[.10,.105,.11],roughness=.48,metalness=.85)
+materials['Donor_ChassisGrey'] = dict(color=[.12,.125,.13],roughness=.68,metalness=.12)
+materials['Donor_ZincBrackets'] = dict(color=[.38,.32,.19],roughness=.44,metalness=.9)
+materials['Donor_RearBacking'] = dict(color=[.025,.028,.03],roughness=.72,metalness=.12)
+materials['Donor_Drivetrain'] = dict(color=[.38,.39,.40],roughness=.65,metalness=.65,
+    map='Engine_D.png',normalMap='Car_DMC_DeLorean_1983_Engine_NO.png',alphaTest=.5)
 # The roof diffuser is a separate UV island in the interior atlas. Keep its
 # lens pattern and dark border, but give it an independently driven emission.
 interior_material = next(s for s in materials.values() if s.get('trim'))
@@ -140,6 +147,19 @@ def door_region(p):
 def classify(name, cid, center, lo, hi):
     x,y,z = center; side='L' if y>=0 else 'R'
     parent='Body'; semantic=None
+    if 'NickelRough' in name:return 'Body','exhaust_steel'
+    if 'PlasticSmooth' in name and cid in [9,163]:return 'Body','jamb_closeout'
+    if 'PlasticSmooth' in name and cid==128:return 'Body','rear_backing'
+    # Original radiator and muffler supports are plated metal, not yellow
+    # plastic. Keep a muted gold tint with metallic reflections.
+    if 'PlasticSmooth' in name and cid in [11,12,13,14,18,19,20,21,147,148,149,150,151,154]:
+        return 'Body','zinc_brackets'
+    # The source puts the epoxy-coated frame on a white plastic swatch shared
+    # with cabin trim. Separate whole frame components without tinting that trim.
+    if 'PlasticSmooth' in name and cid in [5,6,10,105,108,109,110,115,116,117,118,119,
+            122,123,124,126,127,129,132,133,134,135,136,138,139,142,143,152,153,159,160,168,169,170,171]:
+        return 'Body','chassis_grey'
+    if name.endswith('M_Engine_Max') and cid in [192,219,221]:return 'Body','drivetrain'
     if 'CarPaint' in name:
         return ('Hood' if cid==0 else 'Door_R' if cid==1 else 'Door_L' if cid==2 else 'Body'),None
     if 'WindowFront' in name:
@@ -156,6 +176,8 @@ def classify(name, cid, center, lo, hi):
     if 'GlassOpaque' in name:
         return ('Door_'+side if abs(y)>.7 else 'Body'),None
     if 'Interior' in name:
+        # Sun visors and their clips are mounted to the fixed windshield header.
+        if cid in [35,36,37,38,39,40,42,43,44,45]:return 'Body','sunvisors'
         # Seat-belt anchors, seat adjusters and dashboard end trim stay in the
         # cabin even where they sit close to the outer door skin.
         if cid in [31,32,33,34,69,70,71,72,79,94,126,148,149,152,153,182]:return 'Body',None
@@ -304,6 +326,12 @@ for name,s in sources.items():
             if semantic=='cabin_lens':mat='Donor_DomeLens'
             if semantic=='gauge_backplate':mat='Donor_InstrumentBacking'
             if semantic=='console_trim':mat='Donor_ConsoleTrim'
+            if semantic=='exhaust_steel':mat='Donor_ExhaustSteel'
+            if semantic=='chassis_grey':mat='Donor_ChassisGrey'
+            if semantic=='drivetrain':mat='Donor_Drivetrain'
+            if semantic=='jamb_closeout':mat='Donor_Jamb'
+            if semantic=='rear_backing':mat='Donor_RearBacking'
+            if semantic=='zinc_brackets':mat='Donor_ZincBrackets'
             label=('turn_front_bulb' if semantic=='turn_front' and 'phong16' in mat else semantic) or ('donor_'+name.split(':')[-1]+'_'+pp)
             key=(pp,label,mat)
             buckets.setdefault(key,[]).append((v,s['n'][loops],s['uv'][loops]))
@@ -322,6 +350,9 @@ for (parent,name,mat),triangles in buckets.items():
         round_steering_wheel(o)
 for side, component in [('L', 2), ('R', 1)]:
     v, n, skin = door_shell(paint, component)
+    for part,(jv,jn) in body_jamb(skin).items():
+        mat={'shell':'Donor_Jamb','seal':'Donor_DoorRecess','striker':'Donor_DoorLatch'}[part]
+        make_mesh('jamb_'+part+'_'+side,jv,jn,np.zeros((len(jv),2)),'Body',mat)
     make_mesh('door_box_'+side, v, n, np.zeros((len(v),2)),
               'Door_'+side+'_Pivot', 'Donor_DoorSteel')
     for part,(v,n) in edge_details(skin).items():
