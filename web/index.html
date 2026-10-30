@@ -49,6 +49,7 @@
   .sec h2 small { font-family: var(--font-data); font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--steel); }
   .row { display: flex; flex-wrap: wrap; gap: 6px; }
   .row + .row { margin-top: 6px; }
+  #free-touch-help { margin: 8px 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
   .seg { display: flex; flex: 1 1 100%; background: rgba(0,0,0,0.35); border: 1px solid var(--line); border-radius: 7px; padding: 2px; gap: 2px; }
   button { font: 600 13px/1 var(--font-ui); letter-spacing: 0.04em; color: var(--fg); background: rgba(255,255,255,0.05); border: 1px solid var(--line);
     border-radius: 6px; padding: 8px 9px; cursor: pointer; flex: 1 1 auto; min-width: 0; white-space: nowrap; transition: background .12s, color .12s, border-color .12s; touch-action: manipulation; }
@@ -130,14 +131,11 @@
        aria-label="Control panel height: drag to resize, tap or Enter to fold or unfold, arrow keys to adjust"><i></i><span>Controls</span><i></i></div>
   <div class="rack-body" id="rack-body">
   <section class="sec">
-    <h2>Model</h2>
-    <div class="seg" data-group="model"><button data-model="donor" aria-pressed="true">Imported</button><button data-model="original" aria-pressed="false">Our model</button></div>
-  </section>
-  <section class="sec">
     <h2>View <small id="cam-name">Orbit</small></h2>
     <div class="seg" data-group="cam">
       <button data-cam="orbit" aria-pressed="true">Orbit</button><button data-cam="free">Free</button><button data-cam="driver">Driver</button><button data-cam="passenger">Passenger</button><button data-cam="cinematic">Cine</button>
     </div>
+    <p id="free-touch-help" hidden>One finger: look · Two fingers: pan · Pinch: move closer/farther</p>
     <div class="row">
       <button data-shot="engine">Engine bay</button><button data-shot="frunk">Front trunk</button><button data-shot="wheel">Wheel</button><button data-shot="cockpit">Cockpit</button>
     </div>
@@ -202,7 +200,7 @@
 <div id="help" hidden>
   <div class="card" role="dialog" aria-modal="true" aria-labelledby="help-title">
     <h3 id="help-title">Controls</h3>
-    <p>Drag to look around, scroll to zoom. In the seat views, drag turns your head and scroll changes the field of view. Turn the key to On, then hold Start until the V6 catches.</p>
+    <p>Drag to look around, scroll to zoom. On touchscreens, Free view uses one finger to look, two fingers to pan sideways/up/down, and pinch to move closer or farther. In seat views, drag turns your head and pinch or scroll zooms. Turn the key to On, then hold Start until the V6 catches.</p>
     <dl>
       <dt>1 2 3 4 5</dt><dd>Orbit, free roam, driver, passenger, cinematic</dd>
       <dt>W A S D · Q E</dt><dd>Free roam: move, down/up (Shift = fast)</dd>

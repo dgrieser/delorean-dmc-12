@@ -70,14 +70,6 @@ function setLoad(p, msg) {
   if (msg) document.getElementById('load-msg').textContent = msg;
 }
 
-for (const button of document.querySelectorAll('[data-model]')) {
-  button.setAttribute('aria-pressed', String(button.dataset.model === MODEL));
-  button.addEventListener('click', () => {
-    if (button.dataset.model === MODEL) return;
-    const url = new URL(location.href); url.searchParams.set('model', button.dataset.model);
-    location.assign(url.href);
-  });
-}
 
 async function init() {
   setLoad(0.02, 'Loading environment…');

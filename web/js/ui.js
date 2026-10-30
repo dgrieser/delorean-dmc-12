@@ -19,6 +19,7 @@ export function bindUI(ctx) {
 
   function refresh() {
     group('cam', rig.mode, 'cam');
+    $('#free-touch-help').hidden = rig.mode !== 'free' || !navigator.maxTouchPoints;
     $('#cam-name').textContent = { orbit: 'Orbit', free: 'Free roam', driver: 'Driver seat', passenger: 'Passenger seat', cinematic: 'Cinematic' }[rig.mode];
     group('env', state.env, 'env');
     group('trim', state.trim, 'trim');
@@ -85,8 +86,7 @@ export function bindUI(ctx) {
       };
       const [p, t, f, fn] = shots[s];
       fn?.();
-      import('three').then(T => rig.goto(new T.Vector3(...p), new T.Vector3(...t), f));
-      refresh();
+      import('three').then(T => { rig.goto(new T.Vector3(...p), new T.Vector3(...t), f); refresh(); });
     },
   };
 

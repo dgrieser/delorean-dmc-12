@@ -1,9 +1,8 @@
 # delorean-dmc-12
 
-An interactive, browser-based DeLorean DMC-12 with two selectable models. **Imported** is the
-supplied FBX car, now rigged to the existing controls and shown by default. **Our model** keeps
-the procedural body, cabin and engine built in this repository, including its fitted donor
-mirrors and Peter_D's wheels. Switch between them in the Model section of the control panel.
+An interactive, browser-based DeLorean DMC-12 showing the supplied FBX car, rigged to the
+existing controls. The earlier procedural body, cabin and engine remain available through
+`?model=original`, including fitted donor mirrors and Peter_D's wheels.
 
 ## Run it
 
@@ -25,7 +24,7 @@ three.js 0.170 loads from jsDelivr, so the page needs internet access. Add `?env
 
 | Area | Controls |
 |---|---|
-| **Cameras** | Orbit, free roam (WASD/QE, Shift = fast, drag to look), driver seat, passenger seat (drag to look around, scroll to zoom), cinematic. Preset shots: engine bay, front trunk, wheel, cockpit. |
+| **Cameras** | Orbit, free roam (WASD/QE, Shift = fast, drag to look), driver seat, passenger seat, cinematic. Touch free roam: one finger looks, two fingers pan sideways/up/down, pinch moves closer/farther. Seat views: drag to look, pinch or scroll to zoom. Preset shots: engine bay, front trunk, wheel, cockpit. |
 | **Body** | Gull-wing doors with a torsion-bar + gas-strut model, bonnet and louvred engine cover on gas struts. Panels swing, settle and latch, with sound. |
 | **Ignition** | Off → Acc → On → Start (hold). The starter cranks, the V6 fires with a cold-start fast idle that settles as the coolant warms. Rev limiter at 6400 rpm. |
 | **Instruments** | 85 mph speedometer with a km/h inner scale and odometer, 8000 rpm tach, volts, coolant, oil pressure and fuel. Each needle has its own dynamics (fast magnetic movements, slow bimetal ones). Bulb check at key-on, plus warning lamps (brake, oil, charge, door, fuel, beam, indicators), panel illumination, console clock and radio display. |
@@ -68,8 +67,10 @@ Its checked-in output is under `web/assets/donor/`. The small procedural warning
 is `tools/model/assets/donor_lamps.npz`; the rest of the moving geometry comes from the FBX.
 Source and texture notes are in `web/assets/donor/README.md`.
 
-With the repo served on port 8123, `node tools/modeltest.mjs` tests both models' controls and
-switching in both directions. Set `CHROME` or `URL` to override the browser executable or page.
+With the repo served on port 8123, `node tools/modeltest.mjs` tests both models' controls via
+their URLs. Set `CHROME` or `URL` to override the browser executable or page.
+`node tools/cameratest.mjs` sends real browser touch gestures to check free movement,
+pinch zoom, gesture cancellation, seat/orbit behavior and desktop camera controls.
 `node tools/lighttest.mjs` checks lighting through the UI on both models, including rendered
 lens brightness, indicator cycles and sides, hazards with ignition off, brake/reverse lamps,
 and cabin/door controls. Use `URL='http://localhost:8123/web/?lite=1'` to check phone rendering.

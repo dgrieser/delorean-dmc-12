@@ -22,28 +22,55 @@ export class CameraRig {
     this.keys = {};
     this.vel = new THREE.Vector3();
     this.tween = null;
-    this.dragging = false;
+    this.pointers = new Map();
     this.cine = { t: 0 };
     this.headOffset = new THREE.Vector3();
     this.inside = false;
     const down = e => {
       if (this.mode === 'orbit' || this.mode === 'cinematic') return;
       if (e.button !== 0 && e.pointerType === 'mouse') return;
-      this.dragging = true; this.last = [e.clientX, e.clientY];
+      this.tween = null;
+      this.pointers.set(e.pointerId, [e.clientX, e.clientY]);
       dom.setPointerCapture?.(e.pointerId);
     };
     const move = e => {
-      if (!this.dragging) return;
-      const dx = e.clientX - this.last[0], dy = e.clientY - this.last[1];
-      this.last = [e.clientX, e.clientY];
+      if (!this.pointers.has(e.pointerId)) return;
+      const before = [...this.pointers.values()];
+      const last = this.pointers.get(e.pointerId);
+      const dx = e.clientX - last[0], dy = e.clientY - last[1];
+      this.pointers.set(e.pointerId, [e.clientX, e.clientY]);
+      if (this.pointers.size === 2) {
+        const after = [...this.pointers.values()];
+        const span = p => Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]);
+        const oldSpan = span(before), newSpan = span(after);
+        if (oldSpan < 8 || newSpan < 8) return;
+        if (this.mode === 'free') {
+          const cam = this.camera;
+          const centre = this.car.body.getWorldPosition(new THREE.Vector3());
+          const distance = this.inside ? .5 : THREE.MathUtils.clamp(cam.position.distanceTo(centre) - 1.3, .5, 8);
+          const pixel = 2 * distance * Math.tan(THREE.MathUtils.degToRad(this.fov / 2)) / Math.max(1, dom.clientHeight);
+          const panX = (after[0][0] + after[1][0] - before[0][0] - before[1][0]) / 2;
+          const panY = (after[0][1] + after[1][1] - before[0][1] - before[1][1]) / 2;
+          const offset = new THREE.Vector3(-panX * pixel, panY * pixel, -Math.log(newSpan / oldSpan) * distance);
+          cam.position.add(offset.applyQuaternion(cam.quaternion));
+          cam.position.y = Math.max(.12, cam.position.y);
+          this.vel.set(0, 0, 0);
+        } else {
+          this.fov = THREE.MathUtils.clamp(this.fov * oldSpan / newSpan, 14, 80);
+        }
+        return;
+      }
+      if (this.pointers.size !== 1) return;
       const s = 0.0032 * (this.fov / 50);
       this.yaw -= dx * s; this.pitch -= dy * s;
       this.clampLook();
     };
-    const up = () => { this.dragging = false; };
+    const up = e => { this.pointers.delete(e.pointerId); };
     dom.addEventListener('pointerdown', down);
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);
+    addEventListener('pointercancel', up);
+    dom.addEventListener('lostpointercapture', up);
     dom.addEventListener('wheel', e => {
       if (this.mode === 'driver' || this.mode === 'passenger' || this.mode === 'free') {
         e.preventDefault();
@@ -52,7 +79,14 @@ export class CameraRig {
     }, { passive: false });
     addEventListener('keydown', e => { if (!e.target.closest?.('input,select,textarea')) this.keys[e.code] = true; });
     addEventListener('keyup', e => { this.keys[e.code] = false; });
-    addEventListener('blur', () => { this.keys = {}; });
+    addEventListener('blur', () => { this.keys = {}; this.resetInput(); });
+  }
+
+  resetInput() {
+    const ids = [...this.pointers.keys()];
+    this.pointers.clear();
+    for (const id of ids) if (this.dom.hasPointerCapture?.(id)) this.dom.releasePointerCapture(id);
+    this.vel.set(0, 0, 0);
   }
 
   clampLook() {
@@ -66,6 +100,8 @@ export class CameraRig {
   bodyMatrix() { this.car.body.updateMatrixWorld(); return this.car.body.matrixWorld; }
 
   setMode(mode, instant = false) {
+    this.resetInput();
+    this.tween = null;
     const cam = this.camera;
     const from = { p: cam.position.clone(), q: cam.quaternion.clone(), fov: cam.fov };
     this.mode = mode;
@@ -87,6 +123,7 @@ export class CameraRig {
   }
 
   goto(pos, target, fov = 35) {
+    this.resetInput();
     // orbit preset shots (engine bay, trunk, wheel, dash...)
     const cam = this.camera;
     const from = { p: cam.position.clone(), q: cam.quaternion.clone(), fov: cam.fov };

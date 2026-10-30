@@ -1,4 +1,4 @@
-// Exercise both complete car rigs through the public controls.
+// Exercise both complete car rigs through the public controls and model URLs.
 // Serve the repository on :8123, then: node tools/modeltest.mjs
 import { chromium } from 'playwright-core';
 import assert from 'node:assert/strict';
@@ -80,11 +80,14 @@ try {
     assert.deepEqual(errors, []);
     console.log(`${model}: rig, panels, lights, engine, windows, wipers, driving, cameras, scenes and trim passed`);
     if (model === 'donor') {
-      await Promise.all([page.waitForNavigation(), click('[data-model="original"]')]);
+      const url = new URL(page.url()); url.searchParams.set('model', 'original');
+      await page.goto(url.href);
       assert(new URL(page.url()).searchParams.get('model') === 'original');
     }
   }
-  await Promise.all([page.waitForNavigation(), click('[data-model="donor"]')]); await ready();
+  const url = new URL(page.url()); url.searchParams.set('model', 'donor');
+  await page.goto(url.href); await ready();
   assert.equal(await page.evaluate(() => window.app.state.model), 'donor');
-  console.log('Model selector passed in both directions; no page or asset errors.');
+  assert.equal(await page.locator('[data-model]').count(), 0);
+  console.log('Both model URLs passed; no selector, page or asset errors.');
 } finally { await browser.close(); }
