@@ -15,6 +15,9 @@ try {
   const dashEnd=a.car.root.getObjectByName('dash_end_cheeks');
   if(!dashEnd)throw new Error('Missing dashboard end trim');
   const dashMatrix=dashEnd.matrixWorld.clone();
+  const gaugeLegend=a.car.root.getObjectByName('gauge_legend');
+  if(!gaugeLegend)throw new Error('Missing fixed instrument printing');
+  const gaugeMatrix=gaugeLegend.matrixWorld.clone();
   // Sightlines through the three background leaks in the reported cabin view.
   const headerCamera=new T.PerspectiveCamera(75,1500/1100,.01,100);
   headerCamera.position.set(-.40,1.05,-.35);headerCamera.lookAt(.55,.69,.02);
@@ -38,6 +41,7 @@ try {
     panel.theta=angle*Math.PI/180;panel.apply();a.car.root.updateMatrixWorld(true);
     if(!visors.matrixWorld.equals(visorMatrix))throw new Error('Sun visors moved with door');
     if(!dashEnd.matrixWorld.equals(dashMatrix))throw new Error('Dashboard end trim moved with door');
+    if(!gaugeLegend.matrixWorld.equals(gaugeMatrix))throw new Error('Instrument printing became a floating door fragment');
     if(!header.matrixWorld.equals(headerMatrix))throw new Error('Header corner moved with door');
     for(const [x,y]of side==='L'?[[35,170],[31,207]]:[[1480,248]]) {
      const ray=new T.Raycaster();ray.setFromCamera(new T.Vector2(x/1500*2-1,1-y/1100*2),headerCamera);

@@ -4,6 +4,8 @@ Studio 12 supplies the Recaro cushions, seams, carpet shelf and rear panels.
 The donor's seat rails, belt mounts and cabin envelope remain the anchors.
 """
 from collections import defaultdict, Counter
+from pathlib import Path
+import json
 import numpy as np
 from donor_doors import plate
 from donor_hinges import cylinder
@@ -537,19 +539,49 @@ def glass_seals(source, component, radius):
     return np.concatenate([x[0] for x in pieces]),np.concatenate([x[1] for x in pieces])
 
 
+# Clamp lies on the armrest's inner face, below its upper ledge.
+PULL_ANCHOR = np.array([.02, .651, .520])
+PULL_CLOSED_SCALE = .08
+PULL_FREE_ANGLE = np.deg2rad(20)
+
+
 def door_pull(skin):
-    """Looped strap on the armrest. Geometry follows its door, including closed pose."""
+    """Cloth-relaxed, 28 mm leather loop with a closed 2 mm cross section."""
     p=Parts();side=np.sign(skin[0][:,1].mean())
-    # The mounting pad touches the inner armrest at Y=0.69, Z=0.59.
-    p.add('plastic',plate([.02,side*.685,.592],[1,0,0],[0,0,1],.052,.026,.008,.006))
-    t=np.linspace(0,2*np.pi,65)
-    # A flexible loop rather than a rigid rectangular handle. A separate pivot
-    # lets the viewer keep it hanging as the door opens.
-    center=np.column_stack([.02+.017*np.sin(t),side*(.674-.012*(1-np.cos(t))),.592-.100*(1-np.cos(t))])
-    # A 20 mm flat leather ribbon, closed at the mounting pad.
-    a=center+np.array([.009,0,0]);b=center-np.array([.009,0,0]);tri=[]
-    for i in range(len(t)-1):tri.extend([[a[i],b[i],b[i+1]],[a[i],b[i+1],a[i+1]]])
-    tri=np.array(tri);n=np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0]);n/=np.maximum(np.linalg.norm(n,axis=1,keepdims=True),1e-12)
-    p.add('leather',(np.concatenate([tri,tri[:,::-1]]).reshape(-1,3),np.concatenate([np.repeat(n,3,axis=0),np.repeat(-n,3,axis=0)])))
-    p.seam(a,thread_path=a-[.002,0,0]);p.seam(b,thread_path=b+[.002,0,0])
-    return p.result()
+    anchor=PULL_ANCHOR.copy()
+    p.add('plastic',plate(anchor+[0,.008,0],[1,0,0],[0,0,1],.052,.014,.014,.004))
+    for dx in [-.020,.020]:
+        c=anchor+[dx,-.0005,0]
+        p.add('hardware',cylinder(c,c+[0,-.0015,0],.0028,12))
+    data=json.loads(Path(__file__).with_name('door_pull_cloth.json').read_text())
+    rows,cols=data['rows'],data['cols']
+    v=np.asarray(data['vertices'])
+    v[:,2]*=.92  # 18 cm drop; keep the loop beside the cushion when closed.
+    faces=[]
+    for i in range(rows-1):
+        for j in range(cols-1):
+            a=i*cols+j;b=a+1;c=b+cols;d=a+cols
+            faces.extend([(a,b,c),(a,c,d)])
+    faces=np.asarray(faces)
+    tri=v[faces];normals=np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0])
+    n=np.zeros_like(v)
+    for j in range(3):np.add.at(n,faces[:,j],normals)
+    n/=np.maximum(np.linalg.norm(n,axis=1,keepdims=True),1e-12)
+    # Smooth broad faces, with real sidewalls rather than coincident backfaces.
+    shell=np.concatenate([v+n*.001,v-n*.001])+anchor
+    sn=np.concatenate([n,-n]);count=len(v)
+    front=np.concatenate([faces,faces[:,::-1]+count])
+    p.add('leather',(shell[front].reshape(-1,3),sn[front].reshape(-1,3)))
+    perimeter=list(range(cols))+list(range(2*cols-1,count,cols))+list(range(count-2,count-cols-1,-1))+list(range(count-2*cols,0,-cols))
+    walls=np.array([t for a,b in zip(perimeter,np.roll(perimeter,-1)) for t in [(a,b+count,b),(a,a+count,b+count)]])
+    tri=shell[walls];wn=np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0]);wn/=np.maximum(np.linalg.norm(wn,axis=1,keepdims=True),1e-12)
+    p.add('leather',(tri.reshape(-1,3),np.repeat(wn,3,axis=0)))
+    grid=(v+n*.0013+anchor).reshape(rows,cols,3)
+    for j,inner in [(0,1),(-1,-2)]:
+        edge=grid[:,j];thread=edge*.72+grid[:,inner]*.28
+        p.seam(edge,thread_path=thread,radius=.00055)
+    result=p.result()
+    if side<0:
+        result={k:((v*[1,-1,1]).reshape(-1,3,3)[:,::-1].reshape(-1,3),
+                   (n*[1,-1,1]).reshape(-1,3,3)[:,::-1].reshape(-1,3)) for k,(v,n) in result.items()}
+    return result

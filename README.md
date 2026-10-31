@@ -66,6 +66,11 @@ Phong materials to PBR, and writes a part-selection audit to `tools/out/donor-ri
 Its checked-in output is under `web/assets/donor/`. `tools/model/donor_doors.py` adds closed
 steel door returns, seals, latch plates and warning lamps fitted to the donor skin outline.
 Whole trim patches outside the door outline and fixed cabin hardware stay on the body.
+Door pulls use a pinned Blender cloth bake (`tools/model/bake_door_pull.py`), with
+leather thickness, edge stitching and a two-screw clamp. The viewer keeps them hanging
+under gravity and flattens the loop beside the seat when closed; there is no live cloth solver.
+The checked-in `door_pull_cloth.json` makes ordinary car builds independent of simulation.
+Donor camera eye positions follow the Recaro seating position.
 Source and texture notes are in `web/assets/donor/README.md`.
 
 With the repo served on port 8123, `node tools/modeltest.mjs` tests both models' controls via

@@ -3,6 +3,7 @@ import time
 import bpy
 import numpy as np
 from mathutils import Matrix
+from donor_cabin import PULL_CLOSED_SCALE, PULL_FREE_ANGLE
 
 
 def bake(materials, samples=48):
@@ -26,7 +27,9 @@ def bake(materials, samples=48):
                 if parent.name.startswith('DoorPull_'):
                     sign=1 if '_L_' in parent.name else -1
                     pm=parent.matrix_world
-                    matrix=pm@Matrix.Rotation(np.deg2rad(-angle*sign),4,'X')@pm.inverted()@matrix
+                    t=np.clip(np.deg2rad(angle)/PULL_FREE_ANGLE,0,1);t=t*t*(3-2*t)
+                    scale=PULL_CLOSED_SCALE+(1-PULL_CLOSED_SCALE)*t
+                    matrix=pm@Matrix.Rotation(np.deg2rad(-angle*sign),4,'X')@Matrix.Diagonal((1,scale,1,1))@pm.inverted()@matrix
                 if parent.name in ['Door_L_Pivot','Door_R_Pivot']:
                     sign=1 if parent.name=='Door_L_Pivot' else -1
                     pm=parent.matrix_world

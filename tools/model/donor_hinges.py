@@ -42,7 +42,11 @@ def attachments(skin, side):
     for x in [-.10,-.64]:
         z=HINGE_Z-x*HINGE_SLOPE
         slab('Body','steel',[x,.095,z-.010],hinge_axis,[0,1,0],.094,.080,.005)
-        slab('Door','steel',[x,.163,z-.010],hinge_axis,[0,1,0],.080,.056,.005)
+        # The moving leaf sits below the liner, with a bent web up to the pin.
+        # A flat leaf at pin height cut through the upholstered edge.
+        slab('Door','steel',[x,.180,z-.038],hinge_axis,[0,1,0],.080,.070,.005)
+        web=np.array([0,.028,-.038]);web/=np.linalg.norm(web)
+        slab('Door','steel',[x,.149,z-.019],hinge_axis,web,.080,.048,.004)
         # Interleaved knuckles are centred on the exact door pivot axis.
         for i in range(5):
             lo=x-.05+i*.020
@@ -50,7 +54,10 @@ def attachments(skin, side):
         add('Body','dark',cylinder([x-.055,.135,z+.055*HINGE_SLOPE],[x+.055,.135,z-.055*HINGE_SLOPE],.003))
         for dx in [-.028,.028]:
             bolt('Body',[x+dx,.078,z-.006-dx*HINGE_SLOPE],[0,0,1])
-            bolt('Door',[x+dx,.18,z-.014-dx*HINGE_SLOPE],[0,0,-1])
+            bolt('Door',[x+dx,.196,z-.041-dx*HINGE_SLOPE],[0,0,-1])
+    # Straight bound edge closes the upholstered panel onto the door flange.
+    slab('Door','dark',[-.35,.206,HINGE_Z+.35*HINGE_SLOPE-.030],
+         hinge_axis,[0,1,0],.655,.036,.009,.004)
     # Torsion-bar representation along the hinge axis, under the roof channel.
     add('Body','dark',cylinder([-.71,.119,HINGE_Z+.71*HINGE_SLOPE-.01],[-.025,.119,HINGE_Z+.025*HINGE_SLOPE-.01],.0045))
     # Fixed bracket is fastened across the rear jamb, not left inside the sail.

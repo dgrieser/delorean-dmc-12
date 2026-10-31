@@ -162,7 +162,9 @@ export class CameraRig {
       cam.fov += (this.fov - cam.fov) * Math.min(1, dt * 8);
     } else if (this.mode === 'driver' || this.mode === 'passenger') {
       const M = this.bodyMatrix();
-      const eye = EYE[this.mode].clone().add(this.headOffset).applyMatrix4(M);
+      const configured = this.car.cameraEyes?.[this.mode];
+      const eye = (configured ? new THREE.Vector3(...configured) : EYE[this.mode].clone())
+        .add(this.headOffset).applyMatrix4(M);
       cam.position.copy(eye);
       const bq = new THREE.Quaternion().setFromRotationMatrix(M);
       // base look direction: forward (+X) => camera yaw -90deg

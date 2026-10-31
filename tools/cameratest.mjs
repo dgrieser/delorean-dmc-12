@@ -51,6 +51,24 @@ try {
   await touch('touchStart',[[150,180]]);
   await page.evaluate(()=>window.app.rig.setMode('driver',true));
   assert.equal((await state()).pointers,0);await touch('touchEnd',[]);await tick();
+  // The donor Recaros moved forward: seat views must start ahead of the
+  // headrests, including when looking down at the dashboard on a phone.
+  const seatClear = await page.evaluate(() => {
+    const a=window.app,T=window.THREE,blocked=[];
+    for(const mode of ['driver','passenger']) {
+      a.rig.setMode(mode,true);
+      for(const pitch of [-.12,-.55]) {
+        a.rig.pitch=pitch;a.tick(120);
+        for(const x of [-.65,0,.65])for(const y of [-.8,-.4,0,.4]) {
+          const ray=new T.Raycaster();ray.setFromCamera(new T.Vector2(x,y),a.camera);ray.far=.20;
+          if(ray.intersectObject(a.car.root,true).some(h=>h.object.name==='seat_leather'))blocked.push([mode,pitch,x,y]);
+        }
+      }
+    }
+    a.rig.setMode('driver',true);a.tick(120);
+    return blocked;
+  });
+  assert.deepEqual(seatClear,[],'Seat or headrest blocks the seated camera');
   before=await state();await gesture([[140,180],[240,180]],[[100,180],[280,180]]);after=await state();
   assert(after.fov<before.fov-5,'Seat pinch zoom failed');assert(distance(before.p,after.p)<.001,'Seat zoom left the seat');
   await mode('orbit');assert(!(await page.locator('#free-touch-help').isVisible()));

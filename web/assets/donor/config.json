@@ -17,6 +17,22 @@
   },
   "wheelbase": 2.434,
   "track": 1.56,
+  "doorPull": {
+    "closedScale": 0.08,
+    "freeAngle": 0.3490658503988659
+  },
+  "cameraEyes": {
+    "driver": [
+      -0.27,
+      1.005,
+      -0.4
+    ],
+    "passenger": [
+      -0.37,
+      0.995,
+      0.4
+    ]
+  },
   "dashboard": {
     "center": [
       0.35,

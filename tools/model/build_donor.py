@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from import_mirrors import components, Reporter, FBX_SHA256
 from donor_doors import skin_geometry, contains_outline, door_shell, edge_details, body_jamb
 from donor_hinges import attachments, BODY_BALL, DOOR_BALL, HINGE_Z, HINGE_SLOPE
-from donor_cabin import seats, rear_cabin, glass_seals, door_pull, sill_details, rear_plate, seat_badge_uv, seat_belts
+from donor_cabin import seats, rear_cabin, glass_seals, door_pull, sill_details, rear_plate, seat_badge_uv, seat_belts, PULL_ANCHOR, PULL_CLOSED_SCALE, PULL_FREE_ANGLE
 from donor_fittings import aerial, rear_heater, louvre_fixings, pedal, dash_ducts, floor_mats
 from io_scene_fbx import import_fbx
 
@@ -207,6 +207,7 @@ def classify(name, cid, center, lo, hi):
         # cabin even where they sit close to the outer door skin.
         if cid in [34,126,182]:return 'Body',None
         if cid==41:return 'Body','cabin_lens'
+        if cid==115:return 'Body','gauge_legend'  # instrument printing must not lift with the nearby door
         if cid==121:return 'Body','gauge_backplate'  # erase baked gauges behind the live instrument face
         if cid in [15,53,56]:return 'Body','console_trim'
         if cid==177:return 'SKIP',None  # rounded knob and engraved shift pattern in console.js
@@ -255,7 +256,7 @@ for side,sign in [('L',1),('R',-1)]:
     parent='Door_'+side+'_Pivot'
     local=nodes[parent].matrix_world.inverted()@Vector(DOOR_BALL*[1,sign,1])
     node('StrutDoor_'+side,local,parent)
-    local=nodes[parent].matrix_world.inverted()@Vector((.02,sign*.674,.592))
+    local=nodes[parent].matrix_world.inverted()@Vector(PULL_ANCHOR * [1,sign,1])
     node('DoorPull_'+side+'_Pivot',local,parent)
 node('Hood_Pivot',(.745,0,.810),'Body');node('EngineLid_Pivot',(-.902,0,1.146),'Body')
 node('SteeringWheel_Pivot',(.192,.367,.715),'Body')
@@ -363,6 +364,25 @@ def round_steering_wheel(o):
     modifier.render_levels = 2
     bpy.ops.object.modifier_apply(modifier=modifier.name)
 
+def roof_trim_face(v, n, uv, moving):
+    """Trim the inner roof edge at its binding, preserving interpolated UVs."""
+    if not (np.min(v[:,2])>1.04 and np.max(v[:,0])<0 and np.max(abs(v[:,1]))<.60):
+        return v,n,uv
+    if not moving:
+        return v,n,uv
+    side=np.sign(v[:,1].mean())
+    polygon=np.column_stack([v,n,uv]);out=[]
+    for a,b in zip(polygon,np.roll(polygon,-1,axis=0)):
+        da=side*a[1]-.202;db=side*b[1]-.202
+        if da>=0:out.append(a)
+        if (da>=0)!=(db>=0):out.append(a+(b-a)*da/(da-db))
+    if len(out)<3:return None
+    out=np.array(out)
+    tri=np.array([[out[0],out[j],out[j+1]] for j in range(1,len(out)-1)]).reshape(-1,8)
+    normals=tri[:,3:6];normals/=np.maximum(np.linalg.norm(normals,axis=1,keepdims=True),1e-12)
+    return tri[:,:3],normals,tri[:,6:]
+
+
 buckets={};audit=[];outline_membership={}
 wheel_names={
  'DELOREAN:M_Rim_Main_Max1':('F','rim'), 'DELOREAN:M_RimBadge_Max1':('F','badge'), 'polySurface1':('F','tyre'), 'polySurface500':('F','caliper'),
@@ -390,7 +410,7 @@ for name,s in sources.items():
                 # by the continuous steel box; retaining both creates overlaps.
                 if (1366<=island<=1380 or 1387<=island<=1421 or
                     1477<=island<=1509 or 1525<=island<=1541 or island in
-                    [1547,1863,1905,1909,1910,1913,1914,2194,2195,2199,2200,2203,2204]):continue
+                    [1544,1581,1547,1863,1905,1909,1910,1913,1914,2194,2195,2199,2200,2203,2204]):continue
                 ip=s['v'][s['islands']==island]
                 a,b=ip.min(0),ip.max(0); c=ip.mean(0)
                 ay=np.abs(ip[:,1]); z=ip[:,2]
@@ -404,6 +424,9 @@ for name,s in sources.items():
                 if a[0]>-1.91 and b[0]<-.89 and a[2]>.885 and np.max(ay)<.61:pp='EngineLid'
                 if island in [1957,1960,1961,1980,1983,1985,1988,1989,1992,1995]:surface='Donor_Carpet'
                 if a[2]>1.035 and b[0]<.14 and a[0]>-.73 and np.max(ay)<.57:surface='Donor_Headliner'
+                # These narrow returns share the fixed windshield-header edge
+                # (island 556 and its mirror), not the upholstered door panel.
+                if island in [573,814]:pp='Body'
                 # The dashboard's end cheeks surround the fixed air ducts.
                 # Their proximity to the door must not make them lift with it.
                 if island in [423,426,553,1621,1978]:
@@ -425,7 +448,16 @@ for name,s in sources.items():
             if semantic=='webbing':mat='Donor_Webbing'
             label=detail_label or ('turn_front_bulb' if semantic=='turn_front' and 'phong16' in mat else semantic) or ('donor_'+name.split(':')[-1]+'_'+pp)
             key=(pp,label,mat)
-            buckets.setdefault(key,[]).append((v,s['n'][loops],s['uv'][loops]))
+            face=(v,s['n'][loops],s['uv'][loops])
+            if 'Interior' in name and cid==0:
+                # The old fixed roof lip straddled the hinge line and poked
+                # through the moving flange. Keep it inside the roof channel.
+                if pp=='Body' and island in [1351,1355,1422,1441]:
+                    v=v.copy();mask=(abs(v[:,1])<.18)&(v[:,2]>1.12)
+                    v[mask,1]=np.sign(v[mask,1])*np.minimum(abs(v[mask,1]),.128)
+                    face=(v,s['n'][loops],s['uv'][loops])
+                face=roof_trim_face(*face,pp.startswith('Door_'))
+            if face is not None:buckets.setdefault(key,[]).append(face)
             if semantic=='marker_front':
                 mv=v[::-1]*[1,-1,1]; mn=s['n'][loops][::-1]*[1,-1,1]
                 buckets[key].append((mv,mn,s['uv'][loops][::-1]))
@@ -474,7 +506,7 @@ for side, component in [('L', 2), ('R', 1)]:
     if side=='L':hinge_skin=skin
     for finish,(pv,pn) in door_pull(skin).items():
         make_mesh('pull_'+finish+'_'+side,pv,pn,np.zeros((len(pv),2)),
-                  ('Door_' if finish=='plastic' else 'DoorPull_')+side+'_Pivot',cabin_materials[finish])
+                  ('Door_' if finish in ['plastic','hardware'] else 'DoorPull_')+side+'_Pivot',cabin_materials[finish])
     for (parent,finish),(hv,hn) in attachments(hinge_skin,1 if side=='L' else -1).items():
         mat='Donor_DoorSteel' if finish=='steel' else 'Donor_DoorRecess'
         make_mesh('hinge_'+parent+'_'+finish+'_'+side,hv,hn,np.zeros((len(hv),2)),
@@ -496,6 +528,8 @@ for side, component in [('L', 2), ('R', 1)]:
 
 
 config=dict(windshield=dict(bx=.82,bz=.79,nx=.383,nz=.924,wrap=.20),lowProfile=False,tollWindow=dict(lean=34,travel=.19),tyreRadius=dict(F=.295,R=.332),wheelbase=2.434,track=1.56,
+    doorPull=dict(closedScale=PULL_CLOSED_SCALE,freeAngle=float(PULL_FREE_ANGLE)),
+    cameraEyes=dict(driver=[-.27,1.005,-.40],passenger=[-.37,.995,.40]),
     dashboard=dict(center=[.35,.773,-.369],scale=.80,heightScale=.90),radio=dict(detailed=True),materials=materials,sourceSha256=FBX_SHA256)
 (WEB/'config.json').write_text(json.dumps(config,indent=2)+'\n')
 (OUT/'donor-rig-audit.json').write_text(json.dumps(audit,indent=2))

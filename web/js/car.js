@@ -179,6 +179,8 @@ export class Car {
     this.engineShake = 0;
     this.wipers = null;
     this.windshield = manifest?.windshield;
+    this.cameraEyes = manifest?.cameraEyes;
+    this.doorPull = manifest?.doorPull;
 
     // toll windows: small power panes in the lower door glass, sliding down along the glass plane
     const lean = (manifest?.tollWindow?.lean ?? 50) * DEG;
@@ -231,6 +233,12 @@ export class Car {
       if (pull) {
         inverseSwing.setFromAxisAngle(panel.axis, -panel.sign * panel.theta);
         pull.quaternion.copy(inverseSwing).multiply(pullRest);
+        if (this.doorPull) {
+          // The loop lies flat beside the seat when shut, then opens freely
+          // once the armrest rises clear. Its pinned end never moves locally.
+          const t = THREE.MathUtils.smoothstep(panel.theta, 0, this.doorPull.freeAngle);
+          pull.scale.z = THREE.MathUtils.lerp(this.doorPull.closedScale, 1, t);
+        }
       }
       panel.node.updateWorldMatrix(true, false);
       b.copy(local); panel.node.localToWorld(b); this.body.worldToLocal(b);
