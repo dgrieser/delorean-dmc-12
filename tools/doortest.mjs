@@ -12,6 +12,9 @@ try {
   if(!visors)throw new Error('Missing fixed sun visors');
   a.car.root.updateMatrixWorld(true);
   const visorMatrix=visors.matrixWorld.clone();
+  const dashEnd=a.car.root.getObjectByName('dash_end_cheeks');
+  if(!dashEnd)throw new Error('Missing dashboard end trim');
+  const dashMatrix=dashEnd.matrixWorld.clone();
   for(const side of ['L','R']) {
    let box,jamb;a.car.root.traverse(o=>{
     if(o.isMesh&&o.name==='door_box_'+side)box=o;
@@ -27,6 +30,7 @@ try {
    for(const angle of [0,35,69]) {
     panel.theta=angle*Math.PI/180;panel.apply();a.car.root.updateMatrixWorld(true);
     if(!visors.matrixWorld.equals(visorMatrix))throw new Error('Sun visors moved with door');
+    if(!dashEnd.matrixWorld.equals(dashMatrix))throw new Error('Dashboard end trim moved with door');
     if(pull.getWorldQuaternion(new T.Quaternion()).angleTo(pullRest)>1e-5)
      throw new Error(`Door pull stopped hanging ${side} at ${angle}°`);
     for(const [anchorName,ballName]of [['StrutBody_','strut_ball_body_'],['StrutDoor_','strut_ball_door_']]) {
@@ -55,5 +59,5 @@ try {
   return results;
  });
  for(const c of checks)assert.equal(c.hit,c.solid,`${c.side} ${c.angle}° ${c.name}: ${c.solid?'open cavity':'blocked window'}`);
- assert.deepEqual(errors,[]);console.log('Both doors at 0°, 35°, 69°: struts attached, pulls hanging, cavities closed, windows clear and visors fixed.');
+ assert.deepEqual(errors,[]);console.log('Both doors at 0°, 35°, 69°: struts attached, pulls hanging, cavities closed, windows clear, visors and dashboard ends fixed.');
 }finally{await browser.close();}

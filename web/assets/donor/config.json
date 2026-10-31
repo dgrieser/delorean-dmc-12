@@ -463,6 +463,34 @@
       "metalness": 0,
       "detail": "webbing"
     },
+    "Donor_AerialSteel": {
+      "color": [
+        0.55,
+        0.56,
+        0.58
+      ],
+      "roughness": 0.24,
+      "metalness": 0.95
+    },
+    "Donor_HeaterTrace": {
+      "color": [
+        0.12,
+        0.065,
+        0.028
+      ],
+      "roughness": 0.75,
+      "metalness": 0.35
+    },
+    "Donor_PedalRubber": {
+      "color": [
+        0.024,
+        0.025,
+        0.027
+      ],
+      "roughness": 0.6,
+      "metalness": 0,
+      "detail": "rubber"
+    },
     "Donor_Jamb": {
       "color": [
         0.025,

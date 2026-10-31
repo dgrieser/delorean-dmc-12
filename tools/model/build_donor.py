@@ -16,6 +16,7 @@ from import_mirrors import components, Reporter, FBX_SHA256
 from donor_doors import skin_geometry, contains_outline, door_shell, edge_details, body_jamb
 from donor_hinges import attachments, BODY_BALL, DOOR_BALL, HINGE_Z, HINGE_SLOPE
 from donor_cabin import seats, rear_cabin, glass_seals, door_pull, sill_details, rear_plate, seat_badge_uv, seat_belts
+from donor_fittings import aerial, rear_heater, louvre_fixings, pedal, dash_ducts, floor_mats
 from io_scene_fbx import import_fbx
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -124,6 +125,9 @@ materials['Donor_Carpet'] = dict(color=[.045,.047,.050],roughness=1,metalness=0,
 materials['Donor_CabinPlastic'] = dict(color=[.012,.013,.015],roughness=.72,metalness=0,detail='rubber')
 materials['Donor_Headliner'] = dict(color=[.20,.205,.20],roughness=1,metalness=0,detail='cloth')
 materials['Donor_Webbing'] = dict(color=[.025,.029,.031],roughness=.88,metalness=0,detail='webbing')
+materials['Donor_AerialSteel'] = dict(color=[.55,.56,.58],roughness=.24,metalness=.95)
+materials['Donor_HeaterTrace'] = dict(color=[.12,.065,.028],roughness=.75,metalness=.35)
+materials['Donor_PedalRubber'] = dict(color=[.024,.025,.027],roughness=.60,metalness=0,detail='rubber')
 materials['Donor_Jamb'] = dict(color=[.025,.028,.027],roughness=.64,metalness=.05)
 materials['Donor_ExhaustSteel'] = dict(color=[.10,.105,.11],roughness=.48,metalness=.85)
 materials['Donor_ChassisGrey'] = dict(color=[.12,.125,.13],roughness=.68,metalness=.12)
@@ -195,12 +199,13 @@ def classify(name, cid, center, lo, hi):
         # already follow their doors. Belts and seat adjusters have detailed replacements.
         if cid in [31,32,33,69,70,71,72,79,128,129,130,131,139,148,149,155,157,158,159,167,169]:return 'SKIP',None
         if cid in [1,16,143,150,151,152,153,154,163,164,170,171]:return 'SKIP',None  # seats, release handles and buckles rebuilt from studio 12
+        if cid in [94,95,96,97,98,99]:return 'SKIP',None  # physical duct throats and pedal pads replace flat cards
         if cid==29:return 'Body','carpet'
         # Sun visors and their clips are mounted to the fixed windshield header.
         if cid in [35,36,37,38,39,40,42,43,44,45]:return 'Body','sunvisors'
         # Seat-belt anchors, seat adjusters and dashboard end trim stay in the
         # cabin even where they sit close to the outer door skin.
-        if cid in [34,94,126,182]:return 'Body',None
+        if cid in [34,126,182]:return 'Body',None
         if cid==41:return 'Body','cabin_lens'
         if cid==121:return 'Body','gauge_backplate'  # erase baked gauges behind the live instrument face
         if cid in [15,53,56]:return 'Body','console_trim'
@@ -209,9 +214,9 @@ def classify(name, cid, center, lo, hi):
         # Exact disconnected control assemblies, rebuilt with rounded geometry
         # and high-resolution printing in console.js. Keep the surrounding trim.
         if cid in [60,61,62,63,64,65,66,67,80,81,82,83,89,90,91,100,101,102,103,104,178,179,180,181]:return 'SKIP',None
-        if cid in [99,105]:return 'Pedal_Clutch',None
-        if cid in [96,106]:return 'Pedal_Brake',None
-        if cid in [97,107]:return 'Pedal_Gas',None
+        if cid==105:return 'Pedal_Clutch',None
+        if cid==106:return 'Pedal_Brake',None
+        if cid==107:return 'Pedal_Gas',None
         if cid==50:return 'SteeringWheel',None
         if cid==68:return 'Shifter','gear_boot'
         if cid in [124,125]:return 'Handbrake',None
@@ -281,7 +286,7 @@ def make_mesh(name,v,n,uv,parent,mat):
         uv=np.column_stack([.5-v[:,1]/.3048,.5-(v-[-2.014,0,.776])@np.array([.28,0,.96])/.1524])
     if mat=='Donor_SeatMark':
         uv=seat_badge_uv(v)
-    if mat in ['Donor_SeatLeather','Donor_Carpet','Donor_Weatherstrip','Donor_CabinPlastic','Donor_Headliner','Donor_Webbing']:
+    if mat in ['Donor_SeatLeather','Donor_Carpet','Donor_Weatherstrip','Donor_CabinPlastic','Donor_Headliner','Donor_Webbing','Donor_PedalRubber']:
         # Metre UVs: one consistent physical grain size on every generated part.
         axes=np.argmax(np.abs(n.reshape(-1,3,3).mean(axis=1)),axis=1)
         uv=np.empty((len(v),2))
@@ -342,6 +347,7 @@ for name,s in sources.items():
             loops=s['tris'][i];v=s['v'][s['loops'][loops]]
             pp=parent
             surface=None
+            detail_label=None
             # FBX UV islands preserve the actual trim seams. Keep each whole
             # surface rigid; per-triangle spatial cuts leave sawteeth when open.
             if 'Interior' in name and cid==0:
@@ -364,6 +370,11 @@ for name,s in sources.items():
                 if a[0]>-1.91 and b[0]<-.89 and a[2]>.885 and np.max(ay)<.61:pp='EngineLid'
                 if island in [1957,1960,1961,1980,1983,1985,1988,1989,1992,1995]:surface='Donor_Carpet'
                 if a[2]>1.035 and b[0]<.14 and a[0]>-.73 and np.max(ay)<.57:surface='Donor_Headliner'
+                # The dashboard's end cheeks surround the fixed air ducts.
+                # Their proximity to the door must not make them lift with it.
+                if island in [423,426,553,1621,1978]:
+                    pp='Body'; surface='Donor_SeatLeather'
+                    detail_label='dash_end_cheeks'
             mat='Donor_'+s['materials'][s['mats'][i]]
             if surface:mat=surface
             if semantic=='rear_window':mat='Donor_RearGlass'
@@ -378,7 +389,7 @@ for name,s in sources.items():
             if semantic=='zinc_brackets':mat='Donor_ZincBrackets'
             if semantic=='carpet':mat='Donor_Carpet'
             if semantic=='webbing':mat='Donor_Webbing'
-            label=('turn_front_bulb' if semantic=='turn_front' and 'phong16' in mat else semantic) or ('donor_'+name.split(':')[-1]+'_'+pp)
+            label=detail_label or ('turn_front_bulb' if semantic=='turn_front' and 'phong16' in mat else semantic) or ('donor_'+name.split(':')[-1]+'_'+pp)
             key=(pp,label,mat)
             buckets.setdefault(key,[]).append((v,s['n'][loops],s['uv'][loops]))
             if semantic=='marker_front':
@@ -398,9 +409,22 @@ for (parent,name,mat),triangles in buckets.items():
 cabin_materials={'leather':'Donor_SeatLeather','piping':'Donor_SeatPiping',
     'webbing':'Donor_Webbing','control':'Donor_SeatControl','hardware':'Donor_SeatHardware','recess':'Donor_DoorRecess',
     'thread':'Donor_SeatThread','plastic':'Donor_CabinPlastic','metal':'Donor_DoorLatch','carpet':'Donor_Carpet','badge':'Donor_SeatMark','red':'Donor_BuckleRed','plate':'Decal_Plate'}
+cabin_materials.update(rubber='Donor_Weatherstrip',bright='Donor_AerialSteel',conductor='Donor_HeaterTrace',grip='Donor_PedalRubber')
 for assembly,parts in [('seat',seats()),('belts',seat_belts()),('rear_cabin',rear_cabin()),('sill',sill_details()),('rear_plate',rear_plate())]:
     for finish,(v,n) in parts.items():
         make_mesh(assembly+'_'+finish,v,n,np.zeros((len(v),2)),'Body',cabin_materials[finish])
+
+interior = sources['DELOREAN:M_Interior_Max']
+fittings = [('aerial', aerial(paint), 'Body'),
+    ('heater', rear_heater(sources['DELOREAN:M_LGlass_InnerClear_Max']), 'Body'),
+    ('louvre_fixings', louvre_fixings(sources['DELOREAN:M_Opaque_PlasticRoughBlack_Max']), 'EngineLid_Pivot'),
+    ('dash_ducts', dash_ducts(interior), 'Body'), ('floor_mats', floor_mats(interior), 'Body')]
+for component, parent in [(96,'Pedal_Brake_Pivot'), (97,'Pedal_Gas_Pivot'),
+                           (98,'Body'), (99,'Pedal_Clutch_Pivot')]:
+    fittings.append(('pedal_'+str(component), pedal(interior, component), parent))
+for assembly, parts, parent in fittings:
+    for finish, (v, n) in parts.items():
+        make_mesh(assembly+'_'+finish,v,n,np.zeros((len(v),2)),parent,cabin_materials[finish])
 
 glass=sources['DELOREAN:M_Glass_WindowFront_Max']
 for component,parent,label,radius in [(0,'Body','windshield',.007),
