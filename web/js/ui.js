@@ -114,6 +114,12 @@ export function bindUI(ctx) {
     else if (b.id === 'snd') A.sound();
     else if (b.id === 'help-btn') $('#help').hidden = false;
     else if (b.id === 'help-close') $('#help').hidden = true;
+    else if (b.id === 'ui-toggle') {
+      const hidden = document.body.classList.toggle('ui-hidden');
+      b.textContent = hidden ? 'Show UI' : 'Hide UI';
+      b.setAttribute('aria-expanded', String(!hidden));
+      if (hidden) $('#help').hidden = true;
+    }
   });
   const panel = initPanel($('#rack'), $('#grip'));
   function toggleRack() { panel.toggle(); }
