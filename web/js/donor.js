@@ -57,7 +57,14 @@ export async function loadDonorMaterials() {
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#e3e3dd'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = '600 148px Arial, sans-serif'; ctx.fillText('RECARO', 512, 99, 985);
+      // Fine diagonal thread bands stay inside the embroidered letter mask.
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.strokeStyle = 'rgba(80,82,78,.28)'; ctx.lineWidth = 1;
+      for (let x = -192; x < 1024; x += 4) {
+        ctx.beginPath(); ctx.moveTo(x,192); ctx.lineTo(x+144,0); ctx.stroke();
+      }
       m.map = new THREE.CanvasTexture(canvas); m.map.colorSpace = THREE.SRGBColorSpace;
+      m.bumpMap = m.map; m.bumpScale = .00010;
       m.map.flipY = false; m.map.anisotropy = 8; m.alphaTest = .5;
     }
     if (spec.kind === 'glass') {

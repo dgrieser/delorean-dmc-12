@@ -107,6 +107,13 @@ insert with four shallow compressed stitch channels, piping,
 individual stitches, embroidered-style lettering, recline wheels and release
 handles. Existing rail locations and belt anchor positions set their fit in the
 cabin. Belt receivers have separate red release buttons and recessed mouths.
+Close-up details include slotted backrest releases, rounded recline knobs, hinge
+straps and bolts, headrest collars, rear-panel binding and individual stitches.
+Shallow leather creases and cushion compression are geometric; the embroidered
+wordmark has fine thread bands and a small bump relief. Curved 47 mm belt
+webbing follows the fixed quarter mounts, with bound edges and open metal latch
+tongues. Obsolete donor door pulls and seat adjusters are omitted to prevent
+floating duplicate hardware beside the rebuilt seats.
 Studio 07 sets the lower seating height and 31-degree backrest rake. Headrests
 have their own near-upright frame; thinner lower cushions rise six degrees at
 the front. Thigh supports taper into a wider, squarer front cushion, and the

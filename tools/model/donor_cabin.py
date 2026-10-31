@@ -170,6 +170,54 @@ def seat_surround():
     return (tri.reshape(-1,3),norm.reshape(-1,3)), section
 
 
+def seat_roundrect(center, u, v, width, height, radius, samples=12):
+    """Rounded seam/trim path in an explicit surface frame."""
+    path=[]
+    for sx,sy,start in [(1,1,0),(-1,1,90),(-1,-1,180),(1,-1,270)]:
+        for angle in np.linspace(start,start+90,samples,endpoint=False):
+            a=np.deg2rad(angle)
+            path.append(np.asarray(center)+(sx*(width/2-radius)+radius*np.cos(a))*np.asarray(u)
+                        +(sy*(height/2-radius)+radius*np.sin(a))*np.asarray(v))
+    return np.array(path)
+
+
+def seat_controls(p, point, frame, side):
+    """Recessed backrest release and lower hinge/adjuster, from studio 09/12."""
+    front,right,up=frame.T
+    outward=right*side
+    # Pressed-steel hinge strap sits behind the adjuster and follows the rake.
+    hinge=point(-.012,side*.231,.035)
+    p.add('hardware',plate(hinge,-side*front,up,.105,.050,.006,.011))
+    for d in [-.044,.034]:
+        c=hinge+front*d+outward*.004
+        p.add('metal',cylinder(c,c+outward*.003,.0048,6))
+        p.add('recess',cylinder(c+outward*.0031,c+outward*.0035,.0018,12))
+    c=point(-.015,side*.249,.048)
+    p.add('hardware',cylinder(c-outward*.018,c,.027,40))
+    # The photographed grip is a rounded rectangular cap, not a cogwheel.
+    p.add('control',pillow(c,[.078,.024,.061],frame,power=.30,resolution=(14,48)))
+    face=c+outward*.0123
+    p.add('recess',cylinder(face,face+outward*.0008,.020,48))
+    p.add('control',cylinder(face+outward*.0009,face+outward*.0018,.0185,48))
+    ring=[face+outward*.002+front*(.020*np.cos(t))+up*(.020*np.sin(t))
+          for t in np.linspace(0,2*np.pi,80,endpoint=False)]
+    p.add('plastic',tube(ring,.0006,True,6))
+    # Shallow grip flutes along the narrow upper/lower edges.
+    for h in [-.0275,.0275]:
+        for d in np.linspace(-.025,.025,9):
+            p.add('plastic',tube([c+front*d+up*h-outward*.005,c+front*d+up*h+outward*.005],.00065,False,6))
+    # Seat-back release: a visible pocket, moulded surround and lower paddle.
+    c=point(-.014,side*.230,.31)
+    p.add('recess',plate(c,-side*front,up,.044,.067,.005,.009))
+    rim=seat_roundrect(c+outward*.004,front,up,.036,.057,.008)
+    p.add('control',tube(rim,.004,True,10))
+    paddle=c-up*.020+outward*.012
+    p.add('control',pillow(paddle,[.029,.020,.020],frame,power=.40,resolution=(12,32)))
+    for h in [-.002,.002]:
+        p.add('plastic',tube([paddle-front*.010+up*h+outward*.010,
+                              paddle+front*.010+up*h+outward*.010],.0005,False,6))
+
+
 def seats():
     all_parts=Parts()
     right=np.array([0,1,0]);up=SEAT_UP;front=np.cross(right,up)
@@ -206,6 +254,22 @@ def seats():
             dip=.0009*np.exp(-t*t)
             value-=dip;derivative+=2*t*dip/.003
         return value,derivative
+    def leather_tension(w,h):
+        value=np.zeros_like(np.asarray(w)+np.asarray(h),dtype=float)
+        dw=value.copy();dh=value.copy()
+        for sign in [-1,1]:
+            for height,slope in [(.065,.24),(.108,-.20)]:
+                a=(w-sign*.132)/.023
+                b=(h-height-sign*slope*(w-sign*.115))/.003
+                groove=-.00035*np.exp(-a*a-b*b)
+                value+=groove
+                dw+=groove*(-2*a/.023+2*b*sign*slope/.003)
+                dh+=groove*(-2*b/.003)
+        return value,dw,dh
+    def base_relief(x,w):
+        # A soft seating depression, with the perimeter supported by the pan.
+        value=-.003*np.exp(-(x/.18)**4-(w/.125)**4)
+        return value,value*(-4*x**3/.18**4),value*(-4*w**3/.125**4)
     def skin_depth(u,v,ru,rv,depth,power):
         power_n=2/power
         return depth*max(0,1-abs(u/ru)**power_n-abs(v/rv)**power_n)**(1/power_n)
@@ -217,8 +281,12 @@ def seats():
         # Thin seat pan clears the retained rails. The front rises six degrees.
         p.add('plastic',pillow([-.105,y,.295],[.47,.435,.05],power=.32,resolution=(12,40)))
         cushion_center=np.array([-.07,y,.325])
-        def cushion_point(x,w,z):return cushion_center+cushion_frame@np.array([x,w,z])
-        p.add('leather',pillow(cushion_center,[.50,.365,.067],cushion_frame,power=.28))
+        def cushion_point(x,w,z):return cushion_center+cushion_frame@np.array([x,w,z+base_relief(x,w)[0]])
+        cv,cn=pillow([0,0,0],[.50,.365,.067],power=.28,resolution=(28,96))
+        relief,dx,dw=base_relief(cv[:,0],cv[:,1])
+        cn[:,0]-=cn[:,2]*dx;cn[:,1]-=cn[:,2]*dw
+        cn/=np.linalg.norm(cn,axis=1,keepdims=True);cv[:,2]+=relief
+        p.add('leather',(cv@cushion_frame.T+cushion_center,cn@cushion_frame.T))
         for sy in [-1,1]:
             center=cushion_point(-.01,sy*.195,.017)
             # Side cushions flare gently toward the thighs rather than running
@@ -253,6 +321,12 @@ def seats():
         p.seam(cushion_row(-.105),thread_path=cushion_row(-.1025),radius=.0006)
         # Continuous padded perimeter, over a slim rear shell; no detached pillars.
         p.add('leather',pillow(point(-.025,0,.267),[.075,.423,.53],frame,power=.35))
+        def rear_binding(d):
+            scale=(1-abs((d+.025)/.0375)**(2/.35))**(.35/2)
+            return [point(d,.2115*scale*np.sign(np.cos(t))*abs(np.cos(t))**.35,
+                          .267+.265*scale*np.sign(np.sin(t))*abs(np.sin(t))**.35)
+                    for t in np.linspace(0,2*np.pi,160,endpoint=False)]
+        p.seam(rear_binding(-.059),closed=True,thread_path=rear_binding(-.0595),radius=.0007)
         p.add('leather',(surround[0]@frame.T+base,surround[1]@frame.T))
         p.seam(surround_section(.74)@frame.T+base,closed=True,
                thread_path=surround_section(.80)@frame.T+base,radius=.00065)
@@ -271,6 +345,7 @@ def seats():
             p.seam(shoulder_join(),thread_path=shoulder_join(True),radius=.00045)
         # The center panel follows a lumbar bulge, then hollows below the shoulders.
         heights=np.unique(np.r_[np.linspace(-.005,.475,73),
+                                (np.array([.065,.108])[:,None]+np.array([-.006,-.003,0,.003,.006])).ravel(),
                                 (stitch_rows[:,None]+np.array([-.007,-.004,-.002,0,.002,.004,.007])).ravel()])
         v,n=pillow([.020,0,.235],[.072,.318,.48],power=.34,resolution=(40,64),
                    levels=np.clip((heights-.235)/.24,-1,1))
@@ -279,10 +354,13 @@ def seats():
         n[:,2]-=n[:,0]*derivative+n[:,1]*v[:,1]*scale_derivative/scale
         n[:,1]/=scale;n/=np.linalg.norm(n,axis=1,keepdims=True)
         v[:,0]+=shift;v[:,1]*=scale
+        crease,dw,dh=leather_tension(v[:,1],v[:,2])
+        n[:,1]-=n[:,0]*dw;n[:,2]-=n[:,0]*dh
+        n/=np.linalg.norm(n,axis=1,keepdims=True);v[:,0]+=crease
         p.add('leather',(v@frame.T+base,n@frame.T))
         def insert_face(w,h):
             width=seat_profile(h,[(0,.88),(.22,.97),(.47,1)])[0]
-            return .020+insert_relief(h)[0]+skin_depth(w/width,h-.235,.159,.24,.036,.34)
+            return .020+insert_relief(h)[0]+skin_depth(w/width,h-.235,.159,.24,.036,.34)+leather_tension(w,h)[0]
         for h in stitch_rows:
             def seam_row(height):return [point(insert_face(w,height)+.0004,w,height) for w in np.linspace(-.144,.144,80)]
             p.seam(seam_row(h),thread_path=seam_row(h+.0018),radius=.00035)
@@ -301,6 +379,9 @@ def seats():
             a=point(-.01,w,.525);b=head_point(-.01,w,-.065)
             p.add('metal',cylinder(a,b,.005,16))
             p.add('plastic',pillow(a,[.025,.029,.012],frame,power=.4,resolution=(8,24)))
+            collar=[a+up*.006+front*(.007*np.cos(t))+right*(.007*np.sin(t))
+                    for t in np.linspace(0,2*np.pi,40,endpoint=False)]
+            p.add('recess',tube(collar,.0015,True,8))
         p.add('leather',pillow(head_center,[.114,.326,.175],head_frame,power=.42))
         for sy in [-1,1]:
             def headrest_ring(w):
@@ -309,22 +390,72 @@ def seats():
                                    .0875*scale*np.sign(np.sin(a))*abs(np.sin(a))**.42)
                         for a in np.linspace(0,2*np.pi,100,endpoint=False)]
             p.seam(headrest_ring(sy*.151),closed=True,thread_path=headrest_ring(sy*.149))
-        for sy in [-1,1]:
-            c=point(-.015,sy*.244,.048)
-            p.add('plastic',cylinder(c-right*.012,c+right*.012,.031,32))
-            for a in np.arange(24)*2*np.pi/24:
-                q=c+np.array([np.cos(a)*.030,0,np.sin(a)*.030])
-                p.add('plastic',cylinder(q-right*.013,q+right*.013,.002,6))
-        p.add('plastic',pillow(point(-.015,side*.231,.31),[.045,.020,.073],frame,power=.38,resolution=(12,32)))
+        seat_controls(p,point,frame,side)
+        # Small inboard hinge cap, clear of the console and belt receiver.
+        c=point(-.015,-side*.231,.048)
+        p.add('hardware',cylinder(c,c-right*side*.008,.022,32))
         p.add('plastic',pillow([-.25,side*.124,.375],[.058,.025,.067],power=.35,resolution=(12,32)))
         p.add('metal',plate([-.25,side*.124,.408],[1,0,0],[0,1,0],.036,.018,.003,.003))
         p.add('red',plate([-.236,side*.124,.411],[1,0,0],[0,1,0],.023,.017,.004,.002))
         p.add('piping',plate([-.261,side*.124,.411],[1,0,0],[0,1,0],.010,.012,.004,.001))
         p.add('metal',tube([[.14,y-.16,.285],[.23,y-.16,.285],[.25,y,.29],[.23,y+.16,.285],[.14,y+.16,.285]],.005))
+        p.add('plastic',cylinder([.245,y-.055,.289],[.245,y+.055,.289],.007,24))
+        for sy in [-1,1]:
+            for x in [-.24,.10]:
+                c=np.array([x,y+sy*.218,.300])
+                p.add('hardware',cylinder(c-[0,0,.003],c+[0,0,.002],.006,24))
+                p.add('metal',cylinder(c+[0,0,.002],c+[0,0,.004],.0038,6))
         # Driver seat is one rail position farther forward in studio 07.
         offset=np.array([SEAT_DRIVER_FORWARD if side>0 else 0,0,0])
         for finish,(v,n) in p.result().items():all_parts.add(finish,(v+offset,n))
     return all_parts.result()
+
+
+def seat_belts():
+    """Unlatched belts follow the fixed rear-quarter mounts in studio 12."""
+    p=Parts()
+    for side in [-1,1]:
+        knots=np.array([[-.79,side*.640,.905],[-.64,side*.665,.755],
+                        [-.50,side*.686,.600],[-.36,side*.704,.405],[-.29,side*.700,.325]])
+        times=np.linspace(0,1,len(knots));t=np.linspace(0,1,121)
+        curves=[seat_profile(t,np.column_stack([times,knots[:,axis]])) for axis in range(3)]
+        path=np.column_stack([r[0] for r in curves]);tangent=np.column_stack([r[1] for r in curves])
+        tangent/=np.linalg.norm(tangent,axis=1,keepdims=True)
+        width=np.cross(tangent,[0,side,0]);width/=np.linalg.norm(width,axis=1,keepdims=True)
+        normal=np.cross(width,tangent)
+        rings=np.stack([path-width*.0235-normal*.0006,path+width*.0235-normal*.0006,
+                        path+width*.0235+normal*.0006,path-width*.0235+normal*.0006],axis=1)
+        faces=[]
+        for i in range(len(t)-1):
+            for j in range(4):
+                a=i*4+j;b=i*4+(j+1)%4;c=b+4;d=a+4
+                faces.extend([(a,b,c),(a,c,d)])
+        faces.extend([(0,2,1),(0,3,2)])
+        last=(len(t)-1)*4;faces.extend([(last,last+1,last+2),(last,last+2,last+3)])
+        tri=rings.reshape(-1,3)[np.array(faces)][:,::-1]
+        # Smooth the broad faces along the belt, while preserving its thin edges.
+        corner_normals=[]
+        for i in range(len(t)-1):
+            for field in [-normal,width,normal,-width]:
+                a,b=field[i],field[i+1]
+                corner_normals.extend([[b,a,a],[b,b,a]])
+        corner_normals.extend([[-tangent[0]]*3]*2+[[tangent[-1]]*3]*2)
+        p.add('webbing',(tri.reshape(-1,3),np.array(corner_normals).reshape(-1,3)))
+        for sign in [-1,1]:p.add('webbing',tube(path+width*(sign*.0228)-normal*.00065,.00045,False,6))
+        # Sliding black guide and a plated tongue, clear of the seat side.
+        i=43;c=path[i]+normal[i]*.002;u=width[i];along=tangent[i];outward=normal[i]
+        for sign in [-1,1]:
+            p.add('plastic',plate(c+u*sign*.027,u,-along,.007,.027,.004,.002))
+            p.add('plastic',plate(c+along*sign*.012,u,-along,.054,.005,.004,.002))
+        tongue=c+along*.029+outward*.001
+        for sign in [-1,1]:
+            p.add('metal',plate(tongue+u*sign*.0105,u,-along,.009,.027,.002,.002))
+            p.add('metal',plate(tongue+along*sign*.010,u,-along,.012,.007,.002,.001))
+        # Lower mounting tab meets the donor's original sill anchor position.
+        c=path[-1]
+        p.add('hardware',plate(c,[1,0,0],[0,0,1],.041,.035,.004,.005))
+        p.add('metal',cylinder(c+[0,-side*.003,0],c+[0,-side*.006,0],.005,6))
+    return p.result()
 
 
 def rear_cabin():

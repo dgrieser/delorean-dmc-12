@@ -376,6 +376,24 @@
       "metalness": 0,
       "cabinTrim": "piping"
     },
+    "Donor_SeatControl": {
+      "color": [
+        0.035,
+        0.037,
+        0.04
+      ],
+      "roughness": 0.55,
+      "metalness": 0
+    },
+    "Donor_SeatHardware": {
+      "color": [
+        0.025,
+        0.028,
+        0.03
+      ],
+      "roughness": 0.45,
+      "metalness": 0.65
+    },
     "Donor_SeatThread": {
       "color": [
         0.055,

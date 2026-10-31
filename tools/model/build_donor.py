@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from import_mirrors import components, Reporter, FBX_SHA256
 from donor_doors import skin_geometry, contains_outline, door_shell, edge_details, body_jamb
 from donor_hinges import attachments, BODY_BALL, DOOR_BALL, HINGE_Z, HINGE_SLOPE
-from donor_cabin import seats, rear_cabin, glass_seals, door_pull, sill_details, rear_plate, seat_badge_uv
+from donor_cabin import seats, rear_cabin, glass_seals, door_pull, sill_details, rear_plate, seat_badge_uv, seat_belts
 from io_scene_fbx import import_fbx
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -115,6 +115,8 @@ materials['Donor_DoorRecess'] = dict(color=[.006,.007,.006],roughness=.7,metalne
 materials['Donor_Weatherstrip'] = dict(color=[.009,.010,.011],roughness=.82,metalness=0,detail='rubber')
 materials['Donor_SeatLeather'] = dict(color=[.022,.023,.025],roughness=.64,metalness=0,detail='leather',cabinTrim='leather')
 materials['Donor_SeatPiping'] = dict(color=[.012,.013,.014],roughness=.65,metalness=0,cabinTrim='piping')
+materials['Donor_SeatControl'] = dict(color=[.035,.037,.040],roughness=.55,metalness=0)
+materials['Donor_SeatHardware'] = dict(color=[.025,.028,.030],roughness=.45,metalness=.65)
 materials['Donor_SeatThread'] = dict(color=[.055,.056,.058],roughness=.92,metalness=0)
 materials['Donor_SeatMark'] = dict(color=[.7,.7,.67],roughness=.95,metalness=0,detail='seat_mark')
 materials['Donor_BuckleRed'] = dict(color=[.32,.012,.006],roughness=.57,metalness=0)
@@ -189,14 +191,16 @@ def classify(name, cid, center, lo, hi):
     if 'GlassOpaque' in name:
         return ('Door_'+side if abs(y)>.7 else 'Body'),None
     if 'Interior' in name:
+        # Original door pulls remained static beside the seats; replacements
+        # already follow their doors. Belts and seat adjusters have detailed replacements.
+        if cid in [31,32,33,69,70,71,72,79,128,129,130,131,139,148,149,155,157,158,159,167,169]:return 'SKIP',None
         if cid in [1,16,143,150,151,152,153,154,163,164,170,171]:return 'SKIP',None  # seats, release handles and buckles rebuilt from studio 12
         if cid==29:return 'Body','carpet'
-        if cid in [148,149,167,169]:return 'Body','webbing'
         # Sun visors and their clips are mounted to the fixed windshield header.
         if cid in [35,36,37,38,39,40,42,43,44,45]:return 'Body','sunvisors'
         # Seat-belt anchors, seat adjusters and dashboard end trim stay in the
         # cabin even where they sit close to the outer door skin.
-        if cid in [31,32,33,34,69,70,71,72,79,94,126,148,149,152,153,182]:return 'Body',None
+        if cid in [34,94,126,182]:return 'Body',None
         if cid==41:return 'Body','cabin_lens'
         if cid==121:return 'Body','gauge_backplate'  # erase baked gauges behind the live instrument face
         if cid in [15,53,56]:return 'Body','console_trim'
@@ -392,8 +396,9 @@ for (parent,name,mat),triangles in buckets.items():
         round_steering_wheel(o)
 
 cabin_materials={'leather':'Donor_SeatLeather','piping':'Donor_SeatPiping',
+    'webbing':'Donor_Webbing','control':'Donor_SeatControl','hardware':'Donor_SeatHardware','recess':'Donor_DoorRecess',
     'thread':'Donor_SeatThread','plastic':'Donor_CabinPlastic','metal':'Donor_DoorLatch','carpet':'Donor_Carpet','badge':'Donor_SeatMark','red':'Donor_BuckleRed','plate':'Decal_Plate'}
-for assembly,parts in [('seat',seats()),('rear_cabin',rear_cabin()),('sill',sill_details()),('rear_plate',rear_plate())]:
+for assembly,parts in [('seat',seats()),('belts',seat_belts()),('rear_cabin',rear_cabin()),('sill',sill_details()),('rear_plate',rear_plate())]:
     for finish,(v,n) in parts.items():
         make_mesh(assembly+'_'+finish,v,n,np.zeros((len(v),2)),'Body',cabin_materials[finish])
 

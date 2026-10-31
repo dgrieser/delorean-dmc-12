@@ -37,8 +37,8 @@ def bake(materials, samples=48):
             m=np.array(matrix);v=v@m[:3,:3].T+m[:3,3]
             f=np.array([t.vertices[:] for t in me.loop_triangles])
             remap=None
-            if o.name=='seat_leather':
-                # Box-projected texture seams split the upholstery vertices.
+            if o.name in ['seat_leather','belts_webbing']:
+                # Texture seams and thin ribbon edges split these vertices.
                 # Weld only the bake proxy so those splits cannot become false
                 # creases in its smooth normals or the AO smoothing pass.
                 _,first,remap=np.unique(np.round(v,6),axis=0,return_index=True,return_inverse=True)
