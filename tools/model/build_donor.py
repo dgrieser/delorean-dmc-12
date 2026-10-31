@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from import_mirrors import components, Reporter, FBX_SHA256
 from donor_doors import skin_geometry, contains_outline, door_shell, edge_details, body_jamb
 from donor_hinges import attachments, BODY_BALL, DOOR_BALL, HINGE_Z, HINGE_SLOPE
+from donor_cabin import seats, rear_cabin, glass_seals, door_pull, sill_details, rear_plate
 from io_scene_fbx import import_fbx
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -111,6 +112,16 @@ materials['Donor_ConsoleTrim'] = dict(color=[.014,.016,.014],roughness=.78,metal
 materials['Donor_DoorSteel'] = dict(color=[.43,.44,.42],roughness=.42,metalness=.85)
 materials['Donor_DoorLatch'] = dict(color=[.15,.16,.15],roughness=.34,metalness=.8)
 materials['Donor_DoorRecess'] = dict(color=[.006,.007,.006],roughness=.7,metalness=0)
+materials['Donor_Weatherstrip'] = dict(color=[.009,.010,.011],roughness=.82,metalness=0,detail='rubber')
+materials['Donor_SeatLeather'] = dict(color=[.022,.023,.025],roughness=.64,metalness=0,detail='leather',cabinTrim='leather')
+materials['Donor_SeatPiping'] = dict(color=[.012,.013,.014],roughness=.65,metalness=0,cabinTrim='piping')
+materials['Donor_SeatThread'] = dict(color=[.055,.056,.058],roughness=.92,metalness=0)
+materials['Donor_SeatMark'] = dict(color=[.7,.7,.67],roughness=.95,metalness=0,detail='seat_mark')
+materials['Donor_BuckleRed'] = dict(color=[.32,.012,.006],roughness=.57,metalness=0)
+materials['Donor_Carpet'] = dict(color=[.045,.047,.050],roughness=1,metalness=0,detail='carpet',cabinTrim='carpet')
+materials['Donor_CabinPlastic'] = dict(color=[.012,.013,.015],roughness=.72,metalness=0,detail='rubber')
+materials['Donor_Headliner'] = dict(color=[.20,.205,.20],roughness=1,metalness=0,detail='cloth')
+materials['Donor_Webbing'] = dict(color=[.025,.029,.031],roughness=.88,metalness=0,detail='webbing')
 materials['Donor_Jamb'] = dict(color=[.025,.028,.027],roughness=.64,metalness=.05)
 materials['Donor_ExhaustSteel'] = dict(color=[.10,.105,.11],roughness=.48,metalness=.85)
 materials['Donor_ChassisGrey'] = dict(color=[.12,.125,.13],roughness=.68,metalness=.12)
@@ -148,6 +159,7 @@ def door_region(p):
 def classify(name, cid, center, lo, hi):
     x,y,z = center; side='L' if y>=0 else 'R'
     parent='Body'; semantic=None
+    if 'LicensePlate' in name:return 'SKIP',None  # studio plate and rounded backing replace the blank donor plate
     if 'NickelRough' in name:return 'Body','exhaust_steel'
     if 'PlasticSmooth' in name and cid in [9,163]:return 'Body','jamb_closeout'
     if 'PlasticSmooth' in name and cid==128:return 'Body','rear_backing'
@@ -177,6 +189,9 @@ def classify(name, cid, center, lo, hi):
     if 'GlassOpaque' in name:
         return ('Door_'+side if abs(y)>.7 else 'Body'),None
     if 'Interior' in name:
+        if cid in [1,16,143,150,151,152,153,154,163,164,170,171]:return 'SKIP',None  # seats, release handles and buckles rebuilt from studio 12
+        if cid==29:return 'Body','carpet'
+        if cid in [148,149,167,169]:return 'Body','webbing'
         # Sun visors and their clips are mounted to the fixed windshield header.
         if cid in [35,36,37,38,39,40,42,43,44,45]:return 'Body','sunvisors'
         # Seat-belt anchors, seat adjusters and dashboard end trim stay in the
@@ -231,6 +246,8 @@ for side,sign in [('L',1),('R',-1)]:
     parent='Door_'+side+'_Pivot'
     local=nodes[parent].matrix_world.inverted()@Vector(DOOR_BALL*[1,sign,1])
     node('StrutDoor_'+side,local,parent)
+    local=nodes[parent].matrix_world.inverted()@Vector((.02,sign*.674,.592))
+    node('DoorPull_'+side+'_Pivot',local,parent)
 node('Hood_Pivot',(.745,0,.810),'Body');node('EngineLid_Pivot',(-.902,0,1.146),'Body')
 node('SteeringWheel_Pivot',(.192,.367,.715),'Body')
 angle=np.deg2rad(18)
@@ -255,6 +272,19 @@ def material(name):
     return mesh_materials[name]
 
 def make_mesh(name,v,n,uv,parent,mat):
+    if mat=='Decal_Plate':
+        # The shared canvas uses flipY=true, unlike the imported donor images.
+        uv=np.column_stack([.5-v[:,1]/.3048,.5-(v-[-2.014,0,.776])@np.array([.28,0,.96])/.1524])
+    if mat=='Donor_SeatMark':
+        side=np.sign(v[:,1]);base=np.column_stack([np.full(len(v),-.355),side*.4,np.full(len(v),.405)])
+        up=np.array([-np.sin(np.deg2rad(23)),0,np.cos(np.deg2rad(23))])
+        uv=np.column_stack([(v[:,1]-side*.4)/.086+.5,((v-base)@up-.220)/.015])
+    if mat in ['Donor_SeatLeather','Donor_Carpet','Donor_Weatherstrip','Donor_CabinPlastic','Donor_Headliner','Donor_Webbing']:
+        # Metre UVs: one consistent physical grain size on every generated part.
+        axes=np.argmax(np.abs(n.reshape(-1,3,3).mean(axis=1)),axis=1)
+        uv=np.empty((len(v),2))
+        for axis,pair in [(0,[1,2]),(1,[0,2]),(2,[0,1])]:
+            mask=np.repeat(axes==axis,3);uv[mask]=v[mask][:,pair]
     # Preserve split normals and UV seams while joining identical corners.
     key=np.column_stack([v,np.round(n,6),uv]);_,first,inv=np.unique(key,axis=0,return_index=True,return_inverse=True)
     v=v[first];n=n[first];uv=uv[first];f=inv.reshape(-1,3)
@@ -309,6 +339,7 @@ for name,s in sources.items():
         for i in ti:
             loops=s['tris'][i];v=s['v'][s['loops'][loops]]
             pp=parent
+            surface=None
             # FBX UV islands preserve the actual trim seams. Keep each whole
             # surface rigid; per-triangle spatial cuts leave sawteeth when open.
             if 'Interior' in name and cid==0:
@@ -329,7 +360,10 @@ for name,s in sources.items():
                         and outline_membership[island])
                 pp='Door_'+('L' if c[1]>=0 else 'R') if moving else 'Body'
                 if a[0]>-1.91 and b[0]<-.89 and a[2]>.885 and np.max(ay)<.61:pp='EngineLid'
+                if island in [1957,1960,1961,1980,1983,1985,1988,1989,1992,1995]:surface='Donor_Carpet'
+                if a[2]>1.035 and b[0]<.14 and a[0]>-.73 and np.max(ay)<.57:surface='Donor_Headliner'
             mat='Donor_'+s['materials'][s['mats'][i]]
+            if surface:mat=surface
             if semantic=='rear_window':mat='Donor_RearGlass'
             if semantic=='cabin_lens':mat='Donor_DomeLens'
             if semantic=='gauge_backplate':mat='Donor_InstrumentBacking'
@@ -340,6 +374,8 @@ for name,s in sources.items():
             if semantic=='jamb_closeout':mat='Donor_Jamb'
             if semantic=='rear_backing':mat='Donor_RearBacking'
             if semantic=='zinc_brackets':mat='Donor_ZincBrackets'
+            if semantic=='carpet':mat='Donor_Carpet'
+            if semantic=='webbing':mat='Donor_Webbing'
             label=('turn_front_bulb' if semantic=='turn_front' and 'phong16' in mat else semantic) or ('donor_'+name.split(':')[-1]+'_'+pp)
             key=(pp,label,mat)
             buckets.setdefault(key,[]).append((v,s['n'][loops],s['uv'][loops]))
@@ -356,15 +392,34 @@ for (parent,name,mat),triangles in buckets.items():
         round_steering_wheel(o)
     if parent == 'Shifter':
         round_steering_wheel(o)
+
+cabin_materials={'leather':'Donor_SeatLeather','piping':'Donor_SeatPiping',
+    'thread':'Donor_SeatThread','plastic':'Donor_CabinPlastic','metal':'Donor_DoorLatch','carpet':'Donor_Carpet','badge':'Donor_SeatMark','red':'Donor_BuckleRed','plate':'Decal_Plate'}
+for assembly,parts in [('seat',seats()),('rear_cabin',rear_cabin()),('sill',sill_details()),('rear_plate',rear_plate())]:
+    for finish,(v,n) in parts.items():
+        make_mesh(assembly+'_'+finish,v,n,np.zeros((len(v),2)),'Body',cabin_materials[finish])
+
+glass=sources['DELOREAN:M_Glass_WindowFront_Max']
+for component,parent,label,radius in [(0,'Body','windshield',.007),
+        (5,'Door_R_Pivot','door_R',.004),(6,'Door_L_Pivot','door_L',.004),
+        (4,'Door_R_Pivot','toll_R',.003),(8,'Door_L_Pivot','toll_L',.003),
+        (11,'Body','quarter_L',.005),(13,'Body','quarter_R',.005)]:
+    v,n=glass_seals(glass,component,radius)
+    make_mesh('seal_'+label,v,n,np.zeros((len(v),2)),parent,'Donor_Weatherstrip')
+v,n=glass_seals(sources['DELOREAN:M_LGlass_InnerClear_Max'],61,.006)
+make_mesh('seal_rear_window',v,n,np.zeros((len(v),2)),'Body','Donor_Weatherstrip')
 for side, component in [('L', 2), ('R', 1)]:
     v, n, skin = door_shell(paint, component)
     if side=='L':hinge_skin=skin
+    for finish,(pv,pn) in door_pull(skin).items():
+        make_mesh('pull_'+finish+'_'+side,pv,pn,np.zeros((len(pv),2)),
+                  ('Door_' if finish=='plastic' else 'DoorPull_')+side+'_Pivot',cabin_materials[finish])
     for (parent,finish),(hv,hn) in attachments(hinge_skin,1 if side=='L' else -1).items():
         mat='Donor_DoorSteel' if finish=='steel' else 'Donor_DoorRecess'
         make_mesh('hinge_'+parent+'_'+finish+'_'+side,hv,hn,np.zeros((len(hv),2)),
                   'Body' if parent=='Body' else 'Door_'+side+'_Pivot',mat)
     for part,(jv,jn) in body_jamb(skin).items():
-        mat={'shell':'Donor_Jamb','seal':'Donor_DoorRecess','striker':'Donor_DoorLatch',
+        mat={'shell':'Donor_Jamb','seal':'Donor_Weatherstrip','striker':'Donor_DoorLatch',
              'housing':'Donor_DoorRecess','flange':'Donor_DoorSteel'}[part]
         make_mesh('jamb_'+part+'_'+side,jv,jn,np.zeros((len(jv),2)),'Body',mat)
     make_mesh('door_box_'+side, v, n, np.zeros((len(v),2)),
@@ -372,7 +427,7 @@ for side, component in [('L', 2), ('R', 1)]:
     for part,(v,n) in edge_details(skin).items():
         name = ('courtesy_' if part=='amber' else 'courtesy_rear_' if part=='red' else 'door_'+part+'_')+side
         mat = {'amber':'Lamp_Courtesy','red':'Lamp_MarkerRear','steel':'Donor_DoorSteel',
-               'latch':'Donor_DoorLatch','housing':'Donor_DoorRecess','recess':'Donor_DoorRecess','seal':'Donor_DoorRecess'}[part]
+               'latch':'Donor_DoorLatch','housing':'Donor_DoorRecess','recess':'Donor_DoorRecess','seal':'Donor_Weatherstrip'}[part]
         make_mesh(name,v,n,np.zeros((len(v),2)),'Door_'+side+'_Pivot',mat)
 
 
@@ -383,7 +438,10 @@ config=dict(windshield=dict(bx=.82,bz=.79,nx=.383,nz=.924,wrap=.20),lowProfile=F
 
 def export(path):
     bpy.context.view_layer.update()
-    bpy.ops.export_scene.gltf(filepath=str(path),export_format='GLB',export_yup=True,export_normals=True,export_tangents=True,export_materials='EXPORT')
+    bpy.ops.export_scene.gltf(filepath=str(path),export_format='GLB',export_yup=True,export_normals=True,export_tangents=True,export_attributes=True,export_materials='EXPORT')
+if '--no-ao' not in sys.argv:
+    from donor_ao import bake
+    bake(materials)
 export(OUT/'donor-car.glb')
 # Export wheel assemblies separately, following Car's existing axle/spin contract.
 bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False);nodes.clear()

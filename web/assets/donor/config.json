@@ -345,6 +345,106 @@
       "roughness": 0.7,
       "metalness": 0
     },
+    "Donor_Weatherstrip": {
+      "color": [
+        0.009,
+        0.01,
+        0.011
+      ],
+      "roughness": 0.82,
+      "metalness": 0,
+      "detail": "rubber"
+    },
+    "Donor_SeatLeather": {
+      "color": [
+        0.022,
+        0.023,
+        0.025
+      ],
+      "roughness": 0.64,
+      "metalness": 0,
+      "detail": "leather",
+      "cabinTrim": "leather"
+    },
+    "Donor_SeatPiping": {
+      "color": [
+        0.012,
+        0.013,
+        0.014
+      ],
+      "roughness": 0.65,
+      "metalness": 0,
+      "cabinTrim": "piping"
+    },
+    "Donor_SeatThread": {
+      "color": [
+        0.055,
+        0.056,
+        0.058
+      ],
+      "roughness": 0.92,
+      "metalness": 0
+    },
+    "Donor_SeatMark": {
+      "color": [
+        0.7,
+        0.7,
+        0.67
+      ],
+      "roughness": 0.95,
+      "metalness": 0,
+      "detail": "seat_mark"
+    },
+    "Donor_BuckleRed": {
+      "color": [
+        0.32,
+        0.012,
+        0.006
+      ],
+      "roughness": 0.57,
+      "metalness": 0
+    },
+    "Donor_Carpet": {
+      "color": [
+        0.045,
+        0.047,
+        0.05
+      ],
+      "roughness": 1,
+      "metalness": 0,
+      "detail": "carpet",
+      "cabinTrim": "carpet"
+    },
+    "Donor_CabinPlastic": {
+      "color": [
+        0.012,
+        0.013,
+        0.015
+      ],
+      "roughness": 0.72,
+      "metalness": 0,
+      "detail": "rubber"
+    },
+    "Donor_Headliner": {
+      "color": [
+        0.2,
+        0.205,
+        0.2
+      ],
+      "roughness": 1,
+      "metalness": 0,
+      "detail": "cloth"
+    },
+    "Donor_Webbing": {
+      "color": [
+        0.025,
+        0.029,
+        0.031
+      ],
+      "roughness": 0.88,
+      "metalness": 0,
+      "detail": "webbing"
+    },
     "Donor_Jamb": {
       "color": [
         0.025,

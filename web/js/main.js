@@ -28,7 +28,8 @@ renderer.setPixelRatio(DPR);
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// PCF honors the studio's broad softbox radius; PCFSoft fixes its filter width.
+renderer.shadowMap.type = MODEL === 'donor' ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.needsUpdate = true;
 if ('transmissionResolutionScale' in renderer) renderer.transmissionResolutionScale = 0.6;
@@ -127,7 +128,7 @@ async function init() {
   // brushed across the car instead.
   body.updateMatrixWorld(true);
   body.traverse(o => {
-    if (!o.isMesh || !['Stainless', 'BadgeAlu'].includes(o.material.name)) return;
+    if (!o.isMesh || (!o.material.userData.brushedSteel && !['Stainless', 'BadgeAlu'].includes(o.material.name))) return;
     const g = o.geometry, P = g.attributes.position, N = g.attributes.normal, n = P.count;
     const M = o.matrixWorld, Mi = new THREE.Matrix4().copy(M).invert();
     const ax = new THREE.Vector3(1, 0, 0).transformDirection(Mi), az = new THREE.Vector3(0, 0, 1).transformDirection(Mi);

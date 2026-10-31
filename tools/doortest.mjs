@@ -20,9 +20,15 @@ try {
    if(!box)throw new Error('Missing door shell '+side);
    if(!jamb)throw new Error('Missing fixed jamb '+side);
    const panel=a.car[side==='L'?'doorL':'doorR'],sign=side==='L'?1:-1;
+   const pull=a.car.root.getObjectByName('DoorPull_'+side+'_Pivot');
+   if(!pull)throw new Error('Missing door pull '+side);
+   panel.theta=0;panel.apply();a.car.root.updateMatrixWorld(true);
+   const pullRest=pull.getWorldQuaternion(new T.Quaternion());
    for(const angle of [0,35,69]) {
     panel.theta=angle*Math.PI/180;panel.apply();a.car.root.updateMatrixWorld(true);
     if(!visors.matrixWorld.equals(visorMatrix))throw new Error('Sun visors moved with door');
+    if(pull.getWorldQuaternion(new T.Quaternion()).angleTo(pullRest)>1e-5)
+     throw new Error(`Door pull stopped hanging ${side} at ${angle}°`);
     for(const [anchorName,ballName]of [['StrutBody_','strut_ball_body_'],['StrutDoor_','strut_ball_door_']]) {
      const anchor=a.car.root.getObjectByName(anchorName+side),ball=a.car.root.getObjectByName(ballName+side);
      if(!anchor||!ball)throw new Error('Missing strut mount '+side);
@@ -49,5 +55,5 @@ try {
   return results;
  });
  for(const c of checks)assert.equal(c.hit,c.solid,`${c.side} ${c.angle}° ${c.name}: ${c.solid?'open cavity':'blocked window'}`);
- assert.deepEqual(errors,[]);console.log('Both doors at 0°, 35°, 69°: strut ends meet mounts, cavities stay closed, windows stay clear and visors stay fixed.');
+ assert.deepEqual(errors,[]);console.log('Both doors at 0°, 35°, 69°: struts attached, pulls hanging, cavities closed, windows clear and visors fixed.');
 }finally{await browser.close();}

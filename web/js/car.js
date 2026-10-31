@@ -216,6 +216,9 @@ export class Car {
     for (const mesh of group.children) { mesh.castShadow = true; mesh.receiveShadow = true; }
     const b = new THREE.Vector3(), dir = new THREE.Vector3(), joint = new THREE.Vector3();
     const up = new THREE.Vector3(0, 1, 0);
+    const pull = this.root.getObjectByName('DoorPull_' + tag + '_Pivot');
+    const pullRest = pull?.quaternion.clone();
+    const inverseSwing = new THREE.Quaternion();
     const segment = (mesh, start, end) => {
       dir.subVectors(end, start);
       mesh.position.copy(start).add(end).multiplyScalar(0.5);
@@ -223,6 +226,12 @@ export class Car {
       mesh.quaternion.setFromUnitVectors(up, dir.normalize());
     };
     panel.onPose = () => {
+      // Door pulls hang from their mounting pad rather than sticking sideways
+      // when the gullwing opens. Preserve the donor's rest frame and anchor.
+      if (pull) {
+        inverseSwing.setFromAxisAngle(panel.axis, -panel.sign * panel.theta);
+        pull.quaternion.copy(inverseSwing).multiply(pullRest);
+      }
       panel.node.updateWorldMatrix(true, false);
       b.copy(local); panel.node.localToWorld(b); this.body.worldToLocal(b);
       const length = a.distanceTo(b);
