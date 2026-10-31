@@ -102,11 +102,20 @@ tested opening poses. Hardware is visual; no mechanical stress model is implied.
 
 `donor_cabin.py` replaces the stock donor seat shells with the Recaro-style seats
 visible in `ref/studio/12_interior_seat.jpg`: separate headrests and metal posts,
-rounded full-height bolsters, center cushions, horizontal seam rows, piping,
+a continuous shoulder/bolster frame with broad padded faces, a curved lumbar
+insert with four shallow compressed stitch channels, piping,
 individual stitches, embroidered-style lettering, recline wheels and release
 handles. Existing rail locations and belt anchor positions set their fit in the
 cabin. Belt receivers have separate red release buttons and recessed mouths.
-The seats are visual geometry; their adjusters do not add interactive controls.
+Studio 07 sets the lower seating height and 31-degree backrest rake. Headrests
+have their own near-upright frame; thinner lower cushions rise six degrees at
+the front. Thigh supports taper into a wider, squarer front cushion, and the
+headrests have taller faces and thinner side profiles. Shoulder joins terminate
+at the perimeter stitching. The driver seat sits 10 cm farther forward, as in
+the side photo.
+Upholstery texture splits are welded only in the AO bake proxy to prevent
+triangular shading seams. The seats are visual geometry; their adjusters do
+not add interactive controls.
 
 The same module adds a carpeted rear shelf and split rear bulkhead panels with
 bound edges and fasteners, ribbed sill plates, and leather door-pull loops. Pulls

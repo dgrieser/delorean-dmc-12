@@ -34,9 +34,17 @@ def bake(materials, samples=48):
                     break
                 parent=parent.parent
             v=np.empty(len(me.vertices)*3,np.float32);me.vertices.foreach_get('co',v);v=v.reshape(-1,3)
-            m=np.array(matrix);vertices.append(v@m[:3,:3].T+m[:3,3])
-            f=np.array([t.vertices[:] for t in me.loop_triangles]);faces.append(f+offset)
-            offsets.append((o,offset,len(v)));offset+=len(v)
+            m=np.array(matrix);v=v@m[:3,:3].T+m[:3,3]
+            f=np.array([t.vertices[:] for t in me.loop_triangles])
+            remap=None
+            if o.name=='seat_leather':
+                # Box-projected texture seams split the upholstery vertices.
+                # Weld only the bake proxy so those splits cannot become false
+                # creases in its smooth normals or the AO smoothing pass.
+                _,first,remap=np.unique(np.round(v,6),axis=0,return_index=True,return_inverse=True)
+                v=v[first];f=remap[f]
+            vertices.append(v);faces.append(f+offset)
+            offsets.append((o,offset,len(v),remap));offset+=len(v)
         v=np.concatenate(vertices);f=np.concatenate(faces)
         mesh=bpy.data.meshes.new('Donor AO proxy');mesh.from_pydata(v.tolist(),[],f.tolist());mesh.update()
         for poly in mesh.polygons:poly.use_smooth=True
@@ -54,9 +62,11 @@ def bake(materials, samples=48):
         for _ in range(2):
             total=np.bincount(edges[:,0],ao[edges[:,1]],len(v))+np.bincount(edges[:,1],ao[edges[:,0]],len(v))
             ao=.5*ao+.5*np.where(deg>0,total/np.maximum(deg,1),ao)
-        for o,start,count in offsets:
+        for o,start,count,remap in offsets:
             attr=o.data.attributes.new(tag,'FLOAT','POINT')
-            attr.data.foreach_set('value',ao[start:start+count].astype(np.float32))
+            values=ao[start:start+count]
+            if remap is not None:values=values[remap]
+            attr.data.foreach_set('value',values.astype(np.float32))
         for o in objects:o.hide_render=False;o.hide_set(False)
         bpy.data.objects.remove(proxy,do_unlink=True);bpy.data.meshes.remove(mesh)
         print('Donor occlusion',tag,len(v),'vertices',round(time.time()-started,1),'seconds',flush=True)

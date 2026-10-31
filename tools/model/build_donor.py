@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from import_mirrors import components, Reporter, FBX_SHA256
 from donor_doors import skin_geometry, contains_outline, door_shell, edge_details, body_jamb
 from donor_hinges import attachments, BODY_BALL, DOOR_BALL, HINGE_Z, HINGE_SLOPE
-from donor_cabin import seats, rear_cabin, glass_seals, door_pull, sill_details, rear_plate
+from donor_cabin import seats, rear_cabin, glass_seals, door_pull, sill_details, rear_plate, seat_badge_uv
 from io_scene_fbx import import_fbx
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -276,9 +276,7 @@ def make_mesh(name,v,n,uv,parent,mat):
         # The shared canvas uses flipY=true, unlike the imported donor images.
         uv=np.column_stack([.5-v[:,1]/.3048,.5-(v-[-2.014,0,.776])@np.array([.28,0,.96])/.1524])
     if mat=='Donor_SeatMark':
-        side=np.sign(v[:,1]);base=np.column_stack([np.full(len(v),-.355),side*.4,np.full(len(v),.405)])
-        up=np.array([-np.sin(np.deg2rad(23)),0,np.cos(np.deg2rad(23))])
-        uv=np.column_stack([(v[:,1]-side*.4)/.086+.5,((v-base)@up-.220)/.015])
+        uv=seat_badge_uv(v)
     if mat in ['Donor_SeatLeather','Donor_Carpet','Donor_Weatherstrip','Donor_CabinPlastic','Donor_Headliner','Donor_Webbing']:
         # Metre UVs: one consistent physical grain size on every generated part.
         axes=np.argmax(np.abs(n.reshape(-1,3,3).mean(axis=1)),axis=1)
