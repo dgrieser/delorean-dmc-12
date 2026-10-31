@@ -303,6 +303,40 @@ def make_mesh(name,v,n,uv,parent,mat):
     o.parent=nodes[parent];o.matrix_parent_inverse=o.parent.matrix_world.inverted()
     return o
 
+def header_corner(jamb, side):
+    """Close the small gap between the fixed header, A-pillar and jamb return.
+
+    Use only existing fixed trim and jamb vertices. Their local convex envelope
+    forms a closed backing behind the corner, without borrowing moving door
+    geometry or bridging across the windshield opening.
+    """
+    fixed = [v for (parent, name, _), pieces in buckets.items()
+             if parent == 'Body' and name.startswith(('donor_M_Interior_Max_', 'donor_M_Opaque_Plastic'))
+             for v, _, _ in pieces]
+    points = np.concatenate(fixed+[jamb])
+    y = points[:, 1]*(1 if side=='L' else -1)
+    mask = ((points[:, 0]>-.04)&(points[:, 0]<.12)&(y>.45)&(y<.56)
+            &(points[:, 2]>1.03)&(points[:, 2]<1.135))
+    points = np.unique(np.round(points[mask], 6), axis=0)
+    if len(points)<8:
+        raise ValueError('Missing fixed windshield-header corner geometry')
+    bm = bmesh.new()
+    try:
+        for point in points:
+            bm.verts.new(point)
+        bmesh.ops.convex_hull(bm, input=list(bm.verts), use_existing_faces=False)
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+        bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+        bmesh.ops.triangulate(bm, faces=list(bm.faces))
+        bm.normal_update()
+        if any(not edge.is_manifold for edge in bm.edges):
+            raise ValueError('Windshield-header corner is not closed')
+        v = np.array([vert.co[:] for face in bm.faces for vert in face.verts])
+        n = np.array([vert.normal[:] for face in bm.faces for vert in face.verts])
+    finally:
+        bm.free()
+    return v, n
+
 def round_steering_wheel(o):
     """Refine the donor's faceted wheel without splitting its UV seams open."""
     me = o.data
@@ -449,6 +483,9 @@ for side, component in [('L', 2), ('R', 1)]:
         mat={'shell':'Donor_Jamb','seal':'Donor_Weatherstrip','striker':'Donor_DoorLatch',
              'housing':'Donor_DoorRecess','flange':'Donor_DoorSteel'}[part]
         make_mesh('jamb_'+part+'_'+side,jv,jn,np.zeros((len(jv),2)),'Body',mat)
+        if part=='shell':
+            cv,cn=header_corner(jv,side)
+            make_mesh('header_corner_'+side,cv,cn,np.zeros((len(cv),2)),'Body','Donor_CabinPlastic')
     make_mesh('door_box_'+side, v, n, np.zeros((len(v),2)),
               'Door_'+side+'_Pivot', 'Donor_DoorSteel')
     for part,(v,n) in edge_details(skin).items():

@@ -151,6 +151,10 @@ steel backings and raised rubber grip ribs. Moving pads remain children of their
 original pedal pivots; the footrest stays fixed to the body.
 Dashboard-end cheeks remain fixed around the ducts instead of lifting with the
 doors; the door test checks their transforms at all three opening poses.
+Closed dark backing at both windshield-header corners joins the fixed header,
+A-pillar trim and jamb returns. These small caps use the surrounding fixed
+geometry's local envelope, blocking background leaks with the doors raised.
+The door test checks the reported sightlines at closed, half-open and open poses.
 
 The donor's exterior steel uses the existing CC0 ambientCG Metal009 color,
 normal and roughness scans at six tiles per metre, mapped along the car's length

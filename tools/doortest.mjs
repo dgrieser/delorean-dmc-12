@@ -15,6 +15,10 @@ try {
   const dashEnd=a.car.root.getObjectByName('dash_end_cheeks');
   if(!dashEnd)throw new Error('Missing dashboard end trim');
   const dashMatrix=dashEnd.matrixWorld.clone();
+  // Sightlines through the three background leaks in the reported cabin view.
+  const headerCamera=new T.PerspectiveCamera(75,1500/1100,.01,100);
+  headerCamera.position.set(-.40,1.05,-.35);headerCamera.lookAt(.55,.69,.02);
+  headerCamera.updateMatrixWorld(true);
   for(const side of ['L','R']) {
    let box,jamb;a.car.root.traverse(o=>{
     if(o.isMesh&&o.name==='door_box_'+side)box=o;
@@ -22,6 +26,9 @@ try {
    });
    if(!box)throw new Error('Missing door shell '+side);
    if(!jamb)throw new Error('Missing fixed jamb '+side);
+   const header=a.car.root.getObjectByName('header_corner_'+side);
+   if(!header)throw new Error('Missing header corner '+side);
+   const headerMatrix=header.matrixWorld.clone();
    const panel=a.car[side==='L'?'doorL':'doorR'],sign=side==='L'?1:-1;
    const pull=a.car.root.getObjectByName('DoorPull_'+side+'_Pivot');
    if(!pull)throw new Error('Missing door pull '+side);
@@ -31,6 +38,11 @@ try {
     panel.theta=angle*Math.PI/180;panel.apply();a.car.root.updateMatrixWorld(true);
     if(!visors.matrixWorld.equals(visorMatrix))throw new Error('Sun visors moved with door');
     if(!dashEnd.matrixWorld.equals(dashMatrix))throw new Error('Dashboard end trim moved with door');
+    if(!header.matrixWorld.equals(headerMatrix))throw new Error('Header corner moved with door');
+    for(const [x,y]of side==='L'?[[35,170],[31,207]]:[[1480,248]]) {
+     const ray=new T.Raycaster();ray.setFromCamera(new T.Vector2(x/1500*2-1,1-y/1100*2),headerCamera);
+     if(!ray.intersectObject(header,true).length)throw new Error(`Header leak ${side} at ${angle}°`);
+    }
     if(pull.getWorldQuaternion(new T.Quaternion()).angleTo(pullRest)>1e-5)
      throw new Error(`Door pull stopped hanging ${side} at ${angle}°`);
     for(const [anchorName,ballName]of [['StrutBody_','strut_ball_body_'],['StrutDoor_','strut_ball_door_']]) {
@@ -59,5 +71,5 @@ try {
   return results;
  });
  for(const c of checks)assert.equal(c.hit,c.solid,`${c.side} ${c.angle}° ${c.name}: ${c.solid?'open cavity':'blocked window'}`);
- assert.deepEqual(errors,[]);console.log('Both doors at 0°, 35°, 69°: struts attached, pulls hanging, cavities closed, windows clear, visors and dashboard ends fixed.');
+ assert.deepEqual(errors,[]);console.log('Both doors at 0°, 35°, 69°: struts attached, pulls hanging, cavities and header corners closed, windows clear, visors and dashboard ends fixed.');
 }finally{await browser.close();}
